@@ -16,3 +16,4 @@ make help
 ```
 
 Copy `.env.example` to `.env` before invoking the local Bedrock-backed agent.
+Run `make dev-frontend` to start the Vite development server.

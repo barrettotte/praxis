@@ -19,6 +19,7 @@ dist/
 # Node and frontend builds
 frontend/node_modules/
 frontend/dist/
+frontend/*.tsbuildinfo
 
 # OpenTofu
 **/.terraform/

@@ -177,7 +177,7 @@ praxis/
 - [x] Initialize the repository
 - [x] Add Python project configuration
 - [x] Add Strands Agents SDK and a minimal local Strands agent
-- [ ] Add the React and TypeScript frontend
+- [x] Add the React and TypeScript frontend
 - [x] Add formatting, linting, type-checking, and unit-test commands
 - [ ] Copy or reference sanitized development fixtures
 - [ ] Define domain models for books, projects, bytes, and museum objects
