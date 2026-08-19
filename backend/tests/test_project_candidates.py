@@ -3,7 +3,12 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from praxis.agent.planner import CandidatePlanningError, plan_project_candidates
+from praxis.agent.planner import (
+    CandidateGeneration,
+    CandidatePlanningError,
+    plan_project_candidates,
+    plan_project_candidates_with_trace,
+)
 from praxis.catalog import InMemoryCatalog, SearchCatalogRequest, search_catalog
 from praxis.domain import (
     EvidenceReference,
@@ -20,9 +25,9 @@ class StubCandidateGenerator:
         self.response = response
         self.prompt: str | None = None
 
-    def generate(self, prompt: str) -> ProjectCandidateSet:
+    def generate(self, prompt: str) -> CandidateGeneration:
         self.prompt = prompt
-        return self.response
+        return CandidateGeneration(candidates=self.response)
 
 
 def candidate_set(evidence_id: str) -> ProjectCandidateSet:
@@ -57,6 +62,19 @@ def test_plan_project_candidates_returns_three_grounded_candidates() -> None:
     assert generator.prompt is not None
     assert evidence_id in generator.prompt
     assert "untrusted data" in generator.prompt
+
+
+def test_plan_project_candidates_trace_records_retrieval() -> None:
+    catalog = InMemoryCatalog.from_directory(FIXTURE_DIRECTORY)
+    evidence_id = search_catalog(catalog, SearchCatalogRequest(query=GOAL))[0].entry.id
+
+    result = plan_project_candidates_with_trace(
+        GOAL, catalog, StubCandidateGenerator(candidate_set(evidence_id))
+    )
+
+    assert evidence_id in result.retrieved_evidence_ids
+    assert result.local_tool_calls == ("search_catalog",)
+    assert result.generation_metrics is None
 
 
 def test_plan_project_candidates_rejects_unretrieved_evidence() -> None:

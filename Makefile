@@ -3,13 +3,14 @@
 UV ?= uv
 UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
 NPM ?= npm
+TOFU ?= tofu
 PROMPT ?=
 PYTHON_SOURCES := backend/src backend/tests
 FRONTEND_NPM := $(NPM) --prefix frontend
 
 export UV_CACHE_DIR
 
-.PHONY: help bootstrap lock format format-check lint typecheck test check build agent dev-frontend
+.PHONY: help bootstrap lock format format-check lint typecheck test check build agent eval-baseline tofu-init tofu-format tofu-format-check tofu-validate dev-frontend
 
 help: ## Show the available Make targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -52,6 +53,23 @@ build: ## Build backend packages and the frontend production bundle
 agent: ## Run the local Strands agent; pass PROMPT='your goal'
 	@test -n "$(PROMPT)" || { echo "PROMPT is required (example: make agent PROMPT='Suggest a project')"; exit 2; }
 	@set -a; if [ -f .env ]; then . ./.env; fi; set +a; $(UV) run praxis "$(PROMPT)"
+
+eval-baseline: ## Run the Phase 1 model baseline and save versioned results
+	@set -a; if [ -f .env ]; then . ./.env; fi; set +a; $(UV) run python -m praxis.evaluation
+
+tofu-init: ## Install pinned providers without initializing a remote backend
+	$(TOFU) -chdir=infra/bootstrap init -backend=false
+	$(TOFU) -chdir=infra/environments/dev init -backend=false
+
+tofu-format: ## Format all OpenTofu configuration
+	$(TOFU) fmt -recursive infra
+
+tofu-format-check: ## Verify OpenTofu formatting
+	$(TOFU) fmt -check -recursive infra
+
+tofu-validate: ## Validate the bootstrap and development OpenTofu roots
+	$(TOFU) -chdir=infra/bootstrap validate
+	$(TOFU) -chdir=infra/environments/dev validate
 
 dev-frontend: ## Start the frontend development server
 	$(FRONTEND_NPM) run dev

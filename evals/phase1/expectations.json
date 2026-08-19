@@ -1,0 +1,167 @@
+{
+  "suite": "phase1-local-baseline",
+  "prompts_version": 1,
+  "version": 1,
+  "expectations": [
+    {
+      "case_id": "phase1-01-retro-python",
+      "evidence": {
+        "any_of": [
+          {"evidence_id": "book:1d48534f817374c6", "kind": "book", "label": "Computational Physics Problem Solving with Python"},
+          {"evidence_id": "book:5c99d51ba8a7e754", "kind": "book", "label": "Retro Game Dev: C64 Edition"},
+          {"evidence_id": "book:176299d06329f6d4", "kind": "book", "label": "The Universal History of Computing"}
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["book"]
+      },
+      "trajectory": [
+        {"tool": "search_catalog", "minimum_calls": 1, "maximum_calls": 1}
+      ]
+    },
+    {
+      "case_id": "phase1-02-typescript-visualization",
+      "evidence": {
+        "any_of": [
+          {"evidence_id": "project:3435c3fd5824f260", "kind": "project", "label": "questlines"},
+          {"evidence_id": "project:7f152440bcd0f1db", "kind": "project", "label": "MEAN-ToDoList"},
+          {"evidence_id": "book:11795a2dd8d1610b", "kind": "book", "label": "Designing Data-Intensive Applications"},
+          {"evidence_id": "book:3287132cf62748d8", "kind": "book", "label": "Data Science for Business"}
+        ],
+        "minimum_matches": 2,
+        "required_kinds": ["project", "book"]
+      },
+      "trajectory": [
+        {"tool": "search_catalog", "minimum_calls": 1, "maximum_calls": 1}
+      ]
+    },
+    {
+      "case_id": "phase1-03-cpp-game-history",
+      "evidence": {
+        "any_of": [
+          {"evidence_id": "project:ec89ce918d3b4a44", "kind": "project", "label": "Blackjack"},
+          {"evidence_id": "project:f6433fcbdfb406f6", "kind": "project", "label": "Pokemon Battle"},
+          {"evidence_id": "project:46157d6f7361fd22", "kind": "project", "label": "eridu"},
+          {"evidence_id": "book:5d67434fe1f04b6c", "kind": "book", "label": "Game Engine Architecture"},
+          {"evidence_id": "book:74ead35e28653053", "kind": "book", "label": "Game Programming Patterns"}
+        ],
+        "minimum_matches": 2,
+        "required_kinds": ["project", "book"]
+      },
+      "trajectory": [
+        {"tool": "search_catalog", "minimum_calls": 1, "maximum_calls": 1},
+        {"tool": "compare_project_history", "minimum_calls": 1, "maximum_calls": 1}
+      ]
+    },
+    {
+      "case_id": "phase1-04-electronics-printing",
+      "evidence": {
+        "any_of": [
+          {"evidence_id": "byte:9b972a86a05de633", "kind": "byte", "label": "Electroscope"},
+          {"evidence_id": "byte:487b4f7f80315ae6", "kind": "byte", "label": "Ender 3 Octoprint"},
+          {"evidence_id": "byte:6c5a9b8f25604895", "kind": "byte", "label": "Standing Desk Control Cover"},
+          {"evidence_id": "book:1ee9c9cf7a7c154d", "kind": "book", "label": "The Art of Electronics"},
+          {"evidence_id": "book:9ee719da29ca29b8", "kind": "book", "label": "Practical Electronics for Inventors, Fourth Edition"}
+        ],
+        "minimum_matches": 2,
+        "required_kinds": ["byte", "book"]
+      },
+      "trajectory": [
+        {"tool": "search_catalog", "minimum_calls": 1, "maximum_calls": 1}
+      ]
+    },
+    {
+      "case_id": "phase1-05-museum-education",
+      "evidence": {
+        "any_of": [
+          {"evidence_id": "museum:48175a11ac202af9", "kind": "museum", "label": "Altair 8800 Replica"},
+          {"evidence_id": "museum:17ca91a13603360c", "kind": "museum", "label": "Commodore 64"},
+          {"evidence_id": "museum:810f4d206a9c8258", "kind": "museum", "label": "Tandy Color Computer 3"},
+          {"evidence_id": "book:176299d06329f6d4", "kind": "book", "label": "The Universal History of Computing"}
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["museum"]
+      },
+      "trajectory": [
+        {"tool": "search_catalog", "minimum_calls": 1, "maximum_calls": 1}
+      ]
+    },
+    {
+      "case_id": "phase1-06-rust-systems",
+      "evidence": {
+        "any_of": [
+          {"evidence_id": "project:50f79cefe6cb8e78", "kind": "project", "label": "rusty-lc3-vm"},
+          {"evidence_id": "book:9b9d4601d3a5384e", "kind": "book", "label": "Operating Systems: Three Easy Pieces"},
+          {"evidence_id": "book:f30162cc8e9f222c", "kind": "book", "label": "The Unix Programming Environment"},
+          {"evidence_id": "book:a9db98e1d2255228", "kind": "book", "label": "Making Embedded Systems: Design Patterns for Great Software"}
+        ],
+        "minimum_matches": 2,
+        "required_kinds": ["project", "book"]
+      },
+      "trajectory": [
+        {"tool": "search_catalog", "minimum_calls": 1, "maximum_calls": 1}
+      ]
+    },
+    {
+      "case_id": "phase1-07-security-python",
+      "evidence": {
+        "any_of": [
+          {"evidence_id": "byte:3e5a80b420bb1ec9", "kind": "byte", "label": "PlaidCTF 2023"},
+          {"evidence_id": "byte:7117106046dc6d03", "kind": "byte", "label": "Patriot CTF 2024"},
+          {"evidence_id": "byte:6b77852a1637349f", "kind": "byte", "label": "DEADFACE CTF 2024"},
+          {"evidence_id": "book:04593c31d47c8dd3", "kind": "book", "label": "CompTIA Security+ Study Guide Exam SY0-701"}
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["byte"]
+      },
+      "trajectory": [
+        {"tool": "search_catalog", "minimum_calls": 1, "maximum_calls": 1},
+        {"tool": "compare_project_history", "minimum_calls": 1, "maximum_calls": 1}
+      ]
+    },
+    {
+      "case_id": "phase1-08-unspecified-weekend",
+      "evidence": {
+        "any_of": [
+          {"evidence_id": "project:3435c3fd5824f260", "kind": "project", "label": "questlines"},
+          {"evidence_id": "byte:9b972a86a05de633", "kind": "byte", "label": "Electroscope"},
+          {"evidence_id": "book:4d252156c06ed090", "kind": "book", "label": "Programming Techniques for Level II BASIC"}
+        ],
+        "minimum_matches": 1,
+        "required_kinds": []
+      },
+      "trajectory": [
+        {"tool": "search_catalog", "minimum_calls": 1, "maximum_calls": 1}
+      ]
+    },
+    {
+      "case_id": "phase1-09-evening-no-hardware",
+      "evidence": {
+        "any_of": [
+          {"evidence_id": "project:29f2536d8e6f0a7b", "kind": "project", "label": "Codebase-Scanner"},
+          {"evidence_id": "project:17a804c8c2a80236", "kind": "project", "label": "One Rep Max Calc"},
+          {"evidence_id": "book:c4a63a83c5a2d049", "kind": "book", "label": "Perl One-Liners"}
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["project"]
+      },
+      "trajectory": [
+        {"tool": "search_catalog", "minimum_calls": 1, "maximum_calls": 1}
+      ]
+    },
+    {
+      "case_id": "phase1-10-impossible-scale",
+      "evidence": {
+        "any_of": [
+          {"evidence_id": "book:11795a2dd8d1610b", "kind": "book", "label": "Designing Data-Intensive Applications"},
+          {"evidence_id": "book:6142d9c04c080337", "kind": "book", "label": "Computer Networking: A Top-Down Approach"},
+          {"evidence_id": "book:89e93f4b287f3996", "kind": "book", "label": "Understanding Linux Network Internals: Guided Tour to Networking on Linux"}
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["book"]
+      },
+      "trajectory": [
+        {"tool": "search_catalog", "minimum_calls": 1, "maximum_calls": 1}
+      ]
+    }
+  ]
+}

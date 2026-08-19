@@ -189,15 +189,15 @@ praxis/
 - [x] Validate model output against a JSON schema
 - [x] Add a command-line demo before introducing AWS
 - [x] Add unit tests for search, filtering, and result limits
-- [ ] Create an initial 10-prompt evaluation set
-- [ ] Record expected evidence records and tool trajectories
-- [ ] Record the local Nova Micro baseline for quality, latency, tokens, and tool-call count
+- [x] Create an initial 10-prompt evaluation set
+- [x] Record expected evidence records and tool trajectories
+- [x] Record the local Nova Micro baseline for quality, latency, tokens, and tool-call count
 
 Definition of done: one local command accepts a goal and returns three evidence-backed project proposals, with a repeatable measured baseline.
 
 ## Phase 2 - OpenTofu foundation
 
-- [ ] Pin the OpenTofu and AWS provider versions
+- [x] Pin the OpenTofu and AWS provider versions
 - [ ] Commit provider lock files
 - [ ] Create an infrastructure bootstrap stack
 - [ ] Create an encrypted remote-state bucket
@@ -468,4 +468,4 @@ The MVP must prove:
 - [x] Verify Nova Micro access in `us-east-1`
 - [x] Write the initial architecture ADR
 - [x] Begin the Phase 1 local walking skeleton
-- [ ] Establish the initial local evaluation baseline during Phase 1
+- [x] Establish the initial local evaluation baseline during Phase 1

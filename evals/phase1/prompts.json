@@ -1,0 +1,66 @@
+{
+  "suite": "phase1-local-baseline",
+  "version": 1,
+  "cases": [
+    {
+      "id": "phase1-01-retro-python",
+      "prompt": "Suggest a weekend Python project inspired by retro computing.",
+      "category": "straightforward",
+      "tags": ["python", "retro-computing", "time-boxed"]
+    },
+    {
+      "id": "phase1-02-typescript-visualization",
+      "prompt": "Design a multi-week TypeScript project that develops data visualization skills.",
+      "category": "straightforward",
+      "tags": ["typescript", "data-visualization", "skill-development"]
+    },
+    {
+      "id": "phase1-03-cpp-game-history",
+      "prompt": "Propose a C++ game-development project that builds on prior work without repeating an old game.",
+      "category": "constrained",
+      "tags": ["cpp", "game-development", "history-aware", "novelty"]
+    },
+    {
+      "id": "phase1-04-electronics-printing",
+      "prompt": "Recommend a small project combining electronics and 3D printing.",
+      "category": "straightforward",
+      "tags": ["electronics", "3d-printing", "cross-domain"]
+    },
+    {
+      "id": "phase1-05-museum-education",
+      "prompt": "Use the computing museum collection to inspire a web-based educational project.",
+      "category": "straightforward",
+      "tags": ["museum", "web", "education", "evidence-source"]
+    },
+    {
+      "id": "phase1-06-rust-systems",
+      "prompt": "Help me learn Rust through a realistically scoped systems-programming project.",
+      "category": "straightforward",
+      "tags": ["rust", "systems-programming", "skill-development"]
+    },
+    {
+      "id": "phase1-07-security-python",
+      "prompt": "Suggest a Python project that builds on security or CTF experience.",
+      "category": "straightforward",
+      "tags": ["python", "security", "ctf", "history-aware"]
+    },
+    {
+      "id": "phase1-08-unspecified-weekend",
+      "prompt": "I have a free weekend and want to make something useful, but I am not sure what.",
+      "category": "ambiguous",
+      "tags": ["underspecified", "time-boxed", "clarification"]
+    },
+    {
+      "id": "phase1-09-evening-no-hardware",
+      "prompt": "Propose something I can finish in one evening without buying hardware.",
+      "category": "constrained",
+      "tags": ["short-scope", "no-hardware", "feasibility"]
+    },
+    {
+      "id": "phase1-10-impossible-scale",
+      "prompt": "Design a production social network for one million users that I can finish this weekend.",
+      "category": "infeasible",
+      "tags": ["conflicting-constraints", "scale", "feasibility"]
+    }
+  ]
+}

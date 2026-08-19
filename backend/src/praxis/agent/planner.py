@@ -31,9 +31,49 @@ class CandidatePlanningError(RuntimeError):
 class CandidateGenerator(Protocol):
     """Generate a structured candidate set from an evidence-bearing prompt."""
 
-    def generate(self, prompt: str) -> ProjectCandidateSet:
+    def generate(self, prompt: str) -> "CandidateGeneration":
         """Generate exactly three project candidates."""
         ...
+
+
+@dataclass(frozen=True, slots=True)
+class TokenUsage:
+    """Token counts reported by the model provider through Strands."""
+
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    cache_read_input_tokens: int = 0
+    cache_write_input_tokens: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateGenerationMetrics:
+    """Provider and Strands metrics for one structured generation."""
+
+    token_usage: TokenUsage
+    model_latency_ms: int
+    time_to_first_byte_ms: int | None
+    model_tool_calls: tuple[tuple[str, int], ...]
+    cycle_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateGeneration:
+    """Validated candidates with optional runtime metrics."""
+
+    candidates: ProjectCandidateSet
+    metrics: CandidateGenerationMetrics | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectPlanningRun:
+    """One observable local planning run."""
+
+    candidates: ProjectCandidateSet
+    retrieved_evidence_ids: tuple[str, ...]
+    local_tool_calls: tuple[str, ...]
+    generation_metrics: CandidateGenerationMetrics | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,7 +82,7 @@ class StrandsCandidateGenerator:
 
     agent: Agent
 
-    def generate(self, prompt: str) -> ProjectCandidateSet:
+    def generate(self, prompt: str) -> CandidateGeneration:
         """Invoke Strands structured output and narrow the validated result type."""
         try:
             result = self.agent(prompt, structured_output_model=ProjectCandidateSet)
@@ -55,10 +95,34 @@ class StrandsCandidateGenerator:
             raise CandidatePlanningError(message)
         try:
             payload = cast("JsonValue", output.model_dump(mode="json"))
-            return validate_candidate_output(payload)
+            candidates = validate_candidate_output(payload)
         except CandidateOutputValidationError as error:
             message = "Strands returned invalid structured project candidates"
             raise CandidatePlanningError(message) from error
+        usage = result.metrics.accumulated_usage
+        metrics = result.metrics.accumulated_metrics
+        model_tool_calls = tuple(
+            sorted(
+                (name, tool_metrics.call_count)
+                for name, tool_metrics in result.metrics.tool_metrics.items()
+            )
+        )
+        return CandidateGeneration(
+            candidates=candidates,
+            metrics=CandidateGenerationMetrics(
+                token_usage=TokenUsage(
+                    input_tokens=usage["inputTokens"],
+                    output_tokens=usage["outputTokens"],
+                    total_tokens=usage["totalTokens"],
+                    cache_read_input_tokens=usage.get("cacheReadInputTokens", 0),
+                    cache_write_input_tokens=usage.get("cacheWriteInputTokens", 0),
+                ),
+                model_latency_ms=metrics["latencyMs"],
+                time_to_first_byte_ms=metrics.get("timeToFirstByteMs"),
+                model_tool_calls=model_tool_calls,
+                cycle_count=result.metrics.cycle_count,
+            ),
+        )
 
 
 def _evidence_record(entry: CatalogEntry) -> dict[str, object]:
@@ -118,6 +182,15 @@ def plan_project_candidates(
     generator: CandidateGenerator,
 ) -> ProjectCandidateSet:
     """Retrieve local evidence and generate exactly three grounded candidates."""
+    return plan_project_candidates_with_trace(goal, catalog, generator).candidates
+
+
+def plan_project_candidates_with_trace(
+    goal: str,
+    catalog: InMemoryCatalog,
+    generator: CandidateGenerator,
+) -> ProjectPlanningRun:
+    """Retrieve evidence and return grounded candidates with observable execution data."""
     results = search_catalog(
         catalog,
         SearchCatalogRequest(query=goal, limit=EVIDENCE_LIMIT),
@@ -127,7 +200,8 @@ def plan_project_candidates(
         message = "No catalog evidence matched the project goal"
         raise CandidatePlanningError(message)
 
-    candidates = generator.generate(_planning_prompt(goal, evidence))
+    generation = generator.generate(_planning_prompt(goal, evidence))
+    candidates = generation.candidates
     allowed_ids = {entry.id for entry in evidence}
     cited_ids = {
         reference.evidence_id
@@ -138,7 +212,12 @@ def plan_project_candidates(
     if unsupported_ids:
         message = f"Candidates cited evidence that was not retrieved: {sorted(unsupported_ids)}"
         raise CandidatePlanningError(message)
-    return candidates
+    return ProjectPlanningRun(
+        candidates=candidates,
+        retrieved_evidence_ids=tuple(entry.id for entry in evidence),
+        local_tool_calls=("search_catalog",),
+        generation_metrics=generation.metrics,
+    )
 
 
 def invoke_project_candidates(
@@ -147,7 +226,16 @@ def invoke_project_candidates(
     settings: AgentSettings | None = None,
 ) -> ProjectCandidateSet:
     """Create a Bedrock-backed Strands agent and return structured candidates."""
+    return invoke_project_candidates_with_trace(goal, catalog, settings).candidates
+
+
+def invoke_project_candidates_with_trace(
+    goal: str,
+    catalog: InMemoryCatalog,
+    settings: AgentSettings | None = None,
+) -> ProjectPlanningRun:
+    """Create a Bedrock-backed agent and return an observable planning run."""
     configured_settings = settings or load_settings()
     agent = create_agent(configured_settings)
     generator = StrandsCandidateGenerator(agent=agent)
-    return plan_project_candidates(goal, catalog, generator)
+    return plan_project_candidates_with_trace(goal, catalog, generator)
