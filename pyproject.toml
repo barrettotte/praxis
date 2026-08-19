@@ -7,7 +7,12 @@ requires-python = ">=3.13,<3.14"
 license = "MIT"
 license-files = ["LICENSE"]
 classifiers = ["Private :: Do Not Upload"]
-dependencies = ["botocore[crt]", "pydantic>=2.13,<3", "strands-agents>=1.0,<2"]
+dependencies = [
+  "botocore[crt]",
+  "jsonschema>=4.26,<5",
+  "pydantic>=2.13,<3",
+  "strands-agents>=1.0,<2",
+]
 
 [project.scripts]
 praxis = "praxis.cli:main"

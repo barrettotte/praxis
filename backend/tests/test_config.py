@@ -1,8 +1,16 @@
 """Tests for runtime configuration."""
 
+from pathlib import Path
+
 import pytest
 
-from praxis.config import AgentSettings, SettingsError, load_settings
+from praxis.config import (
+    DEFAULT_CATALOG_DIRECTORY,
+    AgentSettings,
+    SettingsError,
+    load_catalog_directory,
+    load_settings,
+)
 
 
 def test_load_settings() -> None:
@@ -31,3 +39,11 @@ def test_load_settings_requires_configuration(missing_name: str) -> None:
 
     with pytest.raises(SettingsError, match=missing_name):
         load_settings(environ)
+
+
+def test_load_catalog_directory_uses_configured_path() -> None:
+    assert load_catalog_directory({"PRAXIS_DATA_DIR": "data/fixtures"}) == Path("data/fixtures")
+
+
+def test_load_catalog_directory_defaults_to_sibling_source() -> None:
+    assert load_catalog_directory({}) == DEFAULT_CATALOG_DIRECTORY

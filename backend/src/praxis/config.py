@@ -3,6 +3,9 @@
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
+
+DEFAULT_CATALOG_DIRECTORY = Path("../barrettotte.github.io/data")
 
 
 class SettingsError(RuntimeError):
@@ -32,3 +35,10 @@ def load_settings(environ: Mapping[str, str] | None = None) -> AgentSettings:
         model_id=_required(source, "PRAXIS_MODEL_ID"),
         region=_required(source, "AWS_REGION"),
     )
+
+
+def load_catalog_directory(environ: Mapping[str, str] | None = None) -> Path:
+    """Load the read-only local catalog path, with the sibling repository as default."""
+    source = os.environ if environ is None else environ
+    configured_path = source.get("PRAXIS_DATA_DIR", "").strip()
+    return Path(configured_path) if configured_path else DEFAULT_CATALOG_DIRECTORY

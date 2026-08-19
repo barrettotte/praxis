@@ -185,10 +185,10 @@ praxis/
 - [x] Implement local `search_catalog`
 - [x] Implement local `get_catalog_item`
 - [x] Implement local `compare_project_history`
-- [ ] Return three structured project candidates
-- [ ] Validate model output against a JSON schema
-- [ ] Add a command-line demo before introducing AWS
-- [ ] Add unit tests for search, filtering, and result limits
+- [x] Return three structured project candidates
+- [x] Validate model output against a JSON schema
+- [x] Add a command-line demo before introducing AWS
+- [x] Add unit tests for search, filtering, and result limits
 - [ ] Create an initial 10-prompt evaluation set
 - [ ] Record expected evidence records and tool trajectories
 - [ ] Record the local Nova Micro baseline for quality, latency, tokens, and tool-call count
