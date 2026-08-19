@@ -13,8 +13,11 @@ preserve unrelated user changes.
   the user says the changes will be bundled with later work.
 - Record material architectural decisions in `docs/adr/`.
 - Keep local development usable before requiring deployed AWS services.
-- Do not create, modify, or destroy cloud resources without an explicit user
-  request and review of the OpenTofu plan.
+- Never run commands that create, modify, or destroy AWS resources. The user
+  must manually execute all provisioning and teardown commands, including
+  `tofu apply` and `tofu destroy`, after reviewing the plan. Read-only,
+  no-cost commands such as validation, planning, and resource inspection are
+  allowed.
 - Treat deployed development environments as temporary. Prefer on-demand
   services, avoid provisioned capacity, and keep the initial total AWS spend
   below $10. Preserve only documented bootstrap resources when tearing down.

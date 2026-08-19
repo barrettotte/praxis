@@ -198,16 +198,16 @@ Definition of done: one local command accepts a goal and returns three evidence-
 ## Phase 2 - OpenTofu foundation
 
 - [x] Pin the OpenTofu and AWS provider versions
-- [ ] Commit provider lock files
-- [ ] Create an infrastructure bootstrap stack
-- [ ] Create an encrypted remote-state bucket
-- [ ] Enable state versioning and locking
-- [ ] Establish naming and tagging conventions
-- [ ] Create separate development configuration
-- [ ] Create ECR repositories for deployable images
-- [ ] Add KMS keys only where service-managed encryption is insufficient
-- [ ] Add an AWS Budget alert
-- [ ] Set budget notifications below and at the $10 MVP target
+- [x] Commit provider lock files
+- [x] Create an infrastructure bootstrap stack
+- [x] Create an encrypted remote-state bucket
+- [x] Enable state versioning and locking
+- [x] Establish naming and tagging conventions
+- [x] Create separate development configuration
+- [x] Create ECR repositories for deployable images
+- [x] Add KMS keys only where service-managed encryption is insufficient
+- [x] Add an AWS Budget alert
+- [x] Set budget notifications below and at the $10 MVP target
 - [ ] Run `tofu fmt`, `tofu validate`, and static checks in CI
 - [ ] Document `plan`, `apply`, and `destroy` procedures
 - [ ] Verify that destroying the application stack removes billable resources while preserving only explicitly documented bootstrap resources

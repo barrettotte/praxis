@@ -4,19 +4,23 @@ UV ?= uv
 UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
 NPM ?= npm
 TOFU ?= tofu
+TFLINT ?= tflint
+AWS_PROFILE ?= praxis-dev
+TOFU_BOOTSTRAP_PLAN ?= bootstrap.tfplan
+TOFU_DEV_PLAN ?= dev.tfplan
 PROMPT ?=
 PYTHON_SOURCES := backend/src backend/tests
 FRONTEND_NPM := $(NPM) --prefix frontend
 
 export UV_CACHE_DIR
 
-.PHONY: help bootstrap lock format format-check lint typecheck test check build agent eval-baseline tofu-init tofu-format tofu-format-check tofu-validate dev-frontend
+.PHONY: help bootstrap lock format format-check lint typecheck test check build agent eval-baseline tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-destroy-dev dev-frontend
 
 help: ## Show the available Make targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 bootstrap: ## Install locked backend and frontend dependencies
-	$(UV) sync --all-groups
+	$(UV) sync --frozen --all-groups
 	$(FRONTEND_NPM) ci
 
 lock: ## Refresh the backend and frontend dependency lock files
@@ -61,6 +65,11 @@ tofu-init: ## Install pinned providers without initializing a remote backend
 	$(TOFU) -chdir=infra/bootstrap init -backend=false
 	$(TOFU) -chdir=infra/environments/dev init -backend=false
 
+tofu-init-dev: ## Initialize development state with the bootstrap S3 backend
+	@state_bucket="$$(AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/bootstrap output -raw state_bucket_name)"; \
+		test -n "$$state_bucket"; \
+		AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/environments/dev init -reconfigure -backend-config="bucket=$$state_bucket"
+
 tofu-format: ## Format all OpenTofu configuration
 	$(TOFU) fmt -recursive infra
 
@@ -70,6 +79,31 @@ tofu-format-check: ## Verify OpenTofu formatting
 tofu-validate: ## Validate the bootstrap and development OpenTofu roots
 	$(TOFU) -chdir=infra/bootstrap validate
 	$(TOFU) -chdir=infra/environments/dev validate
+
+tofu-lint: ## Run TFLint static analysis across OpenTofu configuration
+	$(TFLINT) --recursive --chdir=infra --config=$(CURDIR)/.tflint.hcl
+
+tofu-plan-bootstrap: ## Plan durable bootstrap resources without applying them
+	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/bootstrap plan -out=$(TOFU_BOOTSTRAP_PLAN)
+
+tofu-apply-bootstrap: ## Apply the reviewed bootstrap plan; requires CONFIRM=apply-bootstrap
+	@test "$(CONFIRM)" = "apply-bootstrap" || { echo "CONFIRM=apply-bootstrap is required"; exit 2; }
+	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/bootstrap apply $(TOFU_BOOTSTRAP_PLAN)
+
+tofu-destroy-bootstrap: ## Permanently destroy bootstrap state; requires CONFIRM=destroy-bootstrap
+	@test "$(CONFIRM)" = "destroy-bootstrap" || { echo "CONFIRM=destroy-bootstrap is required"; exit 2; }
+	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/bootstrap destroy -auto-approve
+
+tofu-plan-dev: ## Plan temporary development resources without applying them
+	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/environments/dev plan -out=$(TOFU_DEV_PLAN)
+
+tofu-apply-dev: ## Apply the reviewed development plan; requires CONFIRM=apply-dev
+	@test "$(CONFIRM)" = "apply-dev" || { echo "CONFIRM=apply-dev is required"; exit 2; }
+	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/environments/dev apply $(TOFU_DEV_PLAN)
+
+tofu-destroy-dev: ## Destroy temporary development resources; requires CONFIRM=destroy-dev
+	@test "$(CONFIRM)" = "destroy-dev" || { echo "CONFIRM=destroy-dev is required"; exit 2; }
+	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/environments/dev destroy -auto-approve
 
 dev-frontend: ## Start the frontend development server
 	$(FRONTEND_NPM) run dev
