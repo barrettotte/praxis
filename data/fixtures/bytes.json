@@ -1,0 +1,29 @@
+[
+  {
+    "name": "Parsing a Binary Header",
+    "url": "https://example.invalid/bytes/binary-header",
+    "date": "2024-02-12",
+    "category": "code"
+  },
+  {
+    "name": "Sensor Enclosure",
+    "url": "https://example.invalid/bytes/sensor-enclosure",
+    "date": "2024-06-18",
+    "category": "3d-print",
+    "model": {
+      "slug": "sensor-enclosure",
+      "src": "https://example.invalid/models/sensor-enclosure.glb",
+      "fallback": "https://example.invalid/models/sensor-enclosure.stl",
+      "poster": "/img/fixtures/sensor-enclosure.jpg",
+      "parts": [
+        {
+          "name": "Enclosure Lid",
+          "src": "https://example.invalid/models/sensor-enclosure-lid.glb",
+          "fallback": "https://example.invalid/models/sensor-enclosure-lid.stl"
+        }
+      ],
+      "upAxis": "z",
+      "description": "A printable enclosure for a generic environmental sensor."
+    }
+  }
+]

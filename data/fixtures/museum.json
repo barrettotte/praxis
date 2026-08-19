@@ -1,0 +1,21 @@
+[
+  {
+    "id": "example-home-computer",
+    "name": "Example Home Computer",
+    "manufacturer": "Example Electronics",
+    "year": 1983,
+    "category": "Computer",
+    "image": "/img/fixtures/example-home-computer.jpg",
+    "description": "A fictional 8-bit home computer used for development tests."
+  },
+  {
+    "id": "example-terminal-replica",
+    "name": "Example Terminal Replica",
+    "manufacturer": "Example Workshop",
+    "year": null,
+    "displayYear": "Modern replica",
+    "category": "Terminal",
+    "image": "/img/fixtures/example-terminal-replica.jpg",
+    "description": "A fictional replica terminal used to exercise unknown production years."
+  }
+]

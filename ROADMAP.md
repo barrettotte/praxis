@@ -179,12 +179,12 @@ praxis/
 - [x] Add Strands Agents SDK and a minimal local Strands agent
 - [x] Add the React and TypeScript frontend
 - [x] Add formatting, linting, type-checking, and unit-test commands
-- [ ] Copy or reference sanitized development fixtures
-- [ ] Define domain models for books, projects, bytes, and museum objects
-- [ ] Build an in-memory catalog implementation
-- [ ] Implement local `search_catalog`
-- [ ] Implement local `get_catalog_item`
-- [ ] Implement local `compare_project_history`
+- [x] Copy or reference sanitized development fixtures
+- [x] Define domain models for books, projects, bytes, and museum objects
+- [x] Build an in-memory catalog implementation
+- [x] Implement local `search_catalog`
+- [x] Implement local `get_catalog_item`
+- [x] Implement local `compare_project_history`
 - [ ] Return three structured project candidates
 - [ ] Validate model output against a JSON schema
 - [ ] Add a command-line demo before introducing AWS

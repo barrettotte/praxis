@@ -1,0 +1,19 @@
+[
+  {
+    "title": "Designing Small Software Systems",
+    "isbn13": "0000000000000",
+    "year": 2024,
+    "author": "Alex Example",
+    "category": "Software Engineering"
+  },
+  {
+    "title": "A Field Guide to Retro Computing",
+    "isbn10": "0000000000",
+    "year": 1984,
+    "author": "Morgan Example",
+    "category": "Systems and Low-Level Programming",
+    "language": "English",
+    "lccn": "00000000",
+    "tags": ["Vintage Computing"]
+  }
+]

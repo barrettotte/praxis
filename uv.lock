@@ -441,6 +441,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "botocore", extra = ["crt"] },
+    { name = "pydantic" },
     { name = "strands-agents" },
 ]
 
@@ -455,6 +456,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "botocore", extras = ["crt"] },
+    { name = "pydantic", specifier = ">=2.13,<3" },
     { name = "strands-agents", specifier = ">=1.0,<2" },
 ]
 

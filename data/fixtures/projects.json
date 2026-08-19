@@ -1,0 +1,21 @@
+[
+  {
+    "name": "Terminal Catalog",
+    "url": "https://example.invalid/source/terminal-catalog",
+    "desc": "A command-line catalog for a small reference collection.",
+    "date": "2023-04",
+    "languages": ["python"]
+  },
+  {
+    "name": "Circuit Notebook",
+    "url": "https://example.invalid/source/circuit-notebook",
+    "desc": "A browser-based notebook for documenting electronics experiments.",
+    "date": "2024-09",
+    "deployUrl": "https://example.invalid/apps/circuit-notebook",
+    "languages": ["typescript", "css"],
+    "image": "/img/fixtures/circuit-notebook.png",
+    "imageFocus": [0.5, 0.4],
+    "featured": true,
+    "hidden": false
+  }
+]
