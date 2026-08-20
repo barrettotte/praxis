@@ -1,0 +1,106 @@
+{
+  "authentication": "AWS_IAM",
+  "calls": [
+    {
+      "arguments": {
+        "id": "book:0f5ba253568e4836"
+      },
+      "result": {
+        "item": {
+          "author": "Quentin Colombet",
+          "category": "Compilers, Interpreters, and Operating Systems",
+          "evidence_id": "book:0f5ba253568e4836",
+          "kind": "book",
+          "tags": [],
+          "title": "LLVM Code Generation A Deep Dive Into Compiler Backend Development",
+          "year": 2025
+        }
+      },
+      "tool": "praxis-dev-catalog___get_catalog_item"
+    },
+    {
+      "arguments": {
+        "candidates": [
+          {
+            "candidate_id": "notebook",
+            "description": "A browser notebook for electronics experiments",
+            "languages": [
+              "TypeScript"
+            ]
+          },
+          {
+            "candidate_id": "unrelated",
+            "description": "zyxwvutsrq",
+            "languages": []
+          }
+        ]
+      },
+      "result": {
+        "scores": [
+          {
+            "candidate_id": "notebook",
+            "evidence_ids": [
+              "project:7f152440bcd0f1db",
+              "project:3435c3fd5824f260",
+              "project:a1de41c0d7542531"
+            ],
+            "history_overlap_score": 11
+          },
+          {
+            "candidate_id": "unrelated",
+            "evidence_ids": [],
+            "history_overlap_score": 0
+          }
+        ]
+      },
+      "tool": "praxis-dev-catalog___score_project_candidates"
+    },
+    {
+      "arguments": {
+        "limit": 1,
+        "query": "compiler"
+      },
+      "result": {
+        "results": [
+          {
+            "author": "Quentin Colombet",
+            "category": "Compilers, Interpreters, and Operating Systems",
+            "evidence_id": "book:0f5ba253568e4836",
+            "kind": "book",
+            "score": 22,
+            "tags": [],
+            "title": "LLVM Code Generation A Deep Dive Into Compiler Backend Development",
+            "year": 2025
+          }
+        ]
+      },
+      "tool": "praxis-dev-catalog___search_catalog"
+    },
+    {
+      "arguments": {
+        "description": "A browser notebook for electronics experiments",
+        "languages": [
+          "TypeScript"
+        ],
+        "limit": 1
+      },
+      "result": {
+        "matches": [
+          {
+            "date": "2018-05",
+            "evidence_id": "project:7f152440bcd0f1db",
+            "history_overlap_score": 5,
+            "matched_terms": [],
+            "name": "MEAN-ToDoList",
+            "shared_languages": [
+              "typescript"
+            ]
+          }
+        ]
+      },
+      "tool": "praxis-dev-catalog___summarize_experience"
+    }
+  ],
+  "method": "tools/call",
+  "protocol_version": "2025-03-26"
+}

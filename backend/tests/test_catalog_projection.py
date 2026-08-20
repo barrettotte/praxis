@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from praxis.catalog import InMemoryCatalog, project_evidence
+from praxis.catalog import InMemoryCatalog, catalog_entry, project_evidence
+from praxis.domain import Book
 
 FIXTURE_DIRECTORY = Path(__file__).parents[2] / "data" / "fixtures"
 
@@ -38,7 +39,6 @@ def test_evidence_projection_returns_only_agent_fields() -> None:
         "kind",
         "name",
         "manufacturer",
-        "year",
         "category",
         "description",
     }
@@ -62,3 +62,12 @@ def test_evidence_projection_excludes_internal_and_source_fields() -> None:
             }
             & projection.keys()
         )
+
+
+def test_evidence_projection_omits_empty_optional_values() -> None:
+    projection = project_evidence(
+        catalog_entry(Book(title="Anonymous Systems Notes", author="", year=1980))
+    )
+
+    assert "author" not in projection
+    assert "category" not in projection

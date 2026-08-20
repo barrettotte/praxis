@@ -81,6 +81,22 @@ The target reads the authoritative files without modifying them, uploads the
 four disposable copies, and saves the Lambda response under `build/`. Override
 `SOURCE_DATA_DIR` only when the sibling repository is in another location.
 
+Run deployed smoke checks manually because they invoke metered AWS services.
+The Gateway check signs standard MCP `tools/list` and `tools/call` requests with
+the active profile, verifies all four catalog tools are discoverable, and
+confirms that every catalog tool returns evidence. It writes credential-free,
+deterministic captures to `docs/evidence/phase4-tools-list.json` and
+`docs/evidence/phase4-tool-calls.json`. It also verifies excessive, malformed,
+and unsigned requests are rejected and records only sanitized outcomes in
+`docs/evidence/phase4-negative-calls.json`. Client-observed HTTPS latency and
+JSON request/raw response body sizes for each successful tool call are recorded
+in `docs/evidence/phase4-tool-metrics.json`:
+
+```shell
+make smoke-catalog-dev
+make smoke-gateway-dev
+```
+
 Before an extended pause or project completion, review and apply a saved
 destroy plan:
 

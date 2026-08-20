@@ -17,7 +17,7 @@ FRONTEND_NPM := $(NPM) --prefix frontend
 
 export UV_CACHE_DIR
 
-.PHONY: help bootstrap lock format format-check lint typecheck test check build package-functions agent eval-baseline tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-catalog-dev dev-frontend
+.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-functions agent eval-baseline tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-catalog-dev smoke-gateway-dev dev-frontend
 
 help: ## Show the available Make targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-30s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -51,11 +51,17 @@ test: ## Run backend and frontend unit tests
 	$(UV) run pytest
 	$(FRONTEND_NPM) run test
 
-check: format-check lint typecheck test ## Run all repository quality checks
+check: format-check lint typecheck test tool-schemas-check ## Run all repository quality checks
 
 build: ## Build backend packages and the frontend production bundle
 	$(UV) build
 	$(FRONTEND_NPM) run build
+
+tool-schemas: ## Generate AgentCore Gateway schemas from strict tool contracts
+	./scripts/generate-agentcore-tool-schemas
+
+tool-schemas-check: ## Verify AgentCore Gateway schemas match strict tool contracts
+	./scripts/generate-agentcore-tool-schemas --check
 
 package-functions: ## Build the reproducible Python 3.13 Lambda ZIP
 	./scripts/package-functions
@@ -82,7 +88,7 @@ tofu-format: ## Format all OpenTofu configuration
 tofu-format-check: ## Verify OpenTofu formatting
 	$(TOFU) fmt -check -recursive infra
 
-tofu-validate: package-functions ## Validate the bootstrap and development OpenTofu roots
+tofu-validate: tool-schemas-check package-functions ## Validate the bootstrap and development OpenTofu roots
 	$(TOFU) -chdir=infra/bootstrap validate
 	$(TOFU) -chdir=infra/environments/dev validate
 
@@ -107,7 +113,7 @@ tofu-destroy-bootstrap: ## Apply the reviewed bootstrap teardown; requires CONFI
 	@test "$(CONFIRM)" = "destroy-bootstrap" || { echo "CONFIRM=destroy-bootstrap is required"; exit 2; }
 	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/bootstrap apply $(TOFU_BOOTSTRAP_DESTROY_PLAN)
 
-tofu-plan-dev: package-functions ## Plan temporary development resources without applying them
+tofu-plan-dev: tool-schemas-check package-functions ## Plan temporary development resources without applying them
 	@test "$(TOFU_DEV_PLAN)" = "$(notdir $(TOFU_DEV_PLAN))" || { echo "TOFU_DEV_PLAN must be a file name"; exit 2; }
 	$(RM) infra/environments/dev/$(TOFU_DEV_PLAN)
 	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/environments/dev plan -out=$(TOFU_DEV_PLAN)
@@ -116,7 +122,7 @@ tofu-apply-dev: ## Apply the reviewed development plan; requires CONFIRM=apply-d
 	@test "$(CONFIRM)" = "apply-dev" || { echo "CONFIRM=apply-dev is required"; exit 2; }
 	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/environments/dev apply $(TOFU_DEV_PLAN)
 
-tofu-plan-destroy-dev: package-functions ## Plan temporary development teardown without applying it
+tofu-plan-destroy-dev: tool-schemas-check package-functions ## Plan temporary development teardown without applying it
 	@test "$(TOFU_DEV_DESTROY_PLAN)" = "$(notdir $(TOFU_DEV_DESTROY_PLAN))" || { echo "TOFU_DEV_DESTROY_PLAN must be a file name"; exit 2; }
 	$(RM) infra/environments/dev/$(TOFU_DEV_DESTROY_PLAN)
 	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/environments/dev plan -destroy -out=$(TOFU_DEV_DESTROY_PLAN)
@@ -130,6 +136,9 @@ seed-dev: ## Upload authoritative JSON and invoke ingestion; requires CONFIRM=se
 
 smoke-catalog-dev: ## Invoke a read-only deployed catalog search smoke test
 	AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) ./scripts/smoke-catalog-dev
+
+smoke-gateway-dev: ## Exercise and capture every IAM-authenticated AgentCore Gateway tool
+	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-gateway-dev
 
 dev-frontend: ## Start the frontend development server
 	$(FRONTEND_NPM) run dev

@@ -251,19 +251,19 @@ summarize_experience
 score_project_candidates
 ```
 
-- [ ] Define strict JSON input and output schemas
-- [ ] Keep tool descriptions compact and unambiguous
-- [ ] Create least-privilege Lambda execution roles
-- [ ] Create AgentCore Gateway with OpenTofu
-- [ ] Register the catalog Lambda as a Gateway target
-- [ ] Use IAM authorization during the backend-only stage
-- [ ] Reject excessive result limits
-- [ ] Add timeouts and structured error responses
-- [ ] Prevent tool responses from leaking internal metadata
-- [ ] Capture an authenticated MCP `tools/list` response
-- [ ] Capture a successful MCP `tools/call` for every tool
-- [ ] Test malformed and unauthorized calls
-- [ ] Record latency and payload size for every tool
+- [x] Define strict JSON input and output schemas
+- [x] Keep tool descriptions compact and unambiguous
+- [x] Create least-privilege Lambda execution roles
+- [x] Create AgentCore Gateway with OpenTofu
+- [x] Register the catalog Lambda as a Gateway target
+- [x] Use IAM authorization during the backend-only stage
+- [x] Reject excessive result limits
+- [x] Add timeouts and structured error responses
+- [x] Prevent tool responses from leaking internal metadata
+- [x] Capture an authenticated MCP `tools/list` response
+- [x] Capture a successful MCP `tools/call` for every tool
+- [x] Test malformed and unauthorized calls
+- [x] Record latency and payload size for every tool
 
 Definition of done: an authenticated MCP client can discover and invoke all read-only catalog tools.
 

@@ -1,0 +1,23 @@
+{
+  "protocol_version": "2025-03-26",
+  "tests": [
+    {
+      "authentication": "AWS_IAM",
+      "name": "excessive_result_limit",
+      "observation": "MCP error",
+      "rejected": true
+    },
+    {
+      "authentication": "AWS_IAM",
+      "name": "malformed_tool_arguments",
+      "observation": "MCP error",
+      "rejected": true
+    },
+    {
+      "authentication": "none",
+      "http_status": 401,
+      "name": "unsigned_tools_list",
+      "rejected": true
+    }
+  ]
+}

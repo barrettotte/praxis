@@ -25,6 +25,26 @@ output "catalog_lambda_arn" {
   value       = aws_lambda_function.catalog.arn
 }
 
+output "agentcore_gateway_id" {
+  description = "Identifier of the IAM-authenticated AgentCore Gateway."
+  value       = aws_bedrockagentcore_gateway.catalog.gateway_id
+}
+
+output "agentcore_gateway_arn" {
+  description = "ARN of the IAM-authenticated AgentCore Gateway."
+  value       = aws_bedrockagentcore_gateway.catalog.gateway_arn
+}
+
+output "agentcore_gateway_url" {
+  description = "MCP endpoint of the IAM-authenticated AgentCore Gateway."
+  value       = aws_bedrockagentcore_gateway.catalog.gateway_url
+}
+
+output "agentcore_catalog_target_id" {
+  description = "Identifier of the read-only catalog Lambda Gateway target."
+  value       = aws_bedrockagentcore_gateway_target.catalog.target_id
+}
+
 output "ingestion_lambda_name" {
   description = "Name of the private manually invoked ingestion Lambda function."
   value       = aws_lambda_function.ingestion.function_name

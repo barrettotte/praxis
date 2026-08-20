@@ -1,0 +1,126 @@
+{
+  "authentication": "AWS_IAM",
+  "method": "tools/list",
+  "protocol_version": "2025-03-26",
+  "tools": [
+    {
+      "description": "Retrieve one evidence record using a stable evidence ID returned by another catalog tool.",
+      "inputSchema": {
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "name": "praxis-dev-catalog___get_catalog_item"
+    },
+    {
+      "description": "Measure term and programming-language overlap for one to three proposals and return supporting evidence IDs.",
+      "inputSchema": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "description": "One proposed project evaluated against factual project history.",
+              "properties": {
+                "candidate_id": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "languages": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "candidate_id",
+                "description"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "candidates"
+        ],
+        "type": "object"
+      },
+      "name": "praxis-dev-catalog___score_project_candidates"
+    },
+    {
+      "description": "Find relevant books, projects, technical artifacts, and museum objects using text and exact filters.",
+      "inputSchema": {
+        "properties": {
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "date_from": {
+            "type": "string"
+          },
+          "date_to": {
+            "type": "string"
+          },
+          "kinds": {
+            "items": {
+              "description": "The supported catalog record kinds.",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "languages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "query": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "praxis-dev-catalog___search_catalog"
+    },
+    {
+      "description": "Return prior projects sharing terms or programming languages with one proposed project.",
+      "inputSchema": {
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "languages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "description"
+        ],
+        "type": "object"
+      },
+      "name": "praxis-dev-catalog___summarize_experience"
+    }
+  ]
+}

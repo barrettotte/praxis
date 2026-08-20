@@ -38,10 +38,22 @@ guarded teardown workflow.
 The private catalog Lambda uses the reproducible Python 3.13 package built by
 `make package-functions`. Its execution role can only read individual catalog
 items, query the catalog GSI, and write to the function's seven-day log group.
-The development account's concurrency quota provides the execution ceiling, and
-no public invocation permission is created.
+The function has a 15-second hard timeout; its AWS client uses bounded connect,
+read, and retry settings and stops new catalog reads with six seconds remaining
+so it can return a safe structured error. The development account's concurrency
+quota provides the execution ceiling, and no public invocation permission is
+created.
 
 The ingestion Lambda is also private and manually invoked. Its independent role
 can read only the four expected source objects, scan and batch-write only the
 catalog table, and write to its own seven-day log group. No bucket notification
 or schedule can trigger ingestion unexpectedly.
+
+The AgentCore Gateway exposes an MCP endpoint protected by AWS IAM. Its service
+role trust is restricted to AgentCore gateways in this account and region. The
+catalog target advertises the four implemented read-only tools. OpenTofu
+consumes the checked-in schema artifact generated from the strict Pydantic
+contracts. The Gateway role can invoke only the catalog Lambda; it cannot invoke
+ingestion or access DynamoDB directly. The MCP protocol is pinned to version
+`2025-03-26`, matching the deployed Gateway's supported version and the signed
+smoke client.

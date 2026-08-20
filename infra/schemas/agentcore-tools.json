@@ -1,0 +1,336 @@
+[
+  {
+    "name": "search_catalog",
+    "description": "Find relevant books, projects, technical artifacts, and museum objects using text and exact filters.",
+    "inputSchema": {
+      "type": "object",
+      "description": "Validated inputs for a bounded local catalog search.",
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "The supported catalog record kinds."
+          }
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "date_from": {
+          "type": "string"
+        },
+        "date_to": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "query"
+      ]
+    },
+    "outputSchema": {
+      "type": "object",
+      "description": "Bounded catalog search response.",
+      "properties": {
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "evidence_id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "author": {
+                "type": "string"
+              },
+              "year": {
+                "type": "integer"
+              },
+              "category": {
+                "type": "string"
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "score": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "date": {
+                "type": "string"
+              },
+              "languages": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "manufacturer": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "evidence_id",
+              "kind",
+              "score"
+            ]
+          }
+        }
+      },
+      "required": [
+        "results"
+      ]
+    }
+  },
+  {
+    "name": "get_catalog_item",
+    "description": "Retrieve one evidence record using a stable evidence ID returned by another catalog tool.",
+    "inputSchema": {
+      "type": "object",
+      "description": "Validated input for catalog item lookup.",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "outputSchema": {
+      "type": "object",
+      "description": "One projected catalog record.",
+      "properties": {
+        "item": {
+          "type": "object",
+          "properties": {
+            "evidence_id": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "author": {
+              "type": "string"
+            },
+            "year": {
+              "type": "integer"
+            },
+            "category": {
+              "type": "string"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "name": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "date": {
+              "type": "string"
+            },
+            "languages": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "manufacturer": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "evidence_id",
+            "kind"
+          ]
+        }
+      },
+      "required": [
+        "item"
+      ]
+    }
+  },
+  {
+    "name": "summarize_experience",
+    "description": "Return prior projects sharing terms or programming languages with one proposed project.",
+    "inputSchema": {
+      "type": "object",
+      "description": "Candidate characteristics used to find factual prior-project overlap.",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "limit": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "description"
+      ]
+    },
+    "outputSchema": {
+      "type": "object",
+      "description": "Bounded prior-project evidence relevant to one proposal.",
+      "properties": {
+        "matches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "description": "Factual overlap with one historical project.",
+            "properties": {
+              "evidence_id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "date": {
+                "type": "string"
+              },
+              "matched_terms": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "shared_languages": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "history_overlap_score": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "evidence_id",
+              "name",
+              "matched_terms",
+              "shared_languages",
+              "history_overlap_score"
+            ]
+          }
+        }
+      },
+      "required": [
+        "matches"
+      ]
+    }
+  },
+  {
+    "name": "score_project_candidates",
+    "description": "Measure term and programming-language overlap for one to three proposals and return supporting evidence IDs.",
+    "inputSchema": {
+      "type": "object",
+      "description": "One to three proposals to compare with historical project evidence.",
+      "properties": {
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "description": "One proposed project evaluated against factual project history.",
+            "properties": {
+              "candidate_id": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "languages": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "candidate_id",
+              "description"
+            ]
+          }
+        }
+      },
+      "required": [
+        "candidates"
+      ]
+    },
+    "outputSchema": {
+      "type": "object",
+      "description": "Factual history-overlap scores in input order.",
+      "properties": {
+        "scores": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "description": "Deterministic history-overlap score for one proposal.",
+            "properties": {
+              "candidate_id": {
+                "type": "string"
+              },
+              "history_overlap_score": {
+                "type": "integer"
+              },
+              "evidence_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "candidate_id",
+              "history_overlap_score",
+              "evidence_ids"
+            ]
+          }
+        }
+      },
+      "required": [
+        "scores"
+      ]
+    }
+  }
+]
