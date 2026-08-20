@@ -16,8 +16,15 @@ from praxis.catalog.memory import (
     CatalogKind,
     CatalogLoadError,
     InMemoryCatalog,
+    catalog_entry,
 )
-from praxis.catalog.search import CatalogSearchResult, SearchCatalogRequest, search_catalog
+from praxis.catalog.projection import project_evidence
+from praxis.catalog.search import (
+    CatalogSearchResult,
+    SearchCatalogRequest,
+    catalog_search_text,
+    search_catalog,
+)
 
 __all__ = [
     "CatalogEntry",
@@ -31,7 +38,10 @@ __all__ = [
     "InMemoryCatalog",
     "ProjectHistoryMatch",
     "SearchCatalogRequest",
+    "catalog_entry",
+    "catalog_search_text",
     "compare_project_history",
     "get_catalog_item",
+    "project_evidence",
     "search_catalog",
 ]

@@ -46,7 +46,7 @@ preserve unrelated user changes.
 ## Data and handoff
 
 The four inputs are `../barrettotte.github.io/data/{books,projects,bytes,museum}.json`.
-Never modify them during ingestion. Expected source totals are 781 books, 162
+Never modify them during ingestion. Expected source totals are 782 books, 162
 projects, 66 bytes, and 20 museum objects.
 
 At handoff, leave the worktree understandable: report verification performed,

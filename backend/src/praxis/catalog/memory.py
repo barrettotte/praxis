@@ -54,7 +54,8 @@ def _entry_identity(item: CatalogItem) -> tuple[CatalogKind, str]:
             return CatalogKind.MUSEUM_OBJECT, item.id
 
 
-def _catalog_entry(item: CatalogItem) -> CatalogEntry:
+def catalog_entry(item: CatalogItem) -> CatalogEntry:
+    """Pair a validated catalog item with its stable evidence identifier."""
     kind, identity = _entry_identity(item)
     digest = sha256(f"{kind}:{identity}".encode()).hexdigest()[:16]
     return CatalogEntry(id=f"{kind}:{digest}", kind=kind, item=item)
@@ -108,4 +109,4 @@ class InMemoryCatalog:
 
     def entries(self) -> Iterator[CatalogEntry]:
         """Iterate over records with deterministic local evidence identifiers."""
-        yield from (_catalog_entry(item) for item in self)
+        yield from (catalog_entry(item) for item in self)

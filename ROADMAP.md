@@ -84,7 +84,7 @@ turns a goal into several differentiated, buildable project candidates.
 
 ### Source datasets
 
-- 781 books
+- 782 books
 - 162 projects
 - 66 technical notes, CTFs, electronics builds, and other bytes
 - 20 computing-museum objects
@@ -209,8 +209,12 @@ Definition of done: one local command accepts a goal and returns three evidence-
 - [x] Add an AWS Budget alert
 - [x] Set budget notifications below and at the $10 MVP target
 - [ ] Run `tofu fmt`, `tofu validate`, and static checks in CI
-- [ ] Document `plan`, `apply`, and `destroy` procedures
-- [ ] Verify that destroying the application stack removes billable resources while preserving only explicitly documented bootstrap resources
+- [x] Document `plan`, `apply`, and `destroy` procedures
+- [x] Verify that destroying the application stack removes billable resources while preserving only explicitly documented bootstrap resources
+
+Hosted verification of the committed CI workflow is pending because the
+private repository's current GitHub Actions allowance is exhausted. Equivalent
+checks pass locally; keep the CI item open until a hosted run succeeds.
 
 Do not create a VPC initially. The MVP has no private-subnet requirement, and a NAT gateway would add cost and complexity without improving the demonstration.
 
@@ -218,21 +222,21 @@ Definition of done: OpenTofu can reproducibly create and destroy the empty devel
 
 ## Phase 3 - Personal-data plane
 
-- [ ] Create an encrypted S3 source-data bucket
-- [ ] Define the DynamoDB access patterns
-- [ ] Create the DynamoDB catalog table
-- [ ] Implement the ingestion Lambda
-- [ ] Normalize category and language values
-- [ ] Preserve source provenance for every record
-- [ ] Generate stable record IDs
-- [ ] Make ingestion idempotent
-- [ ] Record import counts and rejected records
-- [ ] Implement exact filters for type, language, category, and date
-- [ ] Implement bounded text search
-- [ ] Return only fields needed by the agent
-- [ ] Deploy the catalog Lambda
-- [ ] Seed the development environment from the four JSON files
-- [ ] Verify totals: 781 books, 162 projects, 66 bytes, and 20 museum objects
+- [x] Create an encrypted S3 source-data bucket
+- [x] Define the DynamoDB access patterns
+- [x] Create the DynamoDB catalog table
+- [x] Implement the ingestion Lambda
+- [x] Normalize category and language values
+- [x] Preserve source provenance for every record
+- [x] Generate stable record IDs
+- [x] Make ingestion idempotent
+- [x] Record import counts and rejected records
+- [x] Implement exact filters for type, language, category, and date
+- [x] Implement bounded text search
+- [x] Return only fields needed by the agent
+- [x] Deploy the catalog Lambda
+- [x] Seed the development environment from the four JSON files
+- [x] Verify totals: 782 books, 162 projects, 66 bytes, and 20 museum objects
 
 Definition of done: a deployed Lambda can answer structured catalog queries without invoking an LLM.
 

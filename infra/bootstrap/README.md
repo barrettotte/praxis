@@ -20,11 +20,15 @@ After destroying the temporary development stack, the bootstrap resources can
 also be removed permanently with:
 
 ```shell
+make tofu-plan-destroy-bootstrap
+tofu -chdir=infra/bootstrap show bootstrap-destroy.tfplan
 make tofu-destroy-bootstrap CONFIRM=destroy-bootstrap
 ```
 
 The bucket uses `force_destroy` so this command can remove versioned state
 objects. It is intentionally destructive and cannot recover deleted state.
+See `docs/infrastructure-operations.md` for the complete plan, apply, and
+teardown procedure.
 
 Bucket versioning permits recovery from accidental state replacement or
 deletion. Development state uses OpenTofu's native S3 lockfile mechanism rather

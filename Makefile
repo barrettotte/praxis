@@ -7,17 +7,20 @@ TOFU ?= tofu
 TFLINT ?= tflint
 AWS_PROFILE ?= praxis-dev
 TOFU_BOOTSTRAP_PLAN ?= bootstrap.tfplan
+TOFU_BOOTSTRAP_DESTROY_PLAN ?= bootstrap-destroy.tfplan
 TOFU_DEV_PLAN ?= dev.tfplan
+TOFU_DEV_DESTROY_PLAN ?= dev-destroy.tfplan
 PROMPT ?=
+SOURCE_DATA_DIR ?= $(abspath ../barrettotte.github.io/data)
 PYTHON_SOURCES := backend/src backend/tests
 FRONTEND_NPM := $(NPM) --prefix frontend
 
 export UV_CACHE_DIR
 
-.PHONY: help bootstrap lock format format-check lint typecheck test check build agent eval-baseline tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-destroy-dev dev-frontend
+.PHONY: help bootstrap lock format format-check lint typecheck test check build package-functions agent eval-baseline tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-catalog-dev dev-frontend
 
 help: ## Show the available Make targets
-	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-30s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 bootstrap: ## Install locked backend and frontend dependencies
 	$(UV) sync --frozen --all-groups
@@ -54,6 +57,9 @@ build: ## Build backend packages and the frontend production bundle
 	$(UV) build
 	$(FRONTEND_NPM) run build
 
+package-functions: ## Build the reproducible Python 3.13 Lambda ZIP
+	./scripts/package-functions
+
 agent: ## Run the local Strands agent; pass PROMPT='your goal'
 	@test -n "$(PROMPT)" || { echo "PROMPT is required (example: make agent PROMPT='Suggest a project')"; exit 2; }
 	@set -a; if [ -f .env ]; then . ./.env; fi; set +a; $(UV) run praxis "$(PROMPT)"
@@ -76,7 +82,7 @@ tofu-format: ## Format all OpenTofu configuration
 tofu-format-check: ## Verify OpenTofu formatting
 	$(TOFU) fmt -check -recursive infra
 
-tofu-validate: ## Validate the bootstrap and development OpenTofu roots
+tofu-validate: package-functions ## Validate the bootstrap and development OpenTofu roots
 	$(TOFU) -chdir=infra/bootstrap validate
 	$(TOFU) -chdir=infra/environments/dev validate
 
@@ -84,26 +90,46 @@ tofu-lint: ## Run TFLint static analysis across OpenTofu configuration
 	$(TFLINT) --recursive --chdir=infra --config=$(CURDIR)/.tflint.hcl
 
 tofu-plan-bootstrap: ## Plan durable bootstrap resources without applying them
+	@test "$(TOFU_BOOTSTRAP_PLAN)" = "$(notdir $(TOFU_BOOTSTRAP_PLAN))" || { echo "TOFU_BOOTSTRAP_PLAN must be a file name"; exit 2; }
+	$(RM) infra/bootstrap/$(TOFU_BOOTSTRAP_PLAN)
 	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/bootstrap plan -out=$(TOFU_BOOTSTRAP_PLAN)
 
 tofu-apply-bootstrap: ## Apply the reviewed bootstrap plan; requires CONFIRM=apply-bootstrap
 	@test "$(CONFIRM)" = "apply-bootstrap" || { echo "CONFIRM=apply-bootstrap is required"; exit 2; }
 	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/bootstrap apply $(TOFU_BOOTSTRAP_PLAN)
 
-tofu-destroy-bootstrap: ## Permanently destroy bootstrap state; requires CONFIRM=destroy-bootstrap
-	@test "$(CONFIRM)" = "destroy-bootstrap" || { echo "CONFIRM=destroy-bootstrap is required"; exit 2; }
-	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/bootstrap destroy -auto-approve
+tofu-plan-destroy-bootstrap: ## Plan permanent bootstrap teardown without applying it
+	@test "$(TOFU_BOOTSTRAP_DESTROY_PLAN)" = "$(notdir $(TOFU_BOOTSTRAP_DESTROY_PLAN))" || { echo "TOFU_BOOTSTRAP_DESTROY_PLAN must be a file name"; exit 2; }
+	$(RM) infra/bootstrap/$(TOFU_BOOTSTRAP_DESTROY_PLAN)
+	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/bootstrap plan -destroy -out=$(TOFU_BOOTSTRAP_DESTROY_PLAN)
 
-tofu-plan-dev: ## Plan temporary development resources without applying them
+tofu-destroy-bootstrap: ## Apply the reviewed bootstrap teardown; requires CONFIRM=destroy-bootstrap
+	@test "$(CONFIRM)" = "destroy-bootstrap" || { echo "CONFIRM=destroy-bootstrap is required"; exit 2; }
+	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/bootstrap apply $(TOFU_BOOTSTRAP_DESTROY_PLAN)
+
+tofu-plan-dev: package-functions ## Plan temporary development resources without applying them
+	@test "$(TOFU_DEV_PLAN)" = "$(notdir $(TOFU_DEV_PLAN))" || { echo "TOFU_DEV_PLAN must be a file name"; exit 2; }
+	$(RM) infra/environments/dev/$(TOFU_DEV_PLAN)
 	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/environments/dev plan -out=$(TOFU_DEV_PLAN)
 
 tofu-apply-dev: ## Apply the reviewed development plan; requires CONFIRM=apply-dev
 	@test "$(CONFIRM)" = "apply-dev" || { echo "CONFIRM=apply-dev is required"; exit 2; }
 	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/environments/dev apply $(TOFU_DEV_PLAN)
 
-tofu-destroy-dev: ## Destroy temporary development resources; requires CONFIRM=destroy-dev
+tofu-plan-destroy-dev: package-functions ## Plan temporary development teardown without applying it
+	@test "$(TOFU_DEV_DESTROY_PLAN)" = "$(notdir $(TOFU_DEV_DESTROY_PLAN))" || { echo "TOFU_DEV_DESTROY_PLAN must be a file name"; exit 2; }
+	$(RM) infra/environments/dev/$(TOFU_DEV_DESTROY_PLAN)
+	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/environments/dev plan -destroy -out=$(TOFU_DEV_DESTROY_PLAN)
+
+tofu-destroy-dev: ## Apply the reviewed development teardown; requires CONFIRM=destroy-dev
 	@test "$(CONFIRM)" = "destroy-dev" || { echo "CONFIRM=destroy-dev is required"; exit 2; }
-	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/environments/dev destroy -auto-approve
+	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/environments/dev apply $(TOFU_DEV_DESTROY_PLAN)
+
+seed-dev: ## Upload authoritative JSON and invoke ingestion; requires CONFIRM=seed-dev
+	CONFIRM=$(CONFIRM) AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) SOURCE_DATA_DIR=$(SOURCE_DATA_DIR) ./scripts/seed-dev
+
+smoke-catalog-dev: ## Invoke a read-only deployed catalog search smoke test
+	AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) ./scripts/smoke-catalog-dev
 
 dev-frontend: ## Start the frontend development server
 	$(FRONTEND_NPM) run dev

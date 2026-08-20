@@ -8,14 +8,16 @@ from strands import Agent
 from strands.types.exceptions import StructuredOutputException
 
 from praxis.agent.factory import create_agent
-from praxis.catalog import CatalogEntry, InMemoryCatalog, SearchCatalogRequest, search_catalog
+from praxis.catalog import (
+    CatalogEntry,
+    InMemoryCatalog,
+    SearchCatalogRequest,
+    project_evidence,
+    search_catalog,
+)
 from praxis.config import AgentSettings, load_settings
 from praxis.domain import (
-    Book,
-    Byte,
     CandidateOutputValidationError,
-    MuseumObject,
-    Project,
     ProjectCandidateSet,
     validate_candidate_output,
 )
@@ -125,41 +127,8 @@ class StrandsCandidateGenerator:
         )
 
 
-def _evidence_record(entry: CatalogEntry) -> dict[str, object]:
-    item = entry.item
-    common: dict[str, object] = {"evidence_id": entry.id, "kind": entry.kind}
-    match item:
-        case Book():
-            return common | {
-                "title": item.title,
-                "author": item.author,
-                "category": item.category,
-                "tags": item.tags,
-            }
-        case Project():
-            return common | {
-                "name": item.name,
-                "description": item.description,
-                "date": item.date,
-                "languages": item.languages,
-            }
-        case Byte():
-            return common | {
-                "name": item.name,
-                "category": item.category,
-                "date": item.date.isoformat(),
-            }
-        case MuseumObject():
-            return common | {
-                "name": item.name,
-                "manufacturer": item.manufacturer,
-                "category": item.category,
-                "description": item.description,
-            }
-
-
 def _planning_prompt(goal: str, evidence: tuple[CatalogEntry, ...]) -> str:
-    records = [_evidence_record(entry) for entry in evidence]
+    records = [project_evidence(entry) for entry in evidence]
     evidence_json = json.dumps(records, ensure_ascii=False, separators=(",", ":"))
     return f"""Create exactly three differentiated, realistically scoped project candidates.
 

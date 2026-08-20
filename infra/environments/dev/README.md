@@ -13,7 +13,35 @@ All resources use the `praxis-dev` name prefix and inherit the required
 inspect this environment, but the user must run every apply or destroy command
 manually.
 
+See `docs/infrastructure-operations.md` for the guarded plan, apply, and
+teardown procedures. Teardown requires a separately reviewed saved destroy plan.
+
 The agent image repository uses immutable tags, scan-on-push, S3-managed
 AES-256 encryption, and a lifecycle policy that removes untagged images after
 seven days and retains at most ten images. `force_delete` permits the guarded
 development teardown target to remove the repository and its temporary images.
+
+The source-data bucket holds reproducible copies of the four authoritative JSON
+inputs. It uses an AWS-generated suffix for global name uniqueness, S3-managed
+AES-256 encryption, bucket-owner enforcement, blocked public access, and a
+TLS-only bucket policy. Versioning is intentionally disabled because source
+history belongs in the sibling repository; `force_destroy` ensures development
+teardown removes copied objects with the bucket.
+
+The catalog table uses on-demand billing, a `record_id` partition key, and the
+`kind-date-index` GSI defined in
+`docs/adr/0002-dynamodb-catalog-access-patterns.md`. AWS-owned encryption is
+enabled. Point-in-time recovery and deletion protection are intentionally off
+because the table is a reproducible development copy and must not obstruct the
+guarded teardown workflow.
+
+The private catalog Lambda uses the reproducible Python 3.13 package built by
+`make package-functions`. Its execution role can only read individual catalog
+items, query the catalog GSI, and write to the function's seven-day log group.
+The development account's concurrency quota provides the execution ceiling, and
+no public invocation permission is created.
+
+The ingestion Lambda is also private and manually invoked. Its independent role
+can read only the four expected source objects, scan and batch-write only the
+catalog table, and write to its own seven-day log group. No bucket notification
+or schedule can trigger ingestion unexpectedly.

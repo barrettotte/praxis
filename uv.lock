@@ -86,6 +86,14 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b5/88/64ed0ae4d46c715fec6d3f6ecf6b92a7883ca2009532d871e67e02a1a0af/boto3_stubs-1.43.74-py3-none-any.whl", hash = "sha256:ec74791a194b25dfb3bf86b82bb60706523c9579b547bedeaf2a5f6dccca7f52", size = 71364, upload-time = "2026-08-18T21:39:49.204Z" },
 ]
 
+[package.optional-dependencies]
+dynamodb = [
+    { name = "mypy-boto3-dynamodb" },
+]
+s3 = [
+    { name = "mypy-boto3-s3" },
+]
+
 [[package]]
 name = "botocore"
 version = "1.43.74"
@@ -341,6 +349,24 @@ wheels = [
 ]
 
 [[package]]
+name = "mypy-boto3-dynamodb"
+version = "1.43.64"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/26/7b/6a7649813c7c367c405182d70d5fc4ff5fc531a8d5b0d4d08fa68276ba7c/mypy_boto3_dynamodb-1.43.64.tar.gz", hash = "sha256:8597ddd7d5f92cf00e7aa0875993e5cf09988f017eef41b94d47c08e7675b5d0", size = 50088, upload-time = "2026-08-04T21:37:37.911Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/49/3a/34904b687c40e88f004df3ae010d4d64093dab6506eafc9f6f322ef8eeb6/mypy_boto3_dynamodb-1.43.64-py3-none-any.whl", hash = "sha256:74f59f05544e7682bd2ee284fea9dc859d6ca5984f60f80c0ac54aa744115ead", size = 60304, upload-time = "2026-08-04T21:37:34.946Z" },
+]
+
+[[package]]
+name = "mypy-boto3-s3"
+version = "1.43.66"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5f/b4/d9af4054a80a46e27bfec10ead824ac1d39a974179b47db4ad9844bc5658/mypy_boto3_s3-1.43.66.tar.gz", hash = "sha256:b2f74763e373b3f3d64cfcd2f00cdb1c10c8a4cefe6d4cdbc1ed4a6ade085c07", size = 78866, upload-time = "2026-08-07T00:17:38.354Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/73/bc/8ed7dad2bc1506732cc503ccbbc0fd48786d85900bb2c6577a26a634843b/mypy_boto3_s3-1.43.66-py3-none-any.whl", hash = "sha256:f9385e190d423690dbc161260dac02439e3b6c9841e992ba6a92d15c1050b3af", size = 86296, upload-time = "2026-08-07T00:17:36.388Z" },
+]
+
+[[package]]
 name = "nodeenv"
 version = "1.10.0"
 source = { registry = "https://pypi.org/simple" }
@@ -440,6 +466,7 @@ name = "praxis-backend"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "boto3" },
     { name = "botocore", extra = ["crt"] },
     { name = "jsonschema" },
     { name = "pydantic" },
@@ -448,7 +475,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "boto3-stubs" },
+    { name = "boto3-stubs", extra = ["dynamodb", "s3"] },
     { name = "pyright" },
     { name = "pytest" },
     { name = "ruff" },
@@ -456,6 +483,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "boto3", specifier = ">=1.43,<2" },
     { name = "botocore", extras = ["crt"] },
     { name = "jsonschema", specifier = ">=4.26,<5" },
     { name = "pydantic", specifier = ">=2.13,<3" },
@@ -464,7 +492,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "boto3-stubs" },
+    { name = "boto3-stubs", extras = ["dynamodb", "s3"] },
     { name = "pyright" },
     { name = "pytest" },
     { name = "ruff" },
