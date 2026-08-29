@@ -99,7 +99,11 @@ make smoke-agent-gateway-dev
 ```
 
 The final command uses the same SigV4 Strands MCP transport intended for the
-AgentCore Runtime and writes `docs/evidence/strands-gateway-tools-list.json`.
+AgentCore Runtime, invokes Nova Micro with the discovered tools, and requires at
+least one Gateway tool call. It writes sanitized captures to
+`docs/evidence/strands-gateway-tools-list.json` and
+`docs/evidence/strands-gateway-agent-run.json`. Override its deterministic smoke
+prompt with `PROMPT='your goal'` when needed.
 
 Before an extended pause or project completion, review and apply a saved
 destroy plan:

@@ -5,6 +5,17 @@ praxis_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 praxis_profile="${AWS_PROFILE:-praxis-dev}"
 praxis_region="${AWS_REGION:-us-east-1}"
 praxis_tofu="${TOFU:-tofu}"
+if [[ -f "${praxis_repo_root}/.env" ]]; then
+  set -a
+  source "${praxis_repo_root}/.env"
+  set +a
+fi
+praxis_model_id="${PRAXIS_MODEL_ID:-}"
+praxis_prompt="${PROMPT:-Call search_catalog once with query 'compiler backend' and limit 3. Then recommend one learning project using only the returned evidence and cite its evidence IDs.}"
+if [[ -z "${praxis_model_id}" ]]; then
+  printf 'PRAXIS_MODEL_ID is required; set it in .env or the environment\n' >&2
+  exit 2
+fi
 praxis_gateway_url="$(
   AWS_PROFILE="${praxis_profile}" "${praxis_tofu}" \
     -chdir="${praxis_repo_root}/infra/environments/dev" \
@@ -16,4 +27,6 @@ UV_CACHE_DIR="${praxis_repo_root}/.cache/uv" uv run --project "${praxis_repo_roo
   --url "${praxis_gateway_url}" \
   --profile "${praxis_profile}" \
   --region "${praxis_region}" \
+  --model-id "${praxis_model_id}" \
+  --prompt "${praxis_prompt}" \
   --evidence-directory "${praxis_repo_root}/docs/evidence"

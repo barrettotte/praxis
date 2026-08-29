@@ -140,8 +140,8 @@ smoke-catalog-dev: ## Invoke a read-only deployed catalog search smoke test
 smoke-gateway-dev: ## Exercise and capture every IAM-authenticated AgentCore Gateway tool
 	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-gateway-dev.sh
 
-smoke-agent-gateway-dev: ## Discover Gateway tools through the IAM-signed Strands MCP client
-	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-agent-gateway-dev.sh
+smoke-agent-gateway-dev: ## Invoke the Strands agent through the IAM-authenticated Gateway
+	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) PROMPT="$(PROMPT)" ./scripts/smoke-agent-gateway-dev.sh
 
 dev-frontend: ## Start the frontend development server
 	$(FRONTEND_NPM) run dev

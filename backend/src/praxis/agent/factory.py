@@ -23,11 +23,21 @@ def create_agent(
 ) -> Agent:
     """Create a Strands agent configured for Amazon Bedrock."""
     boto_session = Session(region_name=settings.region)
-    model = BedrockModel(
-        boto_session=boto_session,
-        model_id=settings.model_id,
-        temperature=0.1,
-    )
+    if tools:
+        model = BedrockModel(
+            boto_session=boto_session,
+            model_id=settings.model_id,
+            temperature=0,
+            max_tokens=3000,
+            additional_request_fields={"inferenceConfig": {"topK": 1}},
+            streaming=False,
+        )
+    else:
+        model = BedrockModel(
+            boto_session=boto_session,
+            model_id=settings.model_id,
+            temperature=0.1,
+        )
     return Agent(
         model=model,
         tools=list(tools),

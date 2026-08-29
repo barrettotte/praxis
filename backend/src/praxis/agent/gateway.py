@@ -3,6 +3,7 @@
 import re
 from collections.abc import Generator, Sequence
 from contextlib import contextmanager
+from dataclasses import dataclass
 
 from mcp_proxy_for_aws.client import aws_iam_streamablehttp_client
 from strands import Agent
@@ -24,7 +25,15 @@ _CATALOG_TOOL_PATTERN = re.compile(
 
 
 class GatewayAgentError(RuntimeError):
-    """Raised when Gateway discovery violates the agent's expected tool boundary."""
+    """Raised when Gateway behavior violates the agent's expected tool boundary."""
+
+
+@dataclass(frozen=True, slots=True)
+class GatewayAgentRun:
+    """Observable result of one Strands invocation through AgentCore Gateway."""
+
+    response: str
+    tool_calls: tuple[tuple[str, int], ...]
 
 
 def create_gateway_client(settings: GatewaySettings) -> MCPClient:
@@ -63,6 +72,21 @@ def validate_gateway_tools(
     return validated
 
 
+def canonical_gateway_tools(
+    tools: Sequence[MCPAgentTool],
+) -> tuple[MCPAgentTool, ...]:
+    """Use canonical model-facing names while preserving Gateway routing names."""
+    return tuple(
+        MCPAgentTool(
+            tool.mcp_tool,
+            tool.mcp_client,
+            name_override=tool.tool_name.rpartition("___")[2],
+            timeout=tool.timeout,
+        )
+        for tool in validate_gateway_tools(tools)
+    )
+
+
 def discover_gateway_tool_names(settings: GatewaySettings) -> tuple[str, ...]:
     """Discover and validate tool names using the production Strands transport."""
     client = create_gateway_client(settings)
@@ -79,5 +103,23 @@ def gateway_agent_session(
     """Keep the MCP connection alive for one Strands agent invocation scope."""
     client = create_gateway_client(gateway_settings)
     with client:
-        tools = validate_gateway_tools(client.list_tools_sync())
+        tools = canonical_gateway_tools(client.list_tools_sync())
         yield create_agent(agent_settings, tools=tools)
+
+
+def invoke_gateway_agent(
+    prompt: str,
+    agent_settings: AgentSettings,
+    gateway_settings: GatewaySettings,
+) -> GatewayAgentRun:
+    """Invoke Strands while its IAM-authenticated MCP connection remains open."""
+    with gateway_agent_session(agent_settings, gateway_settings) as agent:
+        result = agent(prompt)
+    tool_calls = tuple(
+        sorted(
+            (name, metrics.call_count)
+            for name, metrics in result.metrics.tool_metrics.items()
+            if metrics.call_count > 0
+        )
+    )
+    return GatewayAgentRun(response=str(result), tool_calls=tool_calls)

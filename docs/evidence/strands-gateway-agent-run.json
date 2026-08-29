@@ -1,0 +1,12 @@
+{
+  "authentication": "AWS_IAM",
+  "client": "Strands Agent with MCPClient",
+  "model_id": "amazon.nova-micro-v1:0",
+  "response_received": true,
+  "tool_calls": [
+    {
+      "count": 1,
+      "name": "search_catalog"
+    }
+  ]
+}

@@ -35,12 +35,19 @@ the model, and repeats until the model produces the requested candidate set or a
 configured limit stops the run. The Bedrock model provider uses the Bedrock
 Converse API rather than a provider-specific message format.
 
-The Runtime integration will give Strands an `MCPClient` backed by a
+Gateway-backed Nova invocations use greedy decoding (`temperature=0`, `topK=1`)
+and a 3,000-token output limit for reliable tool-use generation. They use the
+buffered Converse API so a malformed streaming tool-use event cannot interrupt
+the model/tool loop. Tool-free local generation retains its lower-variance
+`temperature=0.1` configuration.
+
+The Runtime integration gives Strands an `MCPClient` backed by a
 streamable-HTTP transport that signs each Gateway request for the
 `bedrock-agentcore` service. The MCP client must remain open while Strands lists
-and calls tools. Tool names and schemas come from Gateway discovery; the strict
-Pydantic contracts and Lambda validation documented in ADR 0003 remain the
-authoritative boundary.
+and calls tools. Tool names and schemas come from Gateway discovery. The MCP
+adapter retains each Gateway-qualified routing name while exposing its canonical
+tool name to the model. The strict Pydantic contracts and Lambda validation
+documented in ADR 0003 remain the authoritative boundary.
 
 AWS documents the supported Strands `MCPClient` lifecycle in its
 [Gateway agent integration guide](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-agent-integration.html).

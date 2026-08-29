@@ -1,0 +1,11 @@
+{
+  "authentication": "AWS_IAM",
+  "client": "Strands MCPClient",
+  "method": "tools/list",
+  "tools": [
+    "praxis-dev-catalog___get_catalog_item",
+    "praxis-dev-catalog___score_project_candidates",
+    "praxis-dev-catalog___search_catalog",
+    "praxis-dev-catalog___summarize_experience"
+  ]
+}
