@@ -12,11 +12,15 @@ preserve unrelated user changes.
 - After each substantial verified slice, suggest a concise commit message unless
   the user says the changes will be bundled with other work.
 - Record material architectural decisions in `docs/adr/`.
+- Keep the architecture diagram in `README.md` aligned with accepted ADRs and
+  implementation boundaries. Update it whenever components, trust boundaries,
+  data flows, authentication, or deployment topology change.
 - Write comments, documentation, examples, and file names for long-term readers.
   Describe current behavior, intent, and constraints without roadmap sequencing
   labels or implementation chronology. Keep progress history in `ROADMAP.md`
   and decision history in ADRs rather than scattering it through the codebase.
 - Keep local development usable before requiring deployed AWS services.
+- Give every shell script a `.sh` file extension.
 - Never run commands that create, modify, or destroy AWS resources. The user
   must manually execute all provisioning and teardown commands, including
   `tofu apply` and `tofu destroy`, after reviewing the plan. Read-only,

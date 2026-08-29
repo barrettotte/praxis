@@ -58,13 +58,13 @@ build: ## Build backend packages and the frontend production bundle
 	$(FRONTEND_NPM) run build
 
 tool-schemas: ## Generate AgentCore Gateway schemas from strict tool contracts
-	./scripts/generate-agentcore-tool-schemas
+	./scripts/generate-agentcore-tool-schemas.sh
 
 tool-schemas-check: ## Verify AgentCore Gateway schemas match strict tool contracts
-	./scripts/generate-agentcore-tool-schemas --check
+	./scripts/generate-agentcore-tool-schemas.sh --check
 
 package-functions: ## Build the reproducible Python 3.13 Lambda ZIP
-	./scripts/package-functions
+	./scripts/package-functions.sh
 
 agent: ## Run the local Strands agent; pass PROMPT='your goal'
 	@test -n "$(PROMPT)" || { echo "PROMPT is required (example: make agent PROMPT='Suggest a project')"; exit 2; }
@@ -132,16 +132,16 @@ tofu-destroy-dev: ## Apply the reviewed development teardown; requires CONFIRM=d
 	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/environments/dev apply $(TOFU_DEV_DESTROY_PLAN)
 
 seed-dev: ## Upload authoritative JSON and invoke ingestion; requires CONFIRM=seed-dev
-	CONFIRM=$(CONFIRM) AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) SOURCE_DATA_DIR=$(SOURCE_DATA_DIR) ./scripts/seed-dev
+	CONFIRM=$(CONFIRM) AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) SOURCE_DATA_DIR=$(SOURCE_DATA_DIR) ./scripts/seed-dev.sh
 
 smoke-catalog-dev: ## Invoke a read-only deployed catalog search smoke test
-	AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) ./scripts/smoke-catalog-dev
+	AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) ./scripts/smoke-catalog-dev.sh
 
 smoke-gateway-dev: ## Exercise and capture every IAM-authenticated AgentCore Gateway tool
-	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-gateway-dev
+	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-gateway-dev.sh
 
 smoke-agent-gateway-dev: ## Discover Gateway tools through the IAM-signed Strands MCP client
-	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-agent-gateway-dev
+	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-agent-gateway-dev.sh
 
 dev-frontend: ## Start the frontend development server
 	$(FRONTEND_NPM) run dev
