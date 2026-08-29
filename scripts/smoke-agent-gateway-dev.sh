@@ -11,6 +11,7 @@ if [[ -f "${praxis_repo_root}/.env" ]]; then
   set +a
 fi
 praxis_model_id="${PRAXIS_MODEL_ID:-}"
+praxis_max_catalog_results="${PRAXIS_MAX_CATALOG_RESULTS:-20}"
 praxis_max_tool_calls="${PRAXIS_MAX_TOOL_CALLS:-4}"
 praxis_prompt="${PROMPT:-Call search_catalog once with query 'compiler' and limit 3. Then return exactly three learning-project candidates using only the returned evidence.}"
 if [[ -z "${praxis_model_id}" ]]; then
@@ -29,6 +30,7 @@ UV_CACHE_DIR="${praxis_repo_root}/.cache/uv" uv run --project "${praxis_repo_roo
   --profile "${praxis_profile}" \
   --region "${praxis_region}" \
   --model-id "${praxis_model_id}" \
+  --max-catalog-results "${praxis_max_catalog_results}" \
   --max-tool-calls "${praxis_max_tool_calls}" \
   --prompt "${praxis_prompt}" \
   --evidence-directory "${praxis_repo_root}/docs/evidence"

@@ -16,7 +16,7 @@ from praxis.catalog import (
     project_evidence,
     search_catalog,
 )
-from praxis.config import AgentSettings, load_settings
+from praxis.config import DEFAULT_MAX_CATALOG_RESULTS, AgentSettings, load_settings
 from praxis.domain import (
     CandidateOutputValidationError,
     ProjectCandidateSet,
@@ -153,29 +153,55 @@ verifiable.
 """
 
 
+def _conflicting_evidence_ids(evidence: tuple[CatalogEntry, ...]) -> set[str]:
+    """Detect one stable ID carrying different facts in a local retrieval."""
+    observed: dict[str, dict[str, object]] = {}
+    conflicts: set[str] = set()
+    for entry in evidence:
+        projected = project_evidence(entry)
+        if entry.id in observed and observed[entry.id] != projected:
+            conflicts.add(entry.id)
+        observed[entry.id] = projected
+    return conflicts
+
+
 def plan_project_candidates(
     goal: str,
     catalog: InMemoryCatalog,
     generator: CandidateGenerator,
+    max_catalog_results: int = DEFAULT_MAX_CATALOG_RESULTS,
 ) -> ProjectCandidateSet:
     """Retrieve local evidence and generate exactly three grounded candidates."""
-    return plan_project_candidates_with_trace(goal, catalog, generator).candidates
+    return plan_project_candidates_with_trace(
+        goal,
+        catalog,
+        generator,
+        max_catalog_results=max_catalog_results,
+    ).candidates
 
 
 def plan_project_candidates_with_trace(
     goal: str,
     catalog: InMemoryCatalog,
     generator: CandidateGenerator,
+    max_catalog_results: int = DEFAULT_MAX_CATALOG_RESULTS,
 ) -> ProjectPlanningRun:
     """Retrieve evidence and return grounded candidates with observable execution data."""
+    if max_catalog_results < 1:
+        raise ValueError("max_catalog_results must be positive")
     results = search_catalog(
         catalog,
-        SearchCatalogRequest(query=goal, limit=EVIDENCE_LIMIT),
+        SearchCatalogRequest(query=goal, limit=min(EVIDENCE_LIMIT, max_catalog_results)),
     )
     evidence = tuple(result.entry for result in results)
     if not evidence:
         message = "No catalog evidence matched the project goal"
         raise CandidatePlanningError(message)
+    conflicting_ids = _conflicting_evidence_ids(evidence)
+    if conflicting_ids:
+        raise CandidatePlanningError(
+            f"Catalog returned conflicting evidence: {sorted(conflicting_ids)}"
+        )
 
     generation = generator.generate(_planning_prompt(goal, evidence))
     candidates = generation.candidates
@@ -215,4 +241,9 @@ def invoke_project_candidates_with_trace(
     configured_settings = settings or load_settings()
     agent = create_agent(configured_settings)
     generator = StrandsCandidateGenerator(agent=agent)
-    return plan_project_candidates_with_trace(goal, catalog, generator)
+    return plan_project_candidates_with_trace(
+        goal,
+        catalog,
+        generator,
+        max_catalog_results=configured_settings.max_catalog_results,
+    )

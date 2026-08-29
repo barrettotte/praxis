@@ -12,6 +12,7 @@ from strands.types.exceptions import EventLoopException
 
 from praxis.agent import gateway
 from praxis.agent.budget import ToolCallBudgetError
+from praxis.agent.evidence import EvidenceState
 from praxis.config import AgentSettings, GatewaySettings
 from praxis.domain import EvidenceCitation, ProjectCandidate, ProjectCandidateSet
 
@@ -58,6 +59,13 @@ def candidate_set() -> ProjectCandidateSet:
             )
             for number in range(1, 4)
         ]
+    )
+
+
+def evidence_state(*evidence_ids: str, conflicts: frozenset[str] = frozenset()) -> EvidenceState:
+    return EvidenceState(
+        evidence_ids=frozenset(evidence_ids),
+        conflicting_ids=conflicts,
     )
 
 
@@ -143,7 +151,14 @@ def test_invoke_gateway_agent_keeps_session_open_during_model_invocation() -> No
         region="us-east-1",
     )
 
-    with patch.object(gateway, "gateway_agent_session", return_value=session):
+    with (
+        patch.object(gateway, "gateway_agent_session", return_value=session),
+        patch.object(
+            gateway,
+            "read_evidence_state",
+            return_value=evidence_state("book:0f5ba253568e4836"),
+        ),
+    ):
         result = gateway.invoke_gateway_agent(
             "Recommend a compiler project",
             agent_settings,
@@ -154,6 +169,7 @@ def test_invoke_gateway_agent_keeps_session_open_during_model_invocation() -> No
     session.__exit__.assert_called_once()
     fake_agent.assert_called_once_with(
         "Recommend a compiler project",
+        invocation_state={},
         structured_output_model=ProjectCandidateSet,
     )
     assert result.candidates == candidate_set()
@@ -178,7 +194,38 @@ def test_validate_gateway_candidate_result_rejects_uncited_candidates() -> None:
     result = cast("AgentResult", SimpleNamespace(structured_output=invalid_output))
 
     with pytest.raises(gateway.GatewayAgentError, match="invalid structured"):
-        gateway.validate_gateway_candidate_result(result)
+        gateway.validate_gateway_candidate_result(
+            result,
+            evidence_state("book:0f5ba253568e4836"),
+        )
+
+
+def test_validate_gateway_candidate_result_rejects_empty_evidence() -> None:
+    result = cast("AgentResult", SimpleNamespace(structured_output=candidate_set()))
+
+    with pytest.raises(gateway.GatewayAgentError, match="No catalog evidence"):
+        gateway.validate_gateway_candidate_result(result, evidence_state())
+
+
+def test_validate_gateway_candidate_result_rejects_conflicting_evidence() -> None:
+    evidence_id = "book:0f5ba253568e4836"
+    result = cast("AgentResult", SimpleNamespace(structured_output=candidate_set()))
+
+    with pytest.raises(gateway.GatewayAgentError, match="conflicting evidence"):
+        gateway.validate_gateway_candidate_result(
+            result,
+            evidence_state(evidence_id, conflicts=frozenset({evidence_id})),
+        )
+
+
+def test_validate_gateway_candidate_result_rejects_unretrieved_citations() -> None:
+    result = cast("AgentResult", SimpleNamespace(structured_output=candidate_set()))
+
+    with pytest.raises(gateway.GatewayAgentError, match="not retrieved"):
+        gateway.validate_gateway_candidate_result(
+            result,
+            evidence_state("book:0000000000000000"),
+        )
 
 
 def test_invoke_gateway_agent_reports_exhausted_tool_call_budget() -> None:

@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from strands import Agent
 from strands.types.exceptions import EventLoopException
 
+from praxis.agent import planner
 from praxis.agent.budget import ToolCallBudgetError
 from praxis.agent.planner import (
     CandidateGeneration,
@@ -15,8 +16,16 @@ from praxis.agent.planner import (
     plan_project_candidates,
     plan_project_candidates_with_trace,
 )
-from praxis.catalog import InMemoryCatalog, SearchCatalogRequest, search_catalog
+from praxis.catalog import (
+    CatalogEntry,
+    CatalogKind,
+    CatalogSearchResult,
+    InMemoryCatalog,
+    SearchCatalogRequest,
+    search_catalog,
+)
 from praxis.domain import (
+    Book,
     EvidenceCitation,
     ProjectCandidate,
     ProjectCandidateSet,
@@ -85,6 +94,20 @@ def test_plan_project_candidates_trace_records_retrieval() -> None:
     assert result.generation_metrics is None
 
 
+def test_plan_project_candidates_respects_local_catalog_result_budget() -> None:
+    catalog = InMemoryCatalog.from_directory(FIXTURE_DIRECTORY)
+    evidence_id = search_catalog(catalog, SearchCatalogRequest(query=GOAL))[0].entry.id
+
+    result = plan_project_candidates_with_trace(
+        GOAL,
+        catalog,
+        StubCandidateGenerator(candidate_set(evidence_id)),
+        max_catalog_results=1,
+    )
+
+    assert result.retrieved_evidence_ids == (evidence_id,)
+
+
 def test_plan_project_candidates_rejects_unretrieved_evidence() -> None:
     catalog = InMemoryCatalog.from_directory(FIXTURE_DIRECTORY)
     generator = StubCandidateGenerator(candidate_set("book:0000000000000000"))
@@ -99,6 +122,38 @@ def test_plan_project_candidates_requires_matching_evidence() -> None:
 
     with pytest.raises(CandidatePlanningError, match="No catalog evidence"):
         plan_project_candidates("zyxwvutsrq", catalog, generator)
+
+
+def test_plan_project_candidates_rejects_conflicting_local_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence_id = "book:0000000000000000"
+    entries = [
+        CatalogSearchResult(
+            entry=CatalogEntry(
+                id=evidence_id,
+                kind=CatalogKind.BOOK,
+                item=Book(title=title, year=2025),
+            ),
+            score=10,
+        )
+        for title in ("Compiler Design", "Different Title")
+    ]
+
+    def conflicting_search(
+        _catalog: InMemoryCatalog,
+        _request: SearchCatalogRequest,
+    ) -> list[CatalogSearchResult]:
+        return entries
+
+    monkeypatch.setattr(planner, "search_catalog", conflicting_search)
+
+    with pytest.raises(CandidatePlanningError, match="conflicting evidence"):
+        plan_project_candidates(
+            GOAL,
+            InMemoryCatalog.from_directory(FIXTURE_DIRECTORY),
+            StubCandidateGenerator(candidate_set(evidence_id)),
+        )
 
 
 def test_strands_generator_reports_exhausted_tool_call_budget() -> None:

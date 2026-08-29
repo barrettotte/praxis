@@ -10,7 +10,12 @@ from praxis.agent.gateway import (
     discover_gateway_tool_names,
     invoke_gateway_agent,
 )
-from praxis.config import DEFAULT_MAX_TOOL_CALLS, AgentSettings, GatewaySettings
+from praxis.config import (
+    DEFAULT_MAX_CATALOG_RESULTS,
+    DEFAULT_MAX_TOOL_CALLS,
+    AgentSettings,
+    GatewaySettings,
+)
 
 DEFAULT_PROMPT = (
     "Call search_catalog once with query 'compiler' and limit 3. Then return exactly three "
@@ -51,6 +56,7 @@ def write_agent_evidence(
             len(candidate.evidence_citations) for candidate in agent_run.candidates.candidates
         ),
         "model_id": settings.model_id,
+        "catalog_result_budget": settings.max_catalog_results,
         "tool_call_budget": settings.max_tool_calls,
         "tool_calls": [{"count": count, "name": name} for name, count in agent_run.tool_calls],
     }
@@ -97,6 +103,11 @@ def main() -> None:
     parser.add_argument("--region", default="us-east-1")
     parser.add_argument("--profile")
     parser.add_argument("--model-id", required=True)
+    parser.add_argument(
+        "--max-catalog-results",
+        type=int,
+        default=DEFAULT_MAX_CATALOG_RESULTS,
+    )
     parser.add_argument("--max-tool-calls", type=int, default=DEFAULT_MAX_TOOL_CALLS)
     parser.add_argument("--prompt", default=DEFAULT_PROMPT)
     parser.add_argument("--evidence-directory", type=Path)
@@ -104,6 +115,7 @@ def main() -> None:
     agent_settings = AgentSettings(
         model_id=arguments.model_id,
         region=arguments.region,
+        max_catalog_results=arguments.max_catalog_results,
         max_tool_calls=arguments.max_tool_calls,
     )
     gateway_settings = GatewaySettings(

@@ -107,6 +107,7 @@ def test_run_invokes_agent_with_discovered_gateway_tools(
         "all_candidates_cited": True,
         "authentication": "AWS_IAM",
         "candidate_count": 3,
+        "catalog_result_budget": 20,
         "client": "Strands Agent with MCPClient",
         "evidence_citation_count": 3,
         "model_id": "amazon.nova-micro-v1:0",

@@ -74,13 +74,21 @@ sets these non-negotiable behaviors:
 The prompt establishes model behavior; schema validation, grounding checks,
 tool budgets, and approval controls remain independent enforcement boundaries.
 
-## Tool-call budget
+## Invocation budgets
 
 Each invocation may execute at most four model-selected catalog tool calls by
 default. A Strands pre-tool hook raises a domain error before a fifth call can
 reach Gateway. The internal `ProjectCandidateSet` structured-output tool does
 not consume this budget. `PRAXIS_MAX_TOOL_CALLS` can lower or raise the positive
 integer limit when an evaluation demonstrates a different need.
+
+Successful catalog responses may contribute at most 20 evidence records per
+invocation by default. Search results, item lookups, experience matches, and
+supporting evidence IDs from candidate scores count cumulatively. A Strands
+post-tool hook validates each response against its strict contract and replaces
+malformed or over-budget content with a tool error before the model receives it.
+The local planner applies the same `PRAXIS_MAX_CATALOG_RESULTS` setting to its
+retrieval limit.
 
 ## Evidence boundary
 
@@ -97,9 +105,16 @@ integer limit when an evaluation demonstrates a different need.
   well-formed citation per candidate.
 - JSON Schema and Pydantic validation reject uncited, malformed, or incorrectly
   sized candidate output before it reaches an application client.
-- The local planner's grounding check rejects citations that were not returned
-  by its retrieval step.
+- An invocation-scoped Gateway ledger records every returned evidence ID and
+  stable fact. Final validation rejects empty evidence, citations absent from
+  the ledger, or differing facts observed for the same ID.
+- The local planner rejects an empty retrieval, conflicting facts under one
+  stable ID, and citations that were not returned by its retrieval step.
 - Catalog records are untrusted data and cannot override system instructions.
+
+Empty or contradictory evidence produces an explicit planning error rather
+than an ungrounded recommendation. A conflicting Gateway tool response is also
+replaced with an error before its content can return to the model.
 
 ## Lifecycle and isolation
 
@@ -113,6 +128,30 @@ Each invocation returns a buffered structured response. Streaming, multi-agent
 orchestration, and cross-session in-process state are outside the MVP. The
 [AgentCore Runtime lifecycle documentation](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-how-it-works.html)
 describes the service's session and immutable-version boundaries.
+
+## Container contract
+
+`backend/Containerfile` packages the runtime as a non-root Python 3.13 ARM64
+container. `praxis.agent.runtime` uses the AgentCore SDK to serve the required
+`GET /ping` and `POST /invocations` endpoints on `0.0.0.0:8080`. An invocation
+accepts `{"prompt": "..."}` and returns three validated candidates plus bounded
+tool-call counts as one buffered JSON response.
+
+Build and verify the service contract without invoking AWS:
+
+```bash
+make agent-image
+make smoke-agent-container
+```
+
+`make agent-image` always defaults to the required `linux/arm64` deployment
+platform. The smoke target builds the same Containerfile for the host architecture
+before checking `/ping`, avoiding slow cross-architecture emulation during local
+development.
+
+The image contains no local credentials or `.env` file. Deployed AWS calls use
+the runtime execution role; local Gateway invocations continue to use the
+developer profile outside the container.
 
 ## Local and deployed paths
 

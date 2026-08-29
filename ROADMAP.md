@@ -278,9 +278,9 @@ Definition of done: an authenticated MCP client can discover and invoke all read
 - [x] Require evidence IDs for every proposed project
 - [x] Separate factual evidence from generated recommendations
 - [x] Add a maximum tool-call budget
-- [ ] Add a maximum catalog-result budget
-- [ ] Handle empty or contradictory results
-- [ ] Containerize the agent
+- [x] Add a maximum catalog-result budget
+- [x] Handle empty or contradictory results
+- [x] Containerize the agent
 - [ ] Push the image to ECR
 - [ ] Create AgentCore Runtime with OpenTofu
 - [ ] Configure an immutable runtime version

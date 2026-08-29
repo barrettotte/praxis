@@ -15,7 +15,7 @@ flowchart TD
     apiGateway --> apiLambda[API Lambda]
 
     subgraph runtime[Amazon Bedrock AgentCore Runtime]
-        agent[Strands agent]
+        agent[Python 3.13 ARM64 container<br/>Strands agent]
         memory[AgentCore Memory]
         agent --> memory
     end

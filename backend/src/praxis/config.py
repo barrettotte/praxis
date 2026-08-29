@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 DEFAULT_CATALOG_DIRECTORY = Path("../barrettotte.github.io/data")
+DEFAULT_MAX_CATALOG_RESULTS = 20
 DEFAULT_MAX_TOOL_CALLS = 4
 
 
@@ -19,11 +20,12 @@ class AgentSettings:
 
     model_id: str
     region: str
+    max_catalog_results: int = DEFAULT_MAX_CATALOG_RESULTS
     max_tool_calls: int = DEFAULT_MAX_TOOL_CALLS
 
     def __post_init__(self) -> None:
-        if self.max_tool_calls < 1:
-            raise ValueError("max_tool_calls must be positive")
+        if self.max_catalog_results < 1 or self.max_tool_calls < 1:
+            raise ValueError("agent budgets must be positive")
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +62,11 @@ def load_settings(environ: Mapping[str, str] | None = None) -> AgentSettings:
     return AgentSettings(
         model_id=_required(source, "PRAXIS_MODEL_ID"),
         region=_required(source, "AWS_REGION"),
+        max_catalog_results=_positive_int(
+            source,
+            "PRAXIS_MAX_CATALOG_RESULTS",
+            DEFAULT_MAX_CATALOG_RESULTS,
+        ),
         max_tool_calls=_positive_int(
             source,
             "PRAXIS_MAX_TOOL_CALLS",

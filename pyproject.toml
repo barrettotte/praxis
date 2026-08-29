@@ -8,6 +8,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 classifiers = ["Private :: Do Not Upload"]
 dependencies = [
+  "bedrock-agentcore>=1.8,<2",
   "boto3>=1.43,<2",
   "botocore[crt]",
   "jsonschema>=4.26,<5",

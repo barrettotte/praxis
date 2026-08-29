@@ -5,8 +5,9 @@ from unittest.mock import patch
 from strands.types.tools import AgentTool
 
 from praxis.agent import factory
-from praxis.agent.budget import ToolCallBudget
-from praxis.config import AgentSettings
+from praxis.agent.budget import CatalogResultBudget, ToolCallBudget
+from praxis.agent.evidence import CatalogEvidenceLedger
+from praxis.config import DEFAULT_MAX_CATALOG_RESULTS, AgentSettings
 
 
 def test_system_prompt_defines_the_agent_boundaries() -> None:
@@ -84,3 +85,13 @@ def test_create_agent_uses_nova_tool_calling_parameters() -> None:
     budget = cast("ToolCallBudget", agent_type.return_value.hooks.add_hook.call_args.args[0])
     assert budget.maximum_calls == 4
     assert budget.tool_names == frozenset({tool.tool_name})
+    result_budget = cast(
+        "CatalogResultBudget",
+        agent_type.return_value.hooks.add_hook.call_args_list[1].args[0],
+    )
+    assert result_budget.maximum_results == DEFAULT_MAX_CATALOG_RESULTS
+    evidence_ledger = cast(
+        "CatalogEvidenceLedger",
+        agent_type.return_value.hooks.add_hook.call_args_list[0].args[0],
+    )
+    assert evidence_ledger == CatalogEvidenceLedger()

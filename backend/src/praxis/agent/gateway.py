@@ -13,6 +13,7 @@ from strands.tools.mcp import MCPAgentTool, MCPClient, MCPTransport
 from strands.types.exceptions import EventLoopException, StructuredOutputException
 
 from praxis.agent.budget import ToolCallBudgetError
+from praxis.agent.evidence import EvidenceState, read_evidence_state
 from praxis.agent.factory import create_agent
 from praxis.config import AgentSettings, GatewaySettings
 from praxis.domain import (
@@ -117,16 +118,36 @@ def gateway_agent_session(
         yield create_agent(agent_settings, tools=tools)
 
 
-def validate_gateway_candidate_result(result: AgentResult) -> ProjectCandidateSet:
+def validate_gateway_candidate_result(
+    result: AgentResult,
+    evidence_state: EvidenceState,
+) -> ProjectCandidateSet:
     """Require every Gateway-backed proposal to satisfy the candidate contract."""
+    if evidence_state.conflicting_ids:
+        listed_ids = ", ".join(sorted(evidence_state.conflicting_ids))
+        raise GatewayAgentError(f"Catalog returned conflicting evidence: {listed_ids}")
+    if not evidence_state.evidence_ids:
+        raise GatewayAgentError("No catalog evidence matched the project goal")
+
     output = result.structured_output
     if output is None:
         raise GatewayAgentError("Strands returned no structured project candidates")
     try:
         payload = cast("JsonValue", output.model_dump(mode="json"))
-        return validate_candidate_output(payload)
+        candidates = validate_candidate_output(payload)
     except CandidateOutputValidationError as error:
         raise GatewayAgentError("Strands returned invalid structured project candidates") from error
+    cited_ids = {
+        reference.evidence_id
+        for candidate in candidates.candidates
+        for reference in candidate.evidence_citations
+    }
+    unsupported_ids = cited_ids - evidence_state.evidence_ids
+    if unsupported_ids:
+        raise GatewayAgentError(
+            f"Candidates cited evidence that was not retrieved: {sorted(unsupported_ids)}"
+        )
+    return candidates
 
 
 def invoke_gateway_agent(
@@ -135,9 +156,14 @@ def invoke_gateway_agent(
     gateway_settings: GatewaySettings,
 ) -> GatewayAgentRun:
     """Invoke Strands while its IAM-authenticated MCP connection remains open."""
+    invocation_state: dict[str, object] = {}
     with gateway_agent_session(agent_settings, gateway_settings) as agent:
         try:
-            result = agent(prompt, structured_output_model=ProjectCandidateSet)
+            result = agent(
+                prompt,
+                invocation_state=invocation_state,
+                structured_output_model=ProjectCandidateSet,
+            )
         except ToolCallBudgetError as error:
             raise GatewayAgentError(str(error)) from error
         except EventLoopException as error:
@@ -148,7 +174,7 @@ def invoke_gateway_agent(
             raise GatewayAgentError(
                 "Strands could not produce structured project candidates"
             ) from error
-    candidates = validate_gateway_candidate_result(result)
+    candidates = validate_gateway_candidate_result(result, read_evidence_state(invocation_state))
     tool_calls = tuple(
         sorted(
             (name, metrics.call_count)

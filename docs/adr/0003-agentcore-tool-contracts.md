@@ -31,6 +31,9 @@ expressive. Retrieved facts must also remain distinct from generated analysis.
 - `summarize_experience` and `score_project_candidates` report deterministic,
   factual overlap with historical projects. They do not generate recommendations
   or make model-based quality judgments.
+- The agent keeps an invocation-scoped ledger of returned evidence IDs and stable
+  facts. It rejects conflicting facts for one ID and final citations absent from
+  that ledger; an empty or conflicted ledger cannot produce recommendations.
 - Optional values that are empty or absent are omitted from evidence projections
   rather than placed in agent context as empty strings or nulls.
 - Known validation, lookup, timeout, and dependency failures are normalized to
@@ -56,3 +59,5 @@ and the
   enforcement of limits, patterns, enums, or extra-field rejection.
 - Experience scoring remains auditable through stable evidence IDs and cannot be
   mistaken for an LLM recommendation.
+- Recommendation grounding is enforced against current-invocation tool results,
+  independent of model instructions.

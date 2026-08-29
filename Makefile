@@ -5,6 +5,12 @@ UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
 NPM ?= npm
 TOFU ?= tofu
 TFLINT ?= tflint
+CONTAINER_TOOL ?= podman
+AGENT_IMAGE ?= praxis-agent:dev
+AGENT_PLATFORM ?= linux/arm64
+HOST_CONTAINER_ARCH ?= $(shell uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')
+AGENT_SMOKE_IMAGE ?= praxis-agent:smoke
+AGENT_SMOKE_PLATFORM ?= linux/$(HOST_CONTAINER_ARCH)
 AWS_PROFILE ?= praxis-dev
 TOFU_BOOTSTRAP_PLAN ?= bootstrap.tfplan
 TOFU_BOOTSTRAP_DESTROY_PLAN ?= bootstrap-destroy.tfplan
@@ -17,7 +23,7 @@ FRONTEND_NPM := $(NPM) --prefix frontend
 
 export UV_CACHE_DIR
 
-.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-functions agent eval-baseline tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-catalog-dev smoke-gateway-dev smoke-agent-gateway-dev dev-frontend
+.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-functions agent agent-image smoke-agent-container eval-baseline tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-catalog-dev smoke-gateway-dev smoke-agent-gateway-dev dev-frontend
 
 help: ## Show the available Make targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-30s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -69,6 +75,13 @@ package-functions: ## Build the reproducible Python 3.13 Lambda ZIP
 agent: ## Run the local Strands agent; pass PROMPT='your goal'
 	@test -n "$(PROMPT)" || { echo "PROMPT is required (example: make agent PROMPT='Suggest a project')"; exit 2; }
 	@set -a; if [ -f .env ]; then . ./.env; fi; set +a; $(UV) run praxis "$(PROMPT)"
+
+agent-image: ## Build the Python 3.13 ARM64 AgentCore Runtime image
+	$(CONTAINER_TOOL) build --platform $(AGENT_PLATFORM) --file backend/Containerfile --tag $(AGENT_IMAGE) .
+
+smoke-agent-container: ## Verify the local AgentCore Runtime container health endpoint
+	$(CONTAINER_TOOL) build --platform $(AGENT_SMOKE_PLATFORM) --file backend/Containerfile --tag $(AGENT_SMOKE_IMAGE) .
+	CONTAINER_TOOL=$(CONTAINER_TOOL) AGENT_IMAGE=$(AGENT_SMOKE_IMAGE) AGENT_PLATFORM=$(AGENT_SMOKE_PLATFORM) ./scripts/smoke-agent-container.sh
 
 eval-baseline: ## Run the project-recommendation model baseline and save versioned results
 	@set -a; if [ -f .env ]; then . ./.env; fi; set +a; $(UV) run python -m praxis.evaluation

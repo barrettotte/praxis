@@ -7,7 +7,8 @@ from strands import Agent
 from strands.models import BedrockModel
 from strands.types.tools import AgentTool
 
-from praxis.agent.budget import ToolCallBudget
+from praxis.agent.budget import CatalogResultBudget, ToolCallBudget
+from praxis.agent.evidence import CatalogEvidenceLedger
 from praxis.config import AgentSettings, load_settings
 
 SYSTEM_PROMPT = """## Role
@@ -71,6 +72,8 @@ def create_agent(
         callback_handler=None,
     )
     if tools:
+        agent.hooks.add_hook(CatalogEvidenceLedger())
+        agent.hooks.add_hook(CatalogResultBudget(maximum_results=settings.max_catalog_results))
         agent.hooks.add_hook(
             ToolCallBudget(
                 maximum_calls=settings.max_tool_calls,
