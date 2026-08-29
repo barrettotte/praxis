@@ -13,14 +13,14 @@ class CandidateModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True, str_strip_whitespace=True)
 
 
-class EvidenceReference(CandidateModel):
-    """A generated explanation linked to a retrieved evidence record."""
+class EvidenceCitation(CandidateModel):
+    """A retrieved evidence identifier with generated relevance analysis."""
 
     evidence_id: Annotated[
         str,
         Field(pattern=r"^(book|byte|museum|project):[0-9a-f]{16}$"),
     ]
-    connection: Annotated[str, Field(min_length=1, max_length=240)]
+    generated_connection: Annotated[str, Field(min_length=1, max_length=240)]
 
 
 class ProjectCandidate(CandidateModel):
@@ -34,7 +34,7 @@ class ProjectCandidate(CandidateModel):
         list[Annotated[str, Field(min_length=1, max_length=40)]], Field(min_length=1, max_length=6)
     ]
     first_milestone: Annotated[str, Field(min_length=1, max_length=300)]
-    evidence: Annotated[list[EvidenceReference], Field(min_length=1, max_length=4)]
+    evidence_citations: Annotated[list[EvidenceCitation], Field(min_length=1, max_length=4)]
 
 
 class ProjectCandidateSet(CandidateModel):

@@ -142,7 +142,7 @@ def _quality(run: ProjectPlanningRun, expectation: CaseExpectation) -> QualityRe
     cited_ids = {
         reference.evidence_id
         for candidate in run.candidates.candidates
-        for reference in candidate.evidence
+        for reference in candidate.evidence_citations
     }
     expected_records = {record.evidence_id: record.kind for record in expectation.evidence.any_of}
     matched_ids = cited_ids & expected_records.keys()
@@ -218,7 +218,7 @@ def _run_case(
         {
             reference.evidence_id
             for candidate in run.candidates.candidates
-            for reference in candidate.evidence
+            for reference in candidate.evidence_citations
         }
     )
     return EvaluationCaseResult(

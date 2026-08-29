@@ -6,6 +6,7 @@ import pytest
 from praxis.agent import gateway_smoke
 from praxis.agent.gateway import GatewayAgentError, GatewayAgentRun
 from praxis.config import AgentSettings, GatewaySettings
+from praxis.domain import EvidenceCitation, ProjectCandidate, ProjectCandidateSet
 
 
 def agent_settings() -> AgentSettings:
@@ -17,6 +18,28 @@ def gateway_settings() -> GatewaySettings:
         url="https://example.gateway.test/mcp",
         region="us-east-1",
         profile="praxis-dev",
+    )
+
+
+def candidate_set() -> ProjectCandidateSet:
+    return ProjectCandidateSet(
+        candidates=[
+            ProjectCandidate(
+                title=f"Candidate {number}",
+                summary="Build a focused compiler project.",
+                rationale="The evidence provides relevant implementation context.",
+                estimated_scope="multi-week",
+                technologies=["Python"],
+                first_milestone="Implement one instruction-selection rule.",
+                evidence_citations=[
+                    EvidenceCitation(
+                        evidence_id="book:0f5ba253568e4836",
+                        generated_connection="The book covers compiler backend development.",
+                    )
+                ],
+            )
+            for number in range(1, 4)
+        ]
     )
 
 
@@ -50,7 +73,7 @@ def test_run_invokes_agent_with_discovered_gateway_tools(
 ) -> None:
     tools = ("praxis-dev-catalog___search_catalog",)
     agent_run = GatewayAgentRun(
-        response="Build an LLVM instruction-selection explorer.",
+        candidates=candidate_set(),
         tool_calls=(("praxis-dev-catalog___search_catalog", 1),),
     )
 
@@ -78,13 +101,16 @@ def test_run_invokes_agent_with_discovered_gateway_tools(
         tmp_path,
     )
 
-    assert result["response"] == agent_run.response
+    assert result["candidates"] == candidate_set().model_dump(mode="json")
     assert result["tool_calls"] == [{"count": 1, "name": "praxis-dev-catalog___search_catalog"}]
     assert json.loads((tmp_path / "strands-gateway-agent-run.json").read_text()) == {
+        "all_candidates_cited": True,
         "authentication": "AWS_IAM",
+        "candidate_count": 3,
         "client": "Strands Agent with MCPClient",
+        "evidence_citation_count": 3,
         "model_id": "amazon.nova-micro-v1:0",
-        "response_received": True,
+        "tool_call_budget": 4,
         "tool_calls": [{"count": 1, "name": "praxis-dev-catalog___search_catalog"}],
     }
 
@@ -101,7 +127,7 @@ def test_run_rejects_an_agent_response_without_gateway_tool_calls(
         _gateway_settings: GatewaySettings,
     ) -> GatewayAgentRun:
         return GatewayAgentRun(
-            response="Unsupported recommendation",
+            candidates=candidate_set(),
             tool_calls=(),
         )
 

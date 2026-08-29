@@ -33,8 +33,8 @@ def render_candidates(result: ProjectCandidateSet) -> str:
     for index, candidate in enumerate(result.candidates, start=1):
         technologies = ", ".join(candidate.technologies)
         evidence = "\n".join(
-            f"   - {reference.evidence_id}: {reference.connection}"
-            for reference in candidate.evidence
+            f"   - {reference.evidence_id}: {reference.generated_connection}"
+            for reference in candidate.evidence_citations
         )
         sections.append(
             f"{index}. {candidate.title} [{candidate.estimated_scope}]\n"

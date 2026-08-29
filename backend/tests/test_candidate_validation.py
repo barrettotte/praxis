@@ -22,10 +22,10 @@ def candidate_payload() -> dict[str, JsonValue]:
                 "estimated_scope": "multi-week",
                 "technologies": ["TypeScript"],
                 "first_milestone": "Render one static notebook entry.",
-                "evidence": [
+                "evidence_citations": [
                     {
                         "evidence_id": EVIDENCE_ID,
-                        "connection": "The record demonstrates related experience.",
+                        "generated_connection": "The record demonstrates related experience.",
                     }
                 ],
             }
@@ -54,9 +54,24 @@ def test_validate_candidate_output_accepts_valid_payload() -> None:
 
 def test_validate_candidate_output_rejects_schema_violation() -> None:
     payload = candidate_payload()
-    candidate_records(payload)[0].pop("evidence")
+    candidate_records(payload)[0].pop("evidence_citations")
 
-    with pytest.raises(CandidateOutputValidationError, match=r"JSON Schema.*evidence"):
+    with pytest.raises(CandidateOutputValidationError, match=r"JSON Schema.*evidence_citations"):
+        validate_candidate_output(payload)
+
+
+def test_validate_candidate_output_rejects_ambiguous_evidence_fields() -> None:
+    payload = candidate_payload()
+    candidate = candidate_records(payload)[0]
+    citations = cast("list[dict[str, JsonValue]]", candidate.pop("evidence_citations"))
+    candidate["evidence"] = [
+        {
+            "evidence_id": citations[0]["evidence_id"],
+            "connection": citations[0]["generated_connection"],
+        }
+    ]
+
+    with pytest.raises(CandidateOutputValidationError, match=r"JSON Schema"):
         validate_candidate_output(payload)
 
 

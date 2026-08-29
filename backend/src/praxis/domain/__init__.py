@@ -5,7 +5,7 @@ from praxis.domain.candidate_validation import (
     candidate_output_schema,
     validate_candidate_output,
 )
-from praxis.domain.candidates import EvidenceReference, ProjectCandidate, ProjectCandidateSet
+from praxis.domain.candidates import EvidenceCitation, ProjectCandidate, ProjectCandidateSet
 from praxis.domain.models import (
     Book,
     Byte,
@@ -20,7 +20,7 @@ __all__ = [
     "Byte",
     "ByteModel",
     "CandidateOutputValidationError",
-    "EvidenceReference",
+    "EvidenceCitation",
     "ModelPart",
     "MuseumObject",
     "Project",

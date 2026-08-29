@@ -6,10 +6,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from mcp.types import Tool as MCPTool
+from strands.agent.agent_result import AgentResult
 from strands.tools.mcp import MCPAgentTool, MCPClient, MCPTransport
+from strands.types.exceptions import EventLoopException
 
 from praxis.agent import gateway
+from praxis.agent.budget import ToolCallBudgetError
 from praxis.config import AgentSettings, GatewaySettings
+from praxis.domain import EvidenceCitation, ProjectCandidate, ProjectCandidateSet
 
 
 def gateway_settings() -> GatewaySettings:
@@ -33,6 +37,28 @@ def catalog_tools() -> list[MCPAgentTool]:
         )
         for name in gateway.EXPECTED_CATALOG_TOOLS
     ]
+
+
+def candidate_set() -> ProjectCandidateSet:
+    return ProjectCandidateSet(
+        candidates=[
+            ProjectCandidate(
+                title=f"Candidate {number}",
+                summary="Build a focused compiler project.",
+                rationale="The evidence provides relevant implementation context.",
+                estimated_scope="multi-week",
+                technologies=["Python"],
+                first_milestone="Implement one instruction-selection rule.",
+                evidence_citations=[
+                    EvidenceCitation(
+                        evidence_id="book:0f5ba253568e4836",
+                        generated_connection="The book covers compiler backend development.",
+                    )
+                ],
+            )
+            for number in range(1, 4)
+        ]
+    )
 
 
 def test_create_gateway_client_uses_sigv4_and_catalog_allowlist() -> None:
@@ -99,15 +125,14 @@ def test_gateway_agent_session_keeps_client_open_while_constructing_agent() -> N
 def test_invoke_gateway_agent_keeps_session_open_during_model_invocation() -> None:
     class StubAgentResult:
         def __init__(self) -> None:
+            self.structured_output = candidate_set()
             self.metrics = SimpleNamespace(
                 tool_metrics={
-                    "praxis-dev-catalog___search_catalog": SimpleNamespace(call_count=1),
-                    "praxis-dev-catalog___get_catalog_item": SimpleNamespace(call_count=0),
+                    "search_catalog": SimpleNamespace(call_count=1),
+                    "get_catalog_item": SimpleNamespace(call_count=0),
+                    "ProjectCandidateSet": SimpleNamespace(call_count=1),
                 }
             )
-
-        def __str__(self) -> str:
-            return "Evidence-backed recommendation"
 
     fake_agent = MagicMock()
     fake_agent.return_value = StubAgentResult()
@@ -127,6 +152,47 @@ def test_invoke_gateway_agent_keeps_session_open_during_model_invocation() -> No
 
     session.__enter__.assert_called_once_with()
     session.__exit__.assert_called_once()
-    fake_agent.assert_called_once_with("Recommend a compiler project")
-    assert result.response == "Evidence-backed recommendation"
-    assert result.tool_calls == (("praxis-dev-catalog___search_catalog", 1),)
+    fake_agent.assert_called_once_with(
+        "Recommend a compiler project",
+        structured_output_model=ProjectCandidateSet,
+    )
+    assert result.candidates == candidate_set()
+    assert result.tool_calls == (("search_catalog", 1),)
+
+
+def test_validate_gateway_candidate_result_rejects_uncited_candidates() -> None:
+    invalid_output = MagicMock()
+    invalid_output.model_dump.return_value = {
+        "candidates": [
+            {
+                "title": f"Candidate {number}",
+                "summary": "Build a focused compiler project.",
+                "rationale": "It appears relevant.",
+                "estimated_scope": "multi-week",
+                "technologies": ["Python"],
+                "first_milestone": "Implement one instruction-selection rule.",
+            }
+            for number in range(1, 4)
+        ]
+    }
+    result = cast("AgentResult", SimpleNamespace(structured_output=invalid_output))
+
+    with pytest.raises(gateway.GatewayAgentError, match="invalid structured"):
+        gateway.validate_gateway_candidate_result(result)
+
+
+def test_invoke_gateway_agent_reports_exhausted_tool_call_budget() -> None:
+    budget_error = ToolCallBudgetError("budget exhausted")
+    fake_agent = MagicMock(side_effect=EventLoopException(budget_error))
+    session = MagicMock()
+    session.__enter__.return_value = fake_agent
+
+    with (
+        patch.object(gateway, "gateway_agent_session", return_value=session),
+        pytest.raises(gateway.GatewayAgentError, match="budget exhausted"),
+    ):
+        gateway.invoke_gateway_agent(
+            "Recommend a compiler project",
+            AgentSettings(model_id="amazon.nova-micro-v1:0", region="us-east-1"),
+            gateway_settings(),
+        )

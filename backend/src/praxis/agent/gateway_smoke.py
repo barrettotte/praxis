@@ -10,11 +10,11 @@ from praxis.agent.gateway import (
     discover_gateway_tool_names,
     invoke_gateway_agent,
 )
-from praxis.config import AgentSettings, GatewaySettings
+from praxis.config import DEFAULT_MAX_TOOL_CALLS, AgentSettings, GatewaySettings
 
 DEFAULT_PROMPT = (
-    "Call search_catalog once with query 'compiler backend' and limit 3. Then recommend "
-    "one learning project using only the returned evidence and cite its evidence IDs."
+    "Call search_catalog once with query 'compiler' and limit 3. Then return exactly three "
+    "learning-project candidates using only the returned evidence."
 )
 
 
@@ -41,10 +41,17 @@ def write_agent_evidence(
     evidence_directory.mkdir(parents=True, exist_ok=True)
     evidence_path = evidence_directory / "strands-gateway-agent-run.json"
     capture = {
+        "all_candidates_cited": all(
+            candidate.evidence_citations for candidate in agent_run.candidates.candidates
+        ),
         "authentication": "AWS_IAM",
+        "candidate_count": len(agent_run.candidates.candidates),
         "client": "Strands Agent with MCPClient",
+        "evidence_citation_count": sum(
+            len(candidate.evidence_citations) for candidate in agent_run.candidates.candidates
+        ),
         "model_id": settings.model_id,
-        "response_received": bool(agent_run.response.strip()),
+        "tool_call_budget": settings.max_tool_calls,
         "tool_calls": [{"count": count, "name": name} for name, count in agent_run.tool_calls],
     }
     evidence_path.write_text(f"{json.dumps(capture, indent=2, sort_keys=True)}\n")
@@ -60,8 +67,6 @@ def run(
     """Discover Gateway tools and require one tool-using Strands invocation."""
     tools = discover_gateway_tool_names(gateway_settings)
     agent_run = invoke_gateway_agent(prompt, agent_settings, gateway_settings)
-    if not agent_run.response.strip():
-        raise GatewayAgentError("Strands returned an empty response")
     if not agent_run.tool_calls:
         raise GatewayAgentError("Strands did not call an AgentCore Gateway tool")
     tools_evidence_path = (
@@ -75,7 +80,7 @@ def run(
     return {
         "iam_authenticated": True,
         "model_id": agent_settings.model_id,
-        "response": agent_run.response,
+        "candidates": agent_run.candidates.model_dump(mode="json"),
         "tool_calls": [{"count": count, "name": name} for name, count in agent_run.tool_calls],
         "tools": list(tools),
         "captures": {
@@ -92,12 +97,14 @@ def main() -> None:
     parser.add_argument("--region", default="us-east-1")
     parser.add_argument("--profile")
     parser.add_argument("--model-id", required=True)
+    parser.add_argument("--max-tool-calls", type=int, default=DEFAULT_MAX_TOOL_CALLS)
     parser.add_argument("--prompt", default=DEFAULT_PROMPT)
     parser.add_argument("--evidence-directory", type=Path)
     arguments = parser.parse_args()
     agent_settings = AgentSettings(
         model_id=arguments.model_id,
         region=arguments.region,
+        max_tool_calls=arguments.max_tool_calls,
     )
     gateway_settings = GatewaySettings(
         url=arguments.url,

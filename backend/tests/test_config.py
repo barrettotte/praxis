@@ -6,6 +6,7 @@ import pytest
 
 from praxis.config import (
     DEFAULT_CATALOG_DIRECTORY,
+    DEFAULT_MAX_TOOL_CALLS,
     AgentSettings,
     GatewaySettings,
     SettingsError,
@@ -27,7 +28,32 @@ def test_load_settings() -> None:
     assert settings == AgentSettings(
         model_id="example.model-v1:0",
         region="us-east-1",
+        max_tool_calls=DEFAULT_MAX_TOOL_CALLS,
     )
+
+
+def test_load_settings_reads_tool_call_budget() -> None:
+    settings = load_settings(
+        {
+            "PRAXIS_MODEL_ID": "example.model-v1:0",
+            "AWS_REGION": "us-east-1",
+            "PRAXIS_MAX_TOOL_CALLS": "2",
+        }
+    )
+
+    assert settings.max_tool_calls == 2
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "many"])
+def test_load_settings_rejects_invalid_tool_call_budget(value: str) -> None:
+    with pytest.raises(SettingsError, match="PRAXIS_MAX_TOOL_CALLS must be a positive integer"):
+        load_settings(
+            {
+                "PRAXIS_MODEL_ID": "example.model-v1:0",
+                "AWS_REGION": "us-east-1",
+                "PRAXIS_MAX_TOOL_CALLS": value,
+            }
+        )
 
 
 @pytest.mark.parametrize("missing_name", ["PRAXIS_MODEL_ID", "AWS_REGION"])

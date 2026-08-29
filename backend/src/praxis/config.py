@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 DEFAULT_CATALOG_DIRECTORY = Path("../barrettotte.github.io/data")
+DEFAULT_MAX_TOOL_CALLS = 4
 
 
 class SettingsError(RuntimeError):
@@ -18,6 +19,11 @@ class AgentSettings:
 
     model_id: str
     region: str
+    max_tool_calls: int = DEFAULT_MAX_TOOL_CALLS
+
+    def __post_init__(self) -> None:
+        if self.max_tool_calls < 1:
+            raise ValueError("max_tool_calls must be positive")
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,12 +43,28 @@ def _required(source: Mapping[str, str], name: str) -> str:
     return value
 
 
+def _positive_int(source: Mapping[str, str], name: str, default: int) -> int:
+    raw_value = source.get(name, str(default)).strip()
+    try:
+        value = int(raw_value)
+    except ValueError as error:
+        raise SettingsError(f"{name} must be a positive integer") from error
+    if value < 1:
+        raise SettingsError(f"{name} must be a positive integer")
+    return value
+
+
 def load_settings(environ: Mapping[str, str] | None = None) -> AgentSettings:
     """Load agent settings from environment variables."""
     source = os.environ if environ is None else environ
     return AgentSettings(
         model_id=_required(source, "PRAXIS_MODEL_ID"),
         region=_required(source, "AWS_REGION"),
+        max_tool_calls=_positive_int(
+            source,
+            "PRAXIS_MAX_TOOL_CALLS",
+            DEFAULT_MAX_TOOL_CALLS,
+        ),
     )
 
 

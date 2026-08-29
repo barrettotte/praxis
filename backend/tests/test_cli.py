@@ -8,7 +8,7 @@ import pytest
 
 from praxis import cli
 from praxis.catalog import InMemoryCatalog
-from praxis.domain import EvidenceReference, ProjectCandidate, ProjectCandidateSet
+from praxis.domain import EvidenceCitation, ProjectCandidate, ProjectCandidateSet
 from praxis.domain.candidate_validation import JsonValue
 
 FIXTURE_DIRECTORY = Path(__file__).parents[2] / "data" / "fixtures"
@@ -23,10 +23,10 @@ def response() -> ProjectCandidateSet:
             estimated_scope="weekend",
             technologies=["Python"],
             first_milestone="Print one evidence-backed result.",
-            evidence=[
-                EvidenceReference(
+            evidence_citations=[
+                EvidenceCitation(
                     evidence_id="book:0000000000000000",
-                    connection="Generated explanation of the evidence connection.",
+                    generated_connection="Generated explanation of the evidence connection.",
                 )
             ],
         )

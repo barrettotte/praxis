@@ -1,17 +1,23 @@
 from pathlib import Path
+from typing import cast
+from unittest.mock import MagicMock
 
 import pytest
 from pydantic import ValidationError
+from strands import Agent
+from strands.types.exceptions import EventLoopException
 
+from praxis.agent.budget import ToolCallBudgetError
 from praxis.agent.planner import (
     CandidateGeneration,
     CandidatePlanningError,
+    StrandsCandidateGenerator,
     plan_project_candidates,
     plan_project_candidates_with_trace,
 )
 from praxis.catalog import InMemoryCatalog, SearchCatalogRequest, search_catalog
 from praxis.domain import (
-    EvidenceReference,
+    EvidenceCitation,
     ProjectCandidate,
     ProjectCandidateSet,
 )
@@ -39,10 +45,12 @@ def candidate_set(evidence_id: str) -> ProjectCandidateSet:
             estimated_scope="multi-week",
             technologies=["TypeScript"],
             first_milestone="Render one static notebook entry.",
-            evidence=[
-                EvidenceReference(
+            evidence_citations=[
+                EvidenceCitation(
                     evidence_id=evidence_id,
-                    connection="The record demonstrates related implementation experience.",
+                    generated_connection=(
+                        "The record demonstrates related implementation experience."
+                    ),
                 )
             ],
         )
@@ -91,6 +99,14 @@ def test_plan_project_candidates_requires_matching_evidence() -> None:
 
     with pytest.raises(CandidatePlanningError, match="No catalog evidence"):
         plan_project_candidates("zyxwvutsrq", catalog, generator)
+
+
+def test_strands_generator_reports_exhausted_tool_call_budget() -> None:
+    budget_error = ToolCallBudgetError("budget exhausted")
+    agent = cast("Agent", MagicMock(side_effect=EventLoopException(budget_error)))
+
+    with pytest.raises(CandidatePlanningError, match="budget exhausted"):
+        StrandsCandidateGenerator(agent).generate("Recommend a project")
 
 
 @pytest.mark.parametrize("candidate_count", [2, 4])

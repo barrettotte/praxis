@@ -274,10 +274,10 @@ Definition of done: an authenticated MCP client can discover and invoke all read
 - [x] Use a Bedrock conversation API
 - [x] Read the Nova Micro model ID from environment configuration
 - [x] Connect the agent to AgentCore Gateway
-- [ ] Define the system instructions
-- [ ] Require evidence IDs for every proposed project
-- [ ] Separate factual evidence from generated recommendations
-- [ ] Add a maximum tool-call budget
+- [x] Define the system instructions
+- [x] Require evidence IDs for every proposed project
+- [x] Separate factual evidence from generated recommendations
+- [x] Add a maximum tool-call budget
 - [ ] Add a maximum catalog-result budget
 - [ ] Handle empty or contradictory results
 - [ ] Containerize the agent

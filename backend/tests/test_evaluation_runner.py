@@ -9,7 +9,7 @@ from praxis.agent.planner import (
 )
 from praxis.catalog import InMemoryCatalog
 from praxis.config import AgentSettings
-from praxis.domain import EvidenceReference, ProjectCandidate, ProjectCandidateSet
+from praxis.domain import EvidenceCitation, ProjectCandidate, ProjectCandidateSet
 from praxis.evaluation import EvaluationExpectations, EvaluationSet
 from praxis.evaluation.runner import PlanningInvoker, run_baseline
 
@@ -31,10 +31,12 @@ def _candidate_set(evidence_ids: list[str]) -> ProjectCandidateSet:
                 estimated_scope="weekend",
                 technologies=["Python"],
                 first_milestone="Build and test one independently verifiable command.",
-                evidence=[
-                    EvidenceReference(
+                evidence_citations=[
+                    EvidenceCitation(
                         evidence_id=evidence_id,
-                        connection="This record supports the proposed project direction.",
+                        generated_connection=(
+                            "This record supports the proposed project direction."
+                        ),
                     )
                     for evidence_id in selected_ids
                 ],

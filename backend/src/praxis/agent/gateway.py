@@ -4,13 +4,23 @@ import re
 from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
+from typing import cast
 
 from mcp_proxy_for_aws.client import aws_iam_streamablehttp_client
 from strands import Agent
+from strands.agent.agent_result import AgentResult
 from strands.tools.mcp import MCPAgentTool, MCPClient, MCPTransport
+from strands.types.exceptions import EventLoopException, StructuredOutputException
 
+from praxis.agent.budget import ToolCallBudgetError
 from praxis.agent.factory import create_agent
 from praxis.config import AgentSettings, GatewaySettings
+from praxis.domain import (
+    CandidateOutputValidationError,
+    ProjectCandidateSet,
+    validate_candidate_output,
+)
+from praxis.domain.candidate_validation import JsonValue
 
 GATEWAY_SIGNING_SERVICE = "bedrock-agentcore"
 EXPECTED_CATALOG_TOOLS = (
@@ -32,7 +42,7 @@ class GatewayAgentError(RuntimeError):
 class GatewayAgentRun:
     """Observable result of one Strands invocation through AgentCore Gateway."""
 
-    response: str
+    candidates: ProjectCandidateSet
     tool_calls: tuple[tuple[str, int], ...]
 
 
@@ -107,6 +117,18 @@ def gateway_agent_session(
         yield create_agent(agent_settings, tools=tools)
 
 
+def validate_gateway_candidate_result(result: AgentResult) -> ProjectCandidateSet:
+    """Require every Gateway-backed proposal to satisfy the candidate contract."""
+    output = result.structured_output
+    if output is None:
+        raise GatewayAgentError("Strands returned no structured project candidates")
+    try:
+        payload = cast("JsonValue", output.model_dump(mode="json"))
+        return validate_candidate_output(payload)
+    except CandidateOutputValidationError as error:
+        raise GatewayAgentError("Strands returned invalid structured project candidates") from error
+
+
 def invoke_gateway_agent(
     prompt: str,
     agent_settings: AgentSettings,
@@ -114,12 +136,24 @@ def invoke_gateway_agent(
 ) -> GatewayAgentRun:
     """Invoke Strands while its IAM-authenticated MCP connection remains open."""
     with gateway_agent_session(agent_settings, gateway_settings) as agent:
-        result = agent(prompt)
+        try:
+            result = agent(prompt, structured_output_model=ProjectCandidateSet)
+        except ToolCallBudgetError as error:
+            raise GatewayAgentError(str(error)) from error
+        except EventLoopException as error:
+            if isinstance(error.original_exception, ToolCallBudgetError):
+                raise GatewayAgentError(str(error.original_exception)) from error
+            raise
+        except StructuredOutputException as error:
+            raise GatewayAgentError(
+                "Strands could not produce structured project candidates"
+            ) from error
+    candidates = validate_gateway_candidate_result(result)
     tool_calls = tuple(
         sorted(
             (name, metrics.call_count)
             for name, metrics in result.metrics.tool_metrics.items()
-            if metrics.call_count > 0
+            if name in EXPECTED_CATALOG_TOOLS and metrics.call_count > 0
         )
     )
-    return GatewayAgentRun(response=str(result), tool_calls=tool_calls)
+    return GatewayAgentRun(candidates=candidates, tool_calls=tool_calls)

@@ -11,7 +11,8 @@ if [[ -f "${praxis_repo_root}/.env" ]]; then
   set +a
 fi
 praxis_model_id="${PRAXIS_MODEL_ID:-}"
-praxis_prompt="${PROMPT:-Call search_catalog once with query 'compiler backend' and limit 3. Then recommend one learning project using only the returned evidence and cite its evidence IDs.}"
+praxis_max_tool_calls="${PRAXIS_MAX_TOOL_CALLS:-4}"
+praxis_prompt="${PROMPT:-Call search_catalog once with query 'compiler' and limit 3. Then return exactly three learning-project candidates using only the returned evidence.}"
 if [[ -z "${praxis_model_id}" ]]; then
   printf 'PRAXIS_MODEL_ID is required; set it in .env or the environment\n' >&2
   exit 2
@@ -28,5 +29,6 @@ UV_CACHE_DIR="${praxis_repo_root}/.cache/uv" uv run --project "${praxis_repo_roo
   --profile "${praxis_profile}" \
   --region "${praxis_region}" \
   --model-id "${praxis_model_id}" \
+  --max-tool-calls "${praxis_max_tool_calls}" \
   --prompt "${praxis_prompt}" \
   --evidence-directory "${praxis_repo_root}/docs/evidence"
