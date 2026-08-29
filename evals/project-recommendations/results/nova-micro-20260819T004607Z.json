@@ -1,5 +1,5 @@
 {
-  "suite": "phase1-local-baseline",
+  "suite": "project-recommendation-baseline",
   "prompts_version": 1,
   "expectations_version": 1,
   "result_version": 1,
@@ -33,7 +33,7 @@
   },
   "cases": [
     {
-      "case_id": "phase1-01-retro-python",
+      "case_id": "project-01-retro-python",
       "category": "straightforward",
       "succeeded": true,
       "candidates": {
@@ -147,7 +147,7 @@
       "error_message": null
     },
     {
-      "case_id": "phase1-02-typescript-visualization",
+      "case_id": "project-02-typescript-visualization",
       "category": "straightforward",
       "succeeded": true,
       "candidates": {
@@ -262,7 +262,7 @@
       "error_message": null
     },
     {
-      "case_id": "phase1-03-cpp-game-history",
+      "case_id": "project-03-cpp-game-history",
       "category": "constrained",
       "succeeded": true,
       "candidates": {
@@ -383,7 +383,7 @@
       "error_message": null
     },
     {
-      "case_id": "phase1-04-electronics-printing",
+      "case_id": "project-04-electronics-printing",
       "category": "straightforward",
       "succeeded": true,
       "candidates": {
@@ -501,7 +501,7 @@
       "error_message": null
     },
     {
-      "case_id": "phase1-05-museum-education",
+      "case_id": "project-05-museum-education",
       "category": "straightforward",
       "succeeded": true,
       "candidates": {
@@ -627,7 +627,7 @@
       "error_message": null
     },
     {
-      "case_id": "phase1-06-rust-systems",
+      "case_id": "project-06-rust-systems",
       "category": "straightforward",
       "succeeded": true,
       "candidates": {
@@ -742,7 +742,7 @@
       "error_message": null
     },
     {
-      "case_id": "phase1-07-security-python",
+      "case_id": "project-07-security-python",
       "category": "straightforward",
       "succeeded": true,
       "candidates": {
@@ -859,7 +859,7 @@
       "error_message": null
     },
     {
-      "case_id": "phase1-08-unspecified-weekend",
+      "case_id": "project-08-unspecified-weekend",
       "category": "ambiguous",
       "succeeded": true,
       "candidates": {
@@ -973,7 +973,7 @@
       "error_message": null
     },
     {
-      "case_id": "phase1-09-evening-no-hardware",
+      "case_id": "project-09-evening-no-hardware",
       "category": "constrained",
       "succeeded": true,
       "candidates": {
@@ -1088,7 +1088,7 @@
       "error_message": null
     },
     {
-      "case_id": "phase1-10-impossible-scale",
+      "case_id": "project-10-impossible-scale",
       "category": "infeasible",
       "succeeded": true,
       "candidates": {

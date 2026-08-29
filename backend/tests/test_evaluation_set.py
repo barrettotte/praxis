@@ -4,29 +4,33 @@ from pydantic import TypeAdapter
 
 from praxis.evaluation import EvaluationExpectations, EvaluationSet
 
-EVALUATION_SET_PATH = Path(__file__).parents[2] / "evals" / "phase1" / "prompts.json"
-EXPECTATIONS_PATH = Path(__file__).parents[2] / "evals" / "phase1" / "expectations.json"
+EVALUATION_SET_PATH = (
+    Path(__file__).parents[2] / "evals" / "project-recommendations" / "prompts.json"
+)
+EXPECTATIONS_PATH = (
+    Path(__file__).parents[2] / "evals" / "project-recommendations" / "expectations.json"
+)
 
 
-def test_phase1_evaluation_set_is_valid_and_stable() -> None:
+def test_project_recommendation_evaluation_set_is_valid_and_stable() -> None:
     evaluation_set = TypeAdapter(EvaluationSet).validate_json(EVALUATION_SET_PATH.read_bytes())
 
-    assert evaluation_set.suite == "phase1-local-baseline"
+    assert evaluation_set.suite == "project-recommendation-baseline"
     assert evaluation_set.version == 1
     assert len(evaluation_set.cases) == 10
-    assert [case.id[:9] for case in evaluation_set.cases] == [
-        f"phase1-{number:02}" for number in range(1, 11)
+    assert [case.id[:10] for case in evaluation_set.cases] == [
+        f"project-{number:02}" for number in range(1, 11)
     ]
 
 
-def test_phase1_evaluation_set_covers_request_difficulty() -> None:
+def test_project_recommendation_evaluation_set_covers_request_difficulty() -> None:
     evaluation_set = TypeAdapter(EvaluationSet).validate_json(EVALUATION_SET_PATH.read_bytes())
 
     categories = {case.category for case in evaluation_set.cases}
     assert categories == {"straightforward", "ambiguous", "constrained", "infeasible"}
 
 
-def test_phase1_evaluation_set_covers_core_domains() -> None:
+def test_project_recommendation_evaluation_set_covers_core_domains() -> None:
     evaluation_set = TypeAdapter(EvaluationSet).validate_json(EVALUATION_SET_PATH.read_bytes())
     tags = {tag for case in evaluation_set.cases for tag in case.tags}
 
@@ -34,7 +38,7 @@ def test_phase1_evaluation_set_covers_core_domains() -> None:
     assert {"cpp", "python", "rust", "typescript"} <= tags
 
 
-def test_phase1_expectations_align_with_every_prompt() -> None:
+def test_project_recommendation_expectations_align_with_every_prompt() -> None:
     evaluation_set = TypeAdapter(EvaluationSet).validate_json(EVALUATION_SET_PATH.read_bytes())
     expectations = TypeAdapter(EvaluationExpectations).validate_json(EXPECTATIONS_PATH.read_bytes())
 
@@ -45,7 +49,7 @@ def test_phase1_expectations_align_with_every_prompt() -> None:
     ]
 
 
-def test_phase1_expectations_preserve_evidence_metadata() -> None:
+def test_project_recommendation_expectations_preserve_evidence_metadata() -> None:
     expectations = TypeAdapter(EvaluationExpectations).validate_json(EXPECTATIONS_PATH.read_bytes())
     records = [
         record
@@ -64,5 +68,5 @@ def test_history_aware_cases_expect_project_comparison() -> None:
         for expectation in expectations.expectations
     }
 
-    assert "compare_project_history" in tools_by_case["phase1-03-cpp-game-history"]
-    assert "compare_project_history" in tools_by_case["phase1-07-security-python"]
+    assert "compare_project_history" in tools_by_case["project-03-cpp-game-history"]
+    assert "compare_project_history" in tools_by_case["project-07-security-python"]

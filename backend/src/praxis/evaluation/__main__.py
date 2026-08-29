@@ -1,4 +1,4 @@
-"""Command-line entry point for the Phase 1 baseline."""
+"""Command-line entry point for the project-recommendation baseline."""
 
 import argparse
 from collections.abc import Sequence
@@ -13,9 +13,9 @@ from praxis.evaluation.models import EvaluationExpectations, EvaluationSet
 from praxis.evaluation.runner import run_baseline
 
 REPOSITORY = Path(__file__).parents[4]
-DEFAULT_PROMPTS = REPOSITORY / "evals" / "phase1" / "prompts.json"
-DEFAULT_EXPECTATIONS = REPOSITORY / "evals" / "phase1" / "expectations.json"
-DEFAULT_OUTPUT_DIRECTORY = REPOSITORY / "evals" / "phase1" / "results"
+DEFAULT_PROMPTS = REPOSITORY / "evals" / "project-recommendations" / "prompts.json"
+DEFAULT_EXPECTATIONS = REPOSITORY / "evals" / "project-recommendations" / "expectations.json"
+DEFAULT_OUTPUT_DIRECTORY = REPOSITORY / "evals" / "project-recommendations" / "results"
 
 
 def build_parser() -> argparse.ArgumentParser:

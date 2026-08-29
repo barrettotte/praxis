@@ -26,3 +26,8 @@ The command renders three readable candidates with evidence IDs. Use
 `uv run praxis --json 'your goal'` for the validated JSON representation, or
 `--data-dir data/fixtures` to use synthetic fixtures. Run `make dev-frontend` to
 start the Vite development server.
+
+The [agent runtime guide](docs/agent-runtime.md) documents the Strands loop,
+AgentCore Gateway tool boundary, and evidence-grounding invariants. Deployment
+and teardown commands are in
+[the infrastructure operations guide](docs/infrastructure-operations.md).

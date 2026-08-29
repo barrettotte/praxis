@@ -1,10 +1,10 @@
 {
-  "suite": "phase1-local-baseline",
+  "suite": "project-recommendation-baseline",
   "prompts_version": 1,
   "version": 1,
   "expectations": [
     {
-      "case_id": "phase1-01-retro-python",
+      "case_id": "project-01-retro-python",
       "evidence": {
         "any_of": [
           {"evidence_id": "book:1d48534f817374c6", "kind": "book", "label": "Computational Physics Problem Solving with Python"},
@@ -19,7 +19,7 @@
       ]
     },
     {
-      "case_id": "phase1-02-typescript-visualization",
+      "case_id": "project-02-typescript-visualization",
       "evidence": {
         "any_of": [
           {"evidence_id": "project:3435c3fd5824f260", "kind": "project", "label": "questlines"},
@@ -35,7 +35,7 @@
       ]
     },
     {
-      "case_id": "phase1-03-cpp-game-history",
+      "case_id": "project-03-cpp-game-history",
       "evidence": {
         "any_of": [
           {"evidence_id": "project:ec89ce918d3b4a44", "kind": "project", "label": "Blackjack"},
@@ -53,7 +53,7 @@
       ]
     },
     {
-      "case_id": "phase1-04-electronics-printing",
+      "case_id": "project-04-electronics-printing",
       "evidence": {
         "any_of": [
           {"evidence_id": "byte:9b972a86a05de633", "kind": "byte", "label": "Electroscope"},
@@ -70,7 +70,7 @@
       ]
     },
     {
-      "case_id": "phase1-05-museum-education",
+      "case_id": "project-05-museum-education",
       "evidence": {
         "any_of": [
           {"evidence_id": "museum:48175a11ac202af9", "kind": "museum", "label": "Altair 8800 Replica"},
@@ -86,7 +86,7 @@
       ]
     },
     {
-      "case_id": "phase1-06-rust-systems",
+      "case_id": "project-06-rust-systems",
       "evidence": {
         "any_of": [
           {"evidence_id": "project:50f79cefe6cb8e78", "kind": "project", "label": "rusty-lc3-vm"},
@@ -102,7 +102,7 @@
       ]
     },
     {
-      "case_id": "phase1-07-security-python",
+      "case_id": "project-07-security-python",
       "evidence": {
         "any_of": [
           {"evidence_id": "byte:3e5a80b420bb1ec9", "kind": "byte", "label": "PlaidCTF 2023"},
@@ -119,7 +119,7 @@
       ]
     },
     {
-      "case_id": "phase1-08-unspecified-weekend",
+      "case_id": "project-08-unspecified-weekend",
       "evidence": {
         "any_of": [
           {"evidence_id": "project:3435c3fd5824f260", "kind": "project", "label": "questlines"},
@@ -134,7 +134,7 @@
       ]
     },
     {
-      "case_id": "phase1-09-evening-no-hardware",
+      "case_id": "project-09-evening-no-hardware",
       "evidence": {
         "any_of": [
           {"evidence_id": "project:29f2536d8e6f0a7b", "kind": "project", "label": "Codebase-Scanner"},
@@ -149,7 +149,7 @@
       ]
     },
     {
-      "case_id": "phase1-10-impossible-scale",
+      "case_id": "project-10-impossible-scale",
       "evidence": {
         "any_of": [
           {"evidence_id": "book:11795a2dd8d1610b", "kind": "book", "label": "Designing Data-Intensive Applications"},

@@ -65,7 +65,7 @@ resource "aws_bedrockagentcore_gateway" "catalog" {
 
   protocol_configuration {
     mcp {
-      supported_versions = ["2025-03-26"]
+      supported_versions = ["2025-03-26", "2025-06-18", "2025-11-25"]
     }
   }
 

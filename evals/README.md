@@ -3,11 +3,11 @@
 Evaluation prompts, expected evidence, expected tool trajectories, and measured
 results belong here.
 
-`phase1/prompts.json` is the versioned initial evaluation input. Case IDs are
+`project-recommendations/prompts.json` is the canonical ten-prompt evaluation input. Case IDs are
 stable references for expectations and baseline results; do not renumber them
 when prompts are retired or the suite expands. This file intentionally contains
 only prompts and coverage metadata. Expected evidence and trajectories are
-recorded in `phase1/expectations.json` so evaluation inputs do not accidentally
+recorded in `project-recommendations/expectations.json` so evaluation inputs do not accidentally
 disclose answers to the agent. Evidence sets use an `any_of` policy to permit
 multiple relevant records without coupling the suite to a single ranking.
 

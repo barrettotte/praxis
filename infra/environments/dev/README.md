@@ -54,6 +54,7 @@ role trust is restricted to AgentCore gateways in this account and region. The
 catalog target advertises the four implemented read-only tools. OpenTofu
 consumes the checked-in schema artifact generated from the strict Pydantic
 contracts. The Gateway role can invoke only the catalog Lambda; it cannot invoke
-ingestion or access DynamoDB directly. The MCP protocol is pinned to version
-`2025-03-26`, matching the deployed Gateway's supported version and the signed
+ingestion or access DynamoDB directly. The Gateway accepts MCP versions
+`2025-03-26`, `2025-06-18`, and `2025-11-25`; signed evidence captures remain
+on `2025-03-26`, while the current Strands MCP client negotiates `2025-11-25`.
 smoke client.

@@ -1,8 +1,11 @@
 """Construct the local Strands agent."""
 
+from collections.abc import Sequence
+
 from boto3.session import Session
 from strands import Agent
 from strands.models import BedrockModel
+from strands.types.tools import AgentTool
 
 from praxis.config import AgentSettings, load_settings
 
@@ -14,7 +17,10 @@ Keep recommendations concise, differentiated, and honest about uncertainty.
 """
 
 
-def create_agent(settings: AgentSettings) -> Agent:
+def create_agent(
+    settings: AgentSettings,
+    tools: Sequence[AgentTool] = (),
+) -> Agent:
     """Create a Strands agent configured for Amazon Bedrock."""
     boto_session = Session(region_name=settings.region)
     model = BedrockModel(
@@ -22,7 +28,12 @@ def create_agent(settings: AgentSettings) -> Agent:
         model_id=settings.model_id,
         temperature=0.1,
     )
-    return Agent(model=model, system_prompt=SYSTEM_PROMPT, callback_handler=None)
+    return Agent(
+        model=model,
+        tools=list(tools),
+        system_prompt=SYSTEM_PROMPT,
+        callback_handler=None,
+    )
 
 
 def invoke(prompt: str, settings: AgentSettings | None = None) -> str:

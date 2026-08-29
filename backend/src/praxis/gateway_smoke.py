@@ -180,7 +180,7 @@ def write_tools_list_evidence(
 ) -> Path:
     """Write a deterministic, credential-free capture of signed tool discovery."""
     evidence_directory.mkdir(parents=True, exist_ok=True)
-    evidence_path = evidence_directory / "phase4-tools-list.json"
+    evidence_path = evidence_directory / "gateway-tools-list.json"
     capture = {
         "authentication": "AWS_IAM",
         "method": "tools/list",
@@ -196,7 +196,7 @@ def write_tool_calls_evidence(
 ) -> Path:
     """Write deterministic, credential-free captures of signed tool calls."""
     evidence_directory.mkdir(parents=True, exist_ok=True)
-    evidence_path = evidence_directory / "phase4-tool-calls.json"
+    evidence_path = evidence_directory / "gateway-tool-calls.json"
     capture = {
         "authentication": "AWS_IAM",
         "method": "tools/call",
@@ -216,7 +216,7 @@ def write_negative_calls_evidence(
 ) -> Path:
     """Write deterministic negative-call results without response internals."""
     evidence_directory.mkdir(parents=True, exist_ok=True)
-    evidence_path = evidence_directory / "phase4-negative-calls.json"
+    evidence_path = evidence_directory / "gateway-negative-calls.json"
     capture = {
         "protocol_version": MCP_PROTOCOL_VERSION,
         "tests": [
@@ -250,7 +250,7 @@ def write_tool_metrics_evidence(
 ) -> Path:
     """Write one client-side latency and body-size measurement per tool."""
     evidence_directory.mkdir(parents=True, exist_ok=True)
-    evidence_path = evidence_directory / "phase4-tool-metrics.json"
+    evidence_path = evidence_directory / "gateway-tool-metrics.json"
     capture = {
         "method": "tools/call",
         "protocol_version": MCP_PROTOCOL_VERSION,

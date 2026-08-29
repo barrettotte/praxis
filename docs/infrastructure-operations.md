@@ -85,17 +85,21 @@ Run deployed smoke checks manually because they invoke metered AWS services.
 The Gateway check signs standard MCP `tools/list` and `tools/call` requests with
 the active profile, verifies all four catalog tools are discoverable, and
 confirms that every catalog tool returns evidence. It writes credential-free,
-deterministic captures to `docs/evidence/phase4-tools-list.json` and
-`docs/evidence/phase4-tool-calls.json`. It also verifies excessive, malformed,
+deterministic captures to `docs/evidence/gateway-tools-list.json` and
+`docs/evidence/gateway-tool-calls.json`. It also verifies excessive, malformed,
 and unsigned requests are rejected and records only sanitized outcomes in
-`docs/evidence/phase4-negative-calls.json`. Client-observed HTTPS latency and
+`docs/evidence/gateway-negative-calls.json`. Client-observed HTTPS latency and
 JSON request/raw response body sizes for each successful tool call are recorded
-in `docs/evidence/phase4-tool-metrics.json`:
+in `docs/evidence/gateway-tool-metrics.json`:
 
 ```shell
 make smoke-catalog-dev
 make smoke-gateway-dev
+make smoke-agent-gateway-dev
 ```
+
+The final command uses the same SigV4 Strands MCP transport intended for the
+AgentCore Runtime and writes `docs/evidence/strands-gateway-tools-list.json`.
 
 Before an extended pause or project completion, review and apply a saved
 destroy plan:

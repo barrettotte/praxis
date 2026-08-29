@@ -1,6 +1,13 @@
 """Praxis agent construction and invocation."""
 
 from praxis.agent.factory import create_agent, invoke
+from praxis.agent.gateway import gateway_agent_session
 from praxis.agent.planner import invoke_project_candidates, plan_project_candidates
 
-__all__ = ["create_agent", "invoke", "invoke_project_candidates", "plan_project_candidates"]
+__all__ = [
+    "create_agent",
+    "gateway_agent_session",
+    "invoke",
+    "invoke_project_candidates",
+    "plan_project_candidates",
+]

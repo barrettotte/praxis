@@ -53,8 +53,8 @@ ACTION_WORDS = frozenset(
 DATASET_FILES = ("books.json", "projects.json", "bytes.json", "museum.json")
 SOURCE_PATHS = (
     Path("backend/src/praxis"),
-    Path("evals/phase1/prompts.json"),
-    Path("evals/phase1/expectations.json"),
+    Path("evals/project-recommendations/prompts.json"),
+    Path("evals/project-recommendations/expectations.json"),
     Path("pyproject.toml"),
     Path("uv.lock"),
 )

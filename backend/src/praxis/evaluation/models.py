@@ -18,7 +18,7 @@ class EvaluationModel(BaseModel):
 class EvaluationCase(EvaluationModel):
     """One stable prompt and its coverage metadata."""
 
-    id: Annotated[str, Field(pattern=r"^phase1-[0-9]{2}-[a-z0-9-]+$")]
+    id: Annotated[str, Field(pattern=r"^project-[0-9]{2}-[a-z0-9-]+$")]
     prompt: Annotated[str, Field(min_length=1, max_length=1_000)]
     category: EvaluationCategory
     tags: Annotated[
@@ -35,9 +35,9 @@ class EvaluationCase(EvaluationModel):
 
 
 class EvaluationSet(EvaluationModel):
-    """The versioned ten-prompt Phase 1 evaluation suite."""
+    """The versioned ten-prompt project-recommendation evaluation suite."""
 
-    suite: Literal["phase1-local-baseline"]
+    suite: Literal["project-recommendation-baseline"]
     version: Literal[1]
     cases: Annotated[list[EvaluationCase], Field(min_length=10, max_length=10)]
 
@@ -117,7 +117,7 @@ class ExpectedToolCall(EvaluationModel):
 class CaseExpectation(EvaluationModel):
     """Evidence and ordered local-tool expectations for one prompt."""
 
-    case_id: Annotated[str, Field(pattern=r"^phase1-[0-9]{2}-[a-z0-9-]+$")]
+    case_id: Annotated[str, Field(pattern=r"^project-[0-9]{2}-[a-z0-9-]+$")]
     evidence: EvidenceExpectation
     trajectory: Annotated[list[ExpectedToolCall], Field(min_length=1)]
 
@@ -135,9 +135,9 @@ class CaseExpectation(EvaluationModel):
 
 
 class EvaluationExpectations(EvaluationModel):
-    """Curated evidence and trajectories aligned with the Phase 1 prompts."""
+    """Curated evidence and trajectories aligned with the project-recommendation prompts."""
 
-    suite: Literal["phase1-local-baseline"]
+    suite: Literal["project-recommendation-baseline"]
     prompts_version: Literal[1]
     version: Literal[1]
     expectations: Annotated[list[CaseExpectation], Field(min_length=10, max_length=10)]

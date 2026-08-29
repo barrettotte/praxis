@@ -7,8 +7,10 @@ import pytest
 from praxis.config import (
     DEFAULT_CATALOG_DIRECTORY,
     AgentSettings,
+    GatewaySettings,
     SettingsError,
     load_catalog_directory,
+    load_gateway_settings,
     load_settings,
 )
 
@@ -39,6 +41,33 @@ def test_load_settings_requires_configuration(missing_name: str) -> None:
 
     with pytest.raises(SettingsError, match=missing_name):
         load_settings(environ)
+
+
+def test_load_gateway_settings_with_optional_local_profile() -> None:
+    settings = load_gateway_settings(
+        {
+            "PRAXIS_GATEWAY_URL": "https://example.gateway.test/mcp",
+            "AWS_REGION": "us-east-1",
+            "AWS_PROFILE": "praxis-dev",
+        }
+    )
+
+    assert settings == GatewaySettings(
+        url="https://example.gateway.test/mcp",
+        region="us-east-1",
+        profile="praxis-dev",
+    )
+
+
+def test_load_gateway_settings_omits_runtime_profile() -> None:
+    settings = load_gateway_settings(
+        {
+            "PRAXIS_GATEWAY_URL": "https://example.gateway.test/mcp",
+            "AWS_REGION": "us-east-1",
+        }
+    )
+
+    assert settings.profile is None
 
 
 def test_load_catalog_directory_uses_configured_path() -> None:

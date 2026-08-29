@@ -15,8 +15,8 @@ from praxis.evaluation.runner import PlanningInvoker, run_baseline
 
 REPOSITORY = Path(__file__).parents[2]
 FIXTURE_DIRECTORY = REPOSITORY / "data" / "fixtures"
-PROMPTS_PATH = REPOSITORY / "evals" / "phase1" / "prompts.json"
-EXPECTATIONS_PATH = REPOSITORY / "evals" / "phase1" / "expectations.json"
+PROMPTS_PATH = REPOSITORY / "evals" / "project-recommendations" / "prompts.json"
+EXPECTATIONS_PATH = REPOSITORY / "evals" / "project-recommendations" / "expectations.json"
 
 
 def _candidate_set(evidence_ids: list[str]) -> ProjectCandidateSet:

@@ -17,7 +17,7 @@ FRONTEND_NPM := $(NPM) --prefix frontend
 
 export UV_CACHE_DIR
 
-.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-functions agent eval-baseline tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-catalog-dev smoke-gateway-dev dev-frontend
+.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-functions agent eval-baseline tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-catalog-dev smoke-gateway-dev smoke-agent-gateway-dev dev-frontend
 
 help: ## Show the available Make targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-30s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -70,7 +70,7 @@ agent: ## Run the local Strands agent; pass PROMPT='your goal'
 	@test -n "$(PROMPT)" || { echo "PROMPT is required (example: make agent PROMPT='Suggest a project')"; exit 2; }
 	@set -a; if [ -f .env ]; then . ./.env; fi; set +a; $(UV) run praxis "$(PROMPT)"
 
-eval-baseline: ## Run the Phase 1 model baseline and save versioned results
+eval-baseline: ## Run the project-recommendation model baseline and save versioned results
 	@set -a; if [ -f .env ]; then . ./.env; fi; set +a; $(UV) run python -m praxis.evaluation
 
 tofu-init: ## Install pinned providers without initializing a remote backend
@@ -139,6 +139,9 @@ smoke-catalog-dev: ## Invoke a read-only deployed catalog search smoke test
 
 smoke-gateway-dev: ## Exercise and capture every IAM-authenticated AgentCore Gateway tool
 	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-gateway-dev
+
+smoke-agent-gateway-dev: ## Discover Gateway tools through the IAM-signed Strands MCP client
+	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-agent-gateway-dev
 
 dev-frontend: ## Start the frontend development server
 	$(FRONTEND_NPM) run dev

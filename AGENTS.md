@@ -6,12 +6,16 @@ preserve unrelated user changes.
 
 ## Working conventions
 
-- Work on the earliest incomplete phase unless the user selects other work.
+- Work on the earliest incomplete roadmap item unless the user selects other work.
 - Complete one small, verifiable checklist slice at a time. Update a roadmap
   checkbox only after the implementation or external condition is verified.
 - After each substantial verified slice, suggest a concise commit message unless
-  the user says the changes will be bundled with later work.
+  the user says the changes will be bundled with other work.
 - Record material architectural decisions in `docs/adr/`.
+- Write comments, documentation, examples, and file names for long-term readers.
+  Describe current behavior, intent, and constraints without roadmap sequencing
+  labels or implementation chronology. Keep progress history in `ROADMAP.md`
+  and decision history in ADRs rather than scattering it through the codebase.
 - Keep local development usable before requiring deployed AWS services.
 - Never run commands that create, modify, or destroy AWS resources. The user
   must manually execute all provisioning and teardown commands, including
@@ -23,7 +27,7 @@ preserve unrelated user changes.
   below $10. Preserve only documented bootstrap resources when tearing down.
 - Keep source data in the sibling repository authoritative and read-only;
   ingested cloud copies must be disposable and reproducible.
-- External actions are read-only by default. Any later write must have a
+- External actions are read-only by default. Any write must have a
   distinct authenticated preview/approval step, idempotency, and an audit trail.
 - Preserve evidence provenance and identifiers. Separate retrieved facts from
   generated recommendations, and require evidence citations in agent output.
@@ -40,7 +44,7 @@ preserve unrelated user changes.
   must not be directly callable by arbitrary public clients.
 - Infrastructure: OpenTofu with the AWS provider.
 - Frontend: React and TypeScript in this repository.
-- Initial topology: serverless, single-user, buffered responses, and no VPC or
+- MVP topology: serverless, single-user, buffered responses, and no VPC or
   multi-agent orchestration unless a demonstrated requirement changes the ADRs.
 
 ## Data and handoff

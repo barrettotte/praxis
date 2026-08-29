@@ -269,10 +269,10 @@ Definition of done: an authenticated MCP client can discover and invoke all read
 
 ## Phase 5 - AgentCore Runtime
 
-- [ ] Implement the agent in Python with Strands Agents SDK
-- [ ] Document the Strands agent loop and tool integration
-- [ ] Use a Bedrock conversation API
-- [ ] Read the Nova Micro model ID from environment configuration
+- [x] Implement the agent in Python with Strands Agents SDK
+- [x] Document the Strands agent loop and tool integration
+- [x] Use a Bedrock conversation API
+- [x] Read the Nova Micro model ID from environment configuration
 - [ ] Connect the agent to AgentCore Gateway
 - [ ] Define the system instructions
 - [ ] Require evidence IDs for every proposed project

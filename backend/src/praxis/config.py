@@ -20,6 +20,15 @@ class AgentSettings:
     region: str
 
 
+@dataclass(frozen=True, slots=True)
+class GatewaySettings:
+    """Configuration for the IAM-authenticated AgentCore Gateway client."""
+
+    url: str
+    region: str
+    profile: str | None = None
+
+
 def _required(source: Mapping[str, str], name: str) -> str:
     value = source.get(name, "").strip()
     if not value:
@@ -34,6 +43,17 @@ def load_settings(environ: Mapping[str, str] | None = None) -> AgentSettings:
     return AgentSettings(
         model_id=_required(source, "PRAXIS_MODEL_ID"),
         region=_required(source, "AWS_REGION"),
+    )
+
+
+def load_gateway_settings(environ: Mapping[str, str] | None = None) -> GatewaySettings:
+    """Load the Gateway endpoint and optional local AWS profile."""
+    source = os.environ if environ is None else environ
+    profile = source.get("AWS_PROFILE", "").strip() or None
+    return GatewaySettings(
+        url=_required(source, "PRAXIS_GATEWAY_URL"),
+        region=_required(source, "AWS_REGION"),
+        profile=profile,
     )
 
 
