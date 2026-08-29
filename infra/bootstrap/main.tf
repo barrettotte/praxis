@@ -1,3 +1,4 @@
+# Provision the durable, encrypted S3 backend used by application environments.
 data "aws_caller_identity" "current" {}
 data "aws_partition" "current" {}
 
@@ -11,6 +12,7 @@ locals {
   }
 }
 
+# Forced deletion is limited to the separately confirmed bootstrap teardown.
 resource "aws_s3_bucket" "state" {
   bucket        = local.state_bucket_name
   force_destroy = true

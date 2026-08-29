@@ -1,3 +1,4 @@
+# Configure the bootstrap AWS provider and apply mandatory ownership tags.
 provider "aws" {
   region = var.aws_region
 

@@ -106,6 +106,37 @@ evidence citation on each. It writes sanitized counts and tool-call metadata to
 `docs/evidence/strands-gateway-agent-run.json`. Override its deterministic smoke
 prompt with `PROMPT='your goal'` when needed.
 
+## Agent image publication
+
+Build the AgentCore Runtime image from committed sources, then preview its
+immutable ECR destination:
+
+```shell
+make agent-image
+make preview-agent-image-dev
+```
+
+The image must be ARM64 and carry an OCI revision label matching `HEAD`. The
+preview derives the ECR repository from OpenTofu state, uses the full Git commit
+as the immutable `git-<sha>` tag, and reports whether that tag already exists.
+After reviewing it, manually perform the write:
+
+```shell
+make push-agent-image-dev CONFIRM=push-agent-image-dev
+```
+
+The push uses the active AWS profile only to obtain a short-lived ECR login,
+logs the container client out afterward, and prints the registry digest. Runtime
+infrastructure must reference that digest rather than a mutable local image
+name.
+
+The development Runtime configuration pins the published digest. Review its
+execution-role policy, container URI, environment variables, session timeouts,
+and the apply-time MMDSv2 compatibility update in the saved OpenTofu plan before
+applying it. The apply waits for the Runtime to return to `READY` and verifies
+that MMDSv2 is enabled. The compatibility update uses the same temporary AWS
+profile as OpenTofu and performs no invocation.
+
 Before an extended pause or project completion, review and apply a saved
 destroy plan:
 

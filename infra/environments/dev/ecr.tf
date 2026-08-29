@@ -1,9 +1,11 @@
+# Store immutable development images with bounded retention and guarded teardown.
 resource "aws_ecr_repository" "deployable" {
   for_each = local.ecr_repositories
 
   name                 = "${local.name_prefix}-${each.key}"
   image_tag_mutability = "IMMUTABLE"
-  force_delete         = true
+  # Images are disposable and removed only through the confirmed environment teardown.
+  force_delete = true
 
   encryption_configuration {
     encryption_type = "AES256"

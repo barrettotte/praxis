@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
+# Exercise the local Strands agent against the deployed IAM-authenticated Gateway.
 set -euo pipefail
 
 praxis_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 praxis_profile="${AWS_PROFILE:-praxis-dev}"
 praxis_region="${AWS_REGION:-us-east-1}"
 praxis_tofu="${TOFU:-tofu}"
+# Export optional local agent settings for the configuration read below.
 if [[ -f "${praxis_repo_root}/.env" ]]; then
   set -a
   source "${praxis_repo_root}/.env"
@@ -18,6 +20,7 @@ if [[ -z "${praxis_model_id}" ]]; then
   printf 'PRAXIS_MODEL_ID is required; set it in .env or the environment\n' >&2
   exit 2
 fi
+# Read the deployed endpoint from state instead of duplicating environment values.
 praxis_gateway_url="$(
   AWS_PROFILE="${praxis_profile}" "${praxis_tofu}" \
     -chdir="${praxis_repo_root}/infra/environments/dev" \

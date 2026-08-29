@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Reconcile authoritative source JSON into the disposable development catalog.
 set -euo pipefail
 
 praxis_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -8,6 +9,7 @@ praxis_source_data_dir="${SOURCE_DATA_DIR:-${praxis_repo_root}/../barrettotte.gi
 praxis_infra_dir="${praxis_repo_root}/infra/environments/dev"
 praxis_build_dir="${praxis_repo_root}/build"
 
+# Uploading source copies and invoking ingestion are explicit AWS writes.
 if [[ "${CONFIRM:-}" != "seed-dev" ]]; then
   printf 'CONFIRM=seed-dev is required\n' >&2
   exit 2
@@ -28,6 +30,7 @@ for praxis_source_file in "${praxis_source_files[@]}"; do
   fi
 done
 
+# Resolve deployed names from state so no account-specific values are embedded.
 praxis_source_bucket="$(
   AWS_PROFILE="${praxis_profile}" "${praxis_tofu}" \
     -chdir="${praxis_infra_dir}" output -raw source_data_bucket_name
@@ -44,6 +47,7 @@ praxis_function_name="$(
   AWS_PROFILE="${praxis_profile}" "${praxis_tofu}" \
     -chdir="${praxis_infra_dir}" output -raw ingestion_lambda_name
 )"
+# Preserve both Lambda transport metadata and the application reconciliation result.
 aws --profile "${praxis_profile}" --region us-east-1 lambda invoke \
   --function-name "${praxis_function_name}" \
   --cli-binary-format raw-in-base64-out \

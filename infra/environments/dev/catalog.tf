@@ -1,8 +1,10 @@
+# Store the disposable evidence catalog and its kind-and-date access path.
 resource "aws_dynamodb_table" "catalog" {
   name         = "${local.name_prefix}-catalog"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "record_id"
 
+  # Source data is reproducible, so recovery controls must not obstruct teardown.
   deletion_protection_enabled = false
 
   attribute {

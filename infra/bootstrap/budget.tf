@@ -1,3 +1,4 @@
+# Enforce the project-wide cost target with durable email notifications.
 resource "aws_budgets_budget" "mvp" {
   name         = "${var.project_name}-mvp-annual"
   budget_type  = "COST"

@@ -281,8 +281,8 @@ Definition of done: an authenticated MCP client can discover and invoke all read
 - [x] Add a maximum catalog-result budget
 - [x] Handle empty or contradictory results
 - [x] Containerize the agent
-- [ ] Push the image to ECR
-- [ ] Create AgentCore Runtime with OpenTofu
+- [x] Push the image to ECR
+- [x] Create AgentCore Runtime with OpenTofu
 - [ ] Configure an immutable runtime version
 - [ ] Invoke it with a signed development request
 - [ ] Confirm sessions remain isolated
@@ -398,6 +398,7 @@ Definition of done: recommendations can use both structured facts and cited sema
 - [ ] Compare different retrieval limits
 - [ ] Test conversation summarization
 - [ ] Add prompt caching where repeated context qualifies
+- [ ] Compare DSPy-optimized instructions with the maintained baseline on a held-out evaluation set
 - [ ] Repeat the Nova Micro versus stronger-model comparison
 - [ ] Establish regression thresholds
 - [ ] Make evaluation repeatable locally or in CI

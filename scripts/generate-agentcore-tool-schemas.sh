@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Generate or verify the checked-in AgentCore Gateway tool-schema artifact.
 set -euo pipefail
 
 praxis_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -6,6 +7,7 @@ praxis_schema_path="${praxis_repo_root}/infra/schemas/agentcore-tools.json"
 praxis_generated_path="$(mktemp)"
 trap 'rm -f "${praxis_generated_path}"' EXIT
 
+# Generate into a temporary file so check mode never mutates the repository.
 UV_CACHE_DIR="${praxis_repo_root}/.cache/uv" uv run --project "${praxis_repo_root}" \
   python -c 'from praxis.tools import gateway_tool_definitions_json; print(gateway_tool_definitions_json(), end="")' \
   >"${praxis_generated_path}"

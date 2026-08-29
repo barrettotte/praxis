@@ -1,3 +1,4 @@
+# Export deployed identifiers consumed by guarded operations and smoke tests.
 output "ecr_repository_urls" {
   description = "ECR repository URLs keyed by deployable image name."
   value = {
@@ -43,6 +44,21 @@ output "agentcore_gateway_url" {
 output "agentcore_catalog_target_id" {
   description = "Identifier of the read-only catalog Lambda Gateway target."
   value       = aws_bedrockagentcore_gateway_target.catalog.target_id
+}
+
+output "agentcore_runtime_id" {
+  description = "Identifier of the private AgentCore Runtime."
+  value       = aws_bedrockagentcore_agent_runtime.agent.agent_runtime_id
+}
+
+output "agentcore_runtime_arn" {
+  description = "ARN of the private AgentCore Runtime."
+  value       = aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn
+}
+
+output "agentcore_runtime_container_uri" {
+  description = "Digest-pinned ECR image used by the AgentCore Runtime."
+  value       = local.agentcore_runtime_container_uri
 }
 
 output "ingestion_lambda_name" {

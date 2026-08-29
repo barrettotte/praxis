@@ -35,6 +35,9 @@ preserve unrelated user changes.
   distinct authenticated preview/approval step, idempotency, and an audit trail.
 - Preserve evidence provenance and identifiers. Separate retrieved facts from
   generated recommendations, and require evidence citations in agent output.
+- Start each shell script (after its shebang) and OpenTofu file with a concise
+  purpose comment. Comment non-obvious blocks and invariants without narrating
+  straightforward commands or resource names.
 
 ## Durable architecture constraints
 

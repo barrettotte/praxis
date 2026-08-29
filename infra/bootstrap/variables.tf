@@ -1,3 +1,4 @@
+# Define and validate inputs for the durable bootstrap lifecycle boundary.
 variable "aws_region" {
   description = "AWS region for durable bootstrap resources."
   type        = string

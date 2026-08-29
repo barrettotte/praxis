@@ -1,5 +1,7 @@
+# Hold encrypted, private, reproducible source copies for catalog ingestion.
 resource "aws_s3_bucket" "source_data" {
   bucket_prefix = "${local.name_prefix}-source-data-"
+  # Authoritative data lives outside AWS, so confirmed teardown removes all copies.
   force_destroy = true
 
   tags = {

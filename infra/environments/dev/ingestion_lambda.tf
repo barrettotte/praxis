@@ -1,3 +1,4 @@
+# Deploy the private Lambda that reconciles approved source objects into the catalog.
 resource "aws_cloudwatch_log_group" "ingestion_lambda" {
   name              = "/aws/lambda/${local.name_prefix}-ingestion"
   retention_in_days = 7

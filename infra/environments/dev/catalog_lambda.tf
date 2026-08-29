@@ -1,7 +1,10 @@
+# Deploy the private, bounded, read-only catalog Lambda and execution role.
 locals {
+  # Ingestion and catalog handlers share one reproducible deployment artifact.
   lambda_package_path = abspath("${path.root}/../../../build/lambda/praxis-functions.zip")
 }
 
+# This trust policy is shared with the ingestion Lambda defined in its own file.
 data "aws_iam_policy_document" "lambda_assume_role" {
   statement {
     effect = "Allow"

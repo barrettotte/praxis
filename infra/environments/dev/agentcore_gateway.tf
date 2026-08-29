@@ -1,7 +1,9 @@
+# Expose strict read-only catalog tools through an IAM-authenticated MCP Gateway.
 data "aws_caller_identity" "current" {}
 
 data "aws_partition" "current" {}
 
+# Load the generated schema artifact and select only tools implemented by the target.
 locals {
   agentcore_tool_definitions = {
     for tool in jsondecode(file("${path.module}/../../schemas/agentcore-tools.json")) :
@@ -18,6 +20,7 @@ locals {
   }
 }
 
+# Source constraints prevent another account or AgentCore resource from using the role.
 data "aws_iam_policy_document" "agentcore_gateway_assume_role" {
   statement {
     sid     = "AllowAgentCoreGateway"
@@ -90,6 +93,7 @@ resource "aws_iam_role_policy" "agentcore_gateway_catalog" {
   policy = data.aws_iam_policy_document.agentcore_gateway_catalog.json
 }
 
+# Project the generated nested JSON schemas into the provider's explicit schema blocks.
 resource "aws_bedrockagentcore_gateway_target" "catalog" {
   name               = "${local.name_prefix}-catalog"
   description        = "Read-only access to the Praxis evidence catalog"

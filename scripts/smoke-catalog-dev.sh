@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Verify the deployed catalog Lambda can retrieve a known ingested evidence record.
 set -euo pipefail
 
 praxis_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,6 +16,7 @@ for praxis_command in aws jq "${praxis_tofu}"; do
   }
 done
 
+# Keep transport metadata separate from the Lambda application response.
 mkdir -p "${praxis_build_dir}"
 praxis_function_name="$(
   AWS_PROFILE="${praxis_profile}" "${praxis_tofu}" \
@@ -36,6 +38,7 @@ if [[ -n "${praxis_function_error}" ]]; then
   exit 1
 fi
 
+# Assert semantic content, not merely a successful Lambda transport response.
 if ! jq -e --arg expected_title "${praxis_expected_title}" \
   '.operation == "search_catalog" and any(.results[]; .kind == "book" and .title == $expected_title)' \
   "${praxis_build_dir}/catalog-smoke-response.json" >/dev/null; then
