@@ -171,7 +171,11 @@ def test_api_lambda_returns_unavailable_for_valid_request() -> None:
             "cache-control": "no-store",
             "content-type": "application/json",
         },
-        "body": '{"error":"Application API routes are unavailable."}',
+        "body": (
+            '{"error":{"code":"service_unavailable",'
+            '"message":"Application API routes are unavailable."}}'
+        ),
+        "isBase64Encoded": False,
     }
     assert marker not in json.dumps(response)
 
@@ -185,7 +189,7 @@ def test_api_lambda_returns_safe_bad_request_for_invalid_input() -> None:
     )
 
     assert response["statusCode"] == 400
-    assert response["body"] == '{"error":"Invalid request."}'
+    assert response["body"] == ('{"error":{"code":"invalid_request","message":"Invalid request."}}')
     assert marker not in json.dumps(response)
 
 

@@ -57,8 +57,9 @@ routes. The default stage deploys OpenTofu-managed route changes automatically;
 undeclared routes return 404 without invoking the function. The HTTP endpoint
 has no authorizer while the Lambda validates the route, path identifiers,
 content type, query parameters, and strict JSON body before returning a fixed
-response that does not reflect invocation payloads. The public request contract
-is documented in `docs/api.md`.
+response that does not reflect invocation payloads. Success and error payloads
+use the envelopes documented in `docs/api.md`; fixed machine-readable error
+codes remain separate from safe display text.
 
 The AgentCore Gateway exposes an MCP endpoint protected by AWS IAM. Its service
 role trust is restricted to AgentCore gateways in this account and region. The

@@ -36,7 +36,8 @@ praxis_known_status="$(
 )"
 if [[ "${praxis_known_status}" != "503" ]] || \
   ! jq -e --arg marker "${praxis_marker}" \
-    '.error == "Application API routes are unavailable."
+    '.error.code == "service_unavailable"
+      and .error.message == "Application API routes are unavailable."
       and (tostring | contains($marker) | not)' \
     "${praxis_work_dir}/known-route.json" >/dev/null; then
   printf 'Declared API route returned an unexpected response (HTTP %s):\n' \
@@ -57,7 +58,9 @@ praxis_invalid_status="$(
 )"
 if [[ "${praxis_invalid_status}" != "400" ]] || \
   ! jq -e --arg marker "${praxis_marker}" \
-    '.error == "Invalid request." and (tostring | contains($marker) | not)' \
+    '.error.code == "invalid_request"
+      and .error.message == "Invalid request."
+      and (tostring | contains($marker) | not)' \
     "${praxis_work_dir}/invalid-request.json" >/dev/null; then
   printf 'Invalid API request returned an unexpected response (HTTP %s):\n' \
     "${praxis_invalid_status}" >&2
@@ -81,6 +84,6 @@ fi
 
 mkdir -p "${praxis_evidence_dir}"
 jq -n \
-  '{api_gateway_reached: true, handler_status: 503, invalid_request_status: 400, payload_reflected: false, unknown_route_status: 404}' \
+  '{api_gateway_reached: true, error_schema_valid: true, handler_status: 503, invalid_request_status: 400, payload_reflected: false, unknown_route_status: 404}' \
   >"${praxis_evidence_dir}/api-gateway.json"
 jq . "${praxis_evidence_dir}/api-gateway.json"

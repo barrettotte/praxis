@@ -1,19 +1,7 @@
 """Private AWS Lambda entry point for the Praxis application API."""
 
-import json
-
 from praxis.api.requests import ApiRequestError, validate_api_request
-
-
-def _response(status_code: int, message: str) -> dict[str, object]:
-    return {
-        "statusCode": status_code,
-        "headers": {
-            "cache-control": "no-store",
-            "content-type": "application/json",
-        },
-        "body": json.dumps({"error": message}, separators=(",", ":")),
-    }
+from praxis.api.responses import ApiErrorCode, error_response
 
 
 def lambda_handler(event: object, _context: object) -> dict[str, object]:
@@ -21,5 +9,5 @@ def lambda_handler(event: object, _context: object) -> dict[str, object]:
     try:
         validate_api_request(event)
     except ApiRequestError:
-        return _response(400, "Invalid request.")
-    return _response(503, "Application API routes are unavailable.")
+        return error_response(ApiErrorCode.INVALID_REQUEST)
+    return error_response(ApiErrorCode.SERVICE_UNAVAILABLE)

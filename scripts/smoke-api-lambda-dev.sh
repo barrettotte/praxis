@@ -54,6 +54,10 @@ if ! jq -e --arg marker "${praxis_marker}" \
   '.statusCode == 503
     and .headers["cache-control"] == "no-store"
     and .headers["content-type"] == "application/json"
+    and .isBase64Encoded == false
+    and ((.body | fromjson)
+      | .error.code == "service_unavailable"
+        and .error.message == "Application API routes are unavailable.")
     and (.body | contains($marker) | not)' \
   "${praxis_build_dir}/api-lambda-smoke-response.json" >/dev/null; then
   printf 'API Lambda returned an unexpected response:\n' >&2
@@ -62,6 +66,6 @@ if ! jq -e --arg marker "${praxis_marker}" \
 fi
 
 jq -n \
-  '{authenticated_direct_invocation: true, handler_status: 503, payload_reflected: false}' \
+  '{authenticated_direct_invocation: true, error_schema_valid: true, handler_status: 503, payload_reflected: false}' \
   >"${praxis_evidence_dir}/api-lambda.json"
 jq . "${praxis_evidence_dir}/api-lambda.json"
