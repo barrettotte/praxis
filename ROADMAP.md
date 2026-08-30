@@ -287,7 +287,7 @@ Definition of done: an authenticated MCP client can discover and invoke all read
 - [x] Invoke it with a signed development request
 - [x] Confirm sessions remain isolated
 - [x] Instrument Strands traces for AgentCore Evaluations
-- [ ] Run the Phase 1 evaluation set against the deployed agent
+- [x] Run the Phase 1 evaluation set against the deployed agent
 - [ ] Compare Nova Micro with one stronger model on the baseline
 - [ ] Keep Nova Micro as the default unless measured results justify a change
 - [ ] Add AgentCore Memory for preferences and prior decisions

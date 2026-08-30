@@ -11,12 +11,33 @@ recorded in `project-recommendations/expectations.json` so evaluation inputs do 
 disclose answers to the agent. Evidence sets use an `any_of` policy to permit
 multiple relevant records without coupling the suite to a single ranking.
 
-Baseline result files must identify the model, region, code revision, dataset,
-run time, and content hashes. Quality is the mean of five deterministic checks:
-valid structured output, grounded citations, curated evidence coverage, expected
-local-tool trajectory, and concrete first milestones. A milestone is considered
-concrete when it contains at least six words and an action verb from the runner's
-documented vocabulary. Never replace historical measurements in place.
+Result files must identify the model, region, code revision, dataset, run time,
+and content hashes. Deployed results also identify the named endpoint qualifier,
+immutable Runtime version, and container digest without storing resource,
+account, session, trace, or span identifiers. Quality is the mean of five
+deterministic checks: valid structured output, grounded citations, curated
+evidence coverage, expected local-tool trajectory, and concrete first
+milestones. A milestone is considered concrete when it contains at least six
+words and an action verb from the runner's documented vocabulary. Never replace
+historical measurements in place.
 
-Run the suite with `make eval-baseline`. Each case uses a fresh agent invocation;
-failures are recorded and do not stop the remaining cases.
+Run the local suite with `make eval-baseline`. Run the same fixtures and scoring
+against the stable development Runtime manually with:
+
+```shell
+make eval-runtime-dev
+```
+
+The deployed command makes ten metered Runtime invocations and waits for each
+session-correlated CloudWatch trace, so it can take several minutes. Each case
+uses a fresh session. Failures are recorded in the immutable result artifact and
+do not stop the remaining cases. The Runtime response supplies candidates,
+citations, and Gateway call counts; correlated Strands spans supply model
+latency, first-token latency, token usage, structured-output tool calls, and
+event-loop cycles. `summarize_experience` is compared with the local
+`compare_project_history` expectation because they represent the same catalog
+operation on opposite sides of the Gateway boundary.
+
+`PRAXIS_MODEL_ID` defaults to `amazon.nova-micro-v1:0`. Set it only when it
+matches the model configured on the deployed Runtime so result metadata remains
+accurate. `RUNTIME_EVAL_TRACE_TIMEOUT_SECONDS` changes the per-case trace wait.

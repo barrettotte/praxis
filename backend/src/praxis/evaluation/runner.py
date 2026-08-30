@@ -25,6 +25,7 @@ from praxis.evaluation.results import (
     BaselineResult,
     BaselineSummary,
     DatasetIdentity,
+    DeploymentIdentity,
     EvaluationCaseResult,
     QualityResult,
     SourceIdentity,
@@ -294,6 +295,7 @@ def run_baseline(
     repository: Path,
     settings: AgentSettings,
     invoker: PlanningInvoker = invoke_project_candidates_with_trace,
+    deployment: DeploymentIdentity | None = None,
 ) -> BaselineResult:
     """Run all cases independently and return a versioned measurement artifact."""
     expectations_by_id = {
@@ -324,6 +326,7 @@ def run_baseline(
             region=settings.region,
             dataset=_dataset_identity(catalog_directory, catalog),
             source=_source_identity(repository),
+            deployment=deployment,
         ),
         summary=_summary(results),
         cases=results,

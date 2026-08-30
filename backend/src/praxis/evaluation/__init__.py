@@ -9,11 +9,12 @@ from praxis.evaluation.models import (
     ExpectedEvidenceRecord,
     ExpectedToolCall,
 )
-from praxis.evaluation.results import BaselineResult
+from praxis.evaluation.results import BaselineResult, DeploymentIdentity
 
 __all__ = [
     "BaselineResult",
     "CaseExpectation",
+    "DeploymentIdentity",
     "EvaluationCase",
     "EvaluationExpectations",
     "EvaluationSet",

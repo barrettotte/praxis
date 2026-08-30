@@ -70,6 +70,7 @@ class RuntimeTraceSpan(BaseModel):
     scope: RuntimeTraceScope
     trace_id: Annotated[str, Field(alias="traceId", min_length=1)]
     span_id: Annotated[str, Field(alias="spanId", min_length=1)]
+    duration_nano: Annotated[int | None, Field(alias="durationNano", ge=0)] = None
     resource: dict[str, object]
     attributes: dict[str, object]
 

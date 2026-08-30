@@ -10,8 +10,9 @@ from praxis.agent.planner import (
 from praxis.catalog import InMemoryCatalog
 from praxis.config import AgentSettings
 from praxis.domain import EvidenceCitation, ProjectCandidate, ProjectCandidateSet
-from praxis.evaluation import EvaluationExpectations, EvaluationSet
+from praxis.evaluation import DeploymentIdentity, EvaluationExpectations, EvaluationSet
 from praxis.evaluation.runner import PlanningInvoker, run_baseline
+from praxis.evaluation.runtime import write_result
 
 REPOSITORY = Path(__file__).parents[2]
 FIXTURE_DIRECTORY = REPOSITORY / "data" / "fixtures"
@@ -75,10 +76,15 @@ def _fake_invoker(
     return invoke
 
 
-def test_run_baseline_scores_and_aggregates_all_cases() -> None:
+def test_run_baseline_scores_and_aggregates_all_cases(tmp_path: Path) -> None:
     evaluation_set = TypeAdapter(EvaluationSet).validate_json(PROMPTS_PATH.read_bytes())
     expectations = TypeAdapter(EvaluationExpectations).validate_json(EXPECTATIONS_PATH.read_bytes())
 
+    deployment = DeploymentIdentity(
+        endpoint_qualifier="stable",
+        runtime_version="8",
+        container_digest=f"sha256:{'a' * 64}",
+    )
     result = run_baseline(
         evaluation_set=evaluation_set,
         expectations=expectations,
@@ -87,6 +93,7 @@ def test_run_baseline_scores_and_aggregates_all_cases() -> None:
         repository=REPOSITORY,
         settings=AgentSettings(model_id="test-model", region="us-east-1"),
         invoker=_fake_invoker(evaluation_set, expectations),
+        deployment=deployment,
     )
 
     assert result.summary.case_count == 10
@@ -97,4 +104,10 @@ def test_run_baseline_scores_and_aggregates_all_cases() -> None:
     assert result.summary.total_tokens == 1_500
     assert result.summary.total_local_tool_calls == 12
     assert result.summary.total_model_tool_calls == 10
+    assert result.metadata.deployment == deployment
     assert all(case.candidates is not None for case in result.cases)
+
+    output_path = write_result(result, tmp_path)
+    assert output_path.name.startswith("agentcore-v8-")
+    assert output_path.read_text().endswith("\n")
+    assert "runtimeSessionId" not in output_path.read_text()

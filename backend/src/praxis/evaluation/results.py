@@ -25,6 +25,14 @@ class SourceIdentity(EvaluationModel):
     sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 
 
+class DeploymentIdentity(EvaluationModel):
+    """Immutable AgentCore Runtime target used by a deployed evaluation."""
+
+    endpoint_qualifier: str
+    runtime_version: Annotated[str, Field(pattern=r"^[1-9][0-9]{0,4}$")]
+    container_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+
+
 class BaselineMetadata(EvaluationModel):
     """Environment identity needed to reproduce a baseline."""
 
@@ -33,6 +41,7 @@ class BaselineMetadata(EvaluationModel):
     region: str
     dataset: DatasetIdentity
     source: SourceIdentity
+    deployment: DeploymentIdentity | None = None
 
 
 class TokenUsageResult(EvaluationModel):
@@ -117,6 +126,7 @@ __all__ = [
     "BaselineResult",
     "BaselineSummary",
     "DatasetIdentity",
+    "DeploymentIdentity",
     "EvaluationCaseResult",
     "QualityResult",
     "SourceIdentity",

@@ -151,6 +151,25 @@ writes sanitized metadata to
 responses, session IDs, trace IDs, span IDs, account IDs, or resource ARNs.
 Override only the delivery wait with `RUNTIME_TRACE_TIMEOUT_SECONDS=seconds`.
 
+## Deployed evaluation
+
+Run the canonical ten-case evaluation manually after the stable endpoint and
+its Strands traces are verified:
+
+```shell
+make eval-runtime-dev
+```
+
+This command performs ten metered Runtime invocations with isolated session IDs
+and waits for a correlated CloudWatch trace after each invocation. It resolves
+the endpoint qualifier, immutable Runtime version, and digest-pinned container
+from OpenTofu state, then writes a versioned result under
+`evals/project-recommendations/results/`. The artifact excludes AWS account,
+resource, session, trace, and span identifiers. Use
+`RUNTIME_EVAL_TRACE_TIMEOUT_SECONDS=seconds` to change the per-case trace wait.
+If the deployed Runtime uses a non-default model, set `PRAXIS_MODEL_ID` to the
+same configured model before running the command.
+
 ## Agent image publication
 
 Build the AgentCore Runtime image, then preview its immutable ECR destination:
