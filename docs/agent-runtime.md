@@ -159,6 +159,14 @@ cross-session conversation store. AgentCore Runtime assigns sessions isolated
 execution environments. AgentCore Memory stores long-lived preferences and
 decisions, while authoritative catalog records remain in DynamoDB.
 
+Memory uses direct, actor-scoped records rather than automatic conversation
+extraction. Only strict `preference` and `decision` content is allowed under
+`/actors/{actorId}/`; prompts, candidates, Gateway responses, evidence IDs, and
+catalog facts are never written. Runtime has read-only Memory permission and
+presents retrieved records to the model as untrusted personalization context.
+The authenticated application boundary owns explicit, idempotently keyed
+writes and records actor, session, operation, and kind metadata.
+
 Each invocation returns a buffered structured response. Streaming, multi-agent
 orchestration, and cross-session in-process state are outside the MVP. The
 [AgentCore Runtime lifecycle documentation](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-how-it-works.html)
@@ -170,8 +178,10 @@ describes the service's session and immutable-version boundaries.
 container. ADOT launches `praxis.agent.runtime`, which uses the AgentCore SDK
 to serve the required
 `GET /ping` and `POST /invocations` endpoints on `0.0.0.0:8080`. An invocation
-accepts `{"prompt": "..."}` and returns three validated candidates plus bounded
-tool-call counts as one buffered JSON response.
+accepts `{"actor_id": "...", "prompt": "..."}` and returns three validated
+candidates, the sanitized Memory retrieval count, and bounded tool-call counts
+as one buffered JSON response. The authenticated API derives `actor_id`; clients
+must not select another user's Memory scope.
 
 Build and verify the service contract without invoking AWS:
 

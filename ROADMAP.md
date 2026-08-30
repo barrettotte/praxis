@@ -291,8 +291,8 @@ Definition of done: an authenticated MCP client can discover and invoke all read
 - [x] Run the Phase 1 evaluation set against the deployed agent
 - [x] Compare Nova Micro with one stronger model on the baseline
 - [x] Select Nova Lite as the default after deployed measurements justified the change
-- [ ] Add AgentCore Memory for preferences and prior decisions
-- [ ] Keep authoritative catalog data out of agent memory
+- [x] Add AgentCore Memory for preferences and prior decisions
+- [x] Keep authoritative catalog data out of agent memory
 
 Definition of done: the deployed agent turns a goal into three cited project candidates using Gateway tools, with 
 recorded quality, token, and latency measurements.

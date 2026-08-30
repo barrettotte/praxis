@@ -1,0 +1,11 @@
+{
+  "actor_scoped": true,
+  "catalog_identifiers_rejected": true,
+  "created_count": 2,
+  "idempotent_preflight": false,
+  "retrieved_count": 2,
+  "retrieved_kinds": [
+    "decision",
+    "preference"
+  ]
+}

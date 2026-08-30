@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from praxis.domain import ProjectCandidateSet
 
 DEFAULT_PROMPT = "compiler"
+DEFAULT_ACTOR_ID = "praxis-smoke"
 MINIMUM_SESSION_ID_LENGTH = 33
 JSON_CONTENT_TYPE = "application/json"
 JSON_OBJECT = TypeAdapter(dict[str, object])
@@ -48,6 +49,14 @@ class RuntimeToolCall(BaseModel):
 
     name: Annotated[str, Field(min_length=1)]
     count: Annotated[int, Field(ge=1)]
+
+
+class RuntimeMemoryUsage(BaseModel):
+    """Sanitized Memory retrieval count returned by the hosted agent."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    retrieved_count: Annotated[int, Field(ge=0)]
 
 
 TOOL_CALLS = TypeAdapter(list[RuntimeToolCall])
@@ -87,6 +96,7 @@ class RuntimeSmokeResult:
     tool_calls: tuple[RuntimeToolCall, ...]
     session_id: str
     content_type: str
+    memory_retrieved_count: int
 
     def as_dict(self) -> dict[str, object]:
         """Return the human-readable smoke result."""
@@ -94,6 +104,7 @@ class RuntimeSmokeResult:
             "iam_authenticated": True,
             "content_type": self.content_type,
             "session_id": self.session_id,
+            "memory_retrieved_count": self.memory_retrieved_count,
             "candidates": self.candidates.model_dump(mode="json")["candidates"],
             "tool_calls": [tool_call.model_dump(mode="json") for tool_call in self.tool_calls],
         }
@@ -195,6 +206,7 @@ def invoke_runtime_endpoint(
     qualifier: str,
     prompt: str,
     session_id: str,
+    actor_id: str = DEFAULT_ACTOR_ID,
 ) -> RuntimeSmokeResult:
     """Invoke one named Runtime endpoint and validate its buffered response."""
     if not prompt.strip():
@@ -207,7 +219,7 @@ def invoke_runtime_endpoint(
             agentRuntimeArn=runtime_arn,
             runtimeSessionId=session_id,
             qualifier=qualifier,
-            payload=json.dumps({"prompt": prompt.strip()}).encode(),
+            payload=json.dumps({"actor_id": actor_id, "prompt": prompt.strip()}).encode(),
             contentType=JSON_CONTENT_TYPE,
             accept=JSON_CONTENT_TYPE,
         )
@@ -226,13 +238,20 @@ def invoke_runtime_endpoint(
     try:
         payload = JSON_OBJECT.validate_json(cast("ResponseBody", response_body).read())
         candidates = ProjectCandidateSet.model_validate({"candidates": payload.get("candidates")})
+        memory = RuntimeMemoryUsage.model_validate(payload.get("memory"))
         tool_calls = tuple(TOOL_CALLS.validate_python(payload.get("tool_calls")))
     except ValidationError as error:
         raise RuntimeSmokeError("AgentCore Runtime returned an invalid agent response") from error
     if not tool_calls:
         raise RuntimeSmokeError("AgentCore Runtime returned no Gateway tool calls")
 
-    return RuntimeSmokeResult(candidates, tool_calls, session_id, content_type)
+    return RuntimeSmokeResult(
+        candidates,
+        tool_calls,
+        session_id,
+        content_type,
+        memory.retrieved_count,
+    )
 
 
 def _evidence_ids(result: RuntimeSmokeResult) -> frozenset[str]:
@@ -390,6 +409,7 @@ def write_evidence(
         "request_content_type": JSON_CONTENT_TYPE,
         "response_content_type": result.content_type,
         "runtime_session_id_length": len(result.session_id),
+        "memory_retrieved_count": result.memory_retrieved_count,
         "tool_calls": [tool_call.model_dump(mode="json") for tool_call in result.tool_calls],
     }
     evidence_path.write_text(f"{json.dumps(capture, indent=2, sort_keys=True)}\n")
@@ -443,6 +463,7 @@ def main() -> None:
     parser.add_argument("--region", default="us-east-1")
     parser.add_argument("--profile")
     parser.add_argument("--prompt", default=DEFAULT_PROMPT)
+    parser.add_argument("--minimum-memory-records", type=int, default=2)
     parser.add_argument("--secondary-prompt", default="commodore")
     parser.add_argument("--verify-session-isolation", action="store_true")
     parser.add_argument("--verify-traces", action="store_true")
@@ -478,6 +499,11 @@ def main() -> None:
             arguments.prompt,
             str(uuid4()),
         )
+        if result.memory_retrieved_count < arguments.minimum_memory_records:
+            raise RuntimeSmokeError(
+                "Runtime retrieved fewer typed Memory records than expected; run "
+                "make smoke-memory-dev CONFIRM=smoke-memory-dev first"
+            )
         output = result.as_dict()
         if arguments.evidence_directory is not None:
             output["capture"] = str(

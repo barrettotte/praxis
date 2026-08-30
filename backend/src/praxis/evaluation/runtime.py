@@ -34,6 +34,7 @@ DEFAULT_PROMPTS = REPOSITORY / "evals" / "project-recommendations" / "prompts.js
 DEFAULT_EXPECTATIONS = REPOSITORY / "evals" / "project-recommendations" / "expectations.json"
 DEFAULT_OUTPUT_DIRECTORY = REPOSITORY / "evals" / "project-recommendations" / "results"
 GATEWAY_TOOL_ALIASES = {"summarize_experience": "compare_project_history"}
+EVALUATION_ACTOR_ID = "praxis-evaluation"
 
 
 class RuntimeEvaluationError(RuntimeError):
@@ -135,6 +136,7 @@ class RuntimeEvaluationInvoker:
             self.qualifier,
             prompt,
             session_id,
+            EVALUATION_ACTOR_ID,
         )
         trace = wait_for_runtime_traces(
             self.logs_client,

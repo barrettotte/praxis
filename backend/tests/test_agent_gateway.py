@@ -235,6 +235,7 @@ def test_invoke_gateway_agent_keeps_session_open_during_model_invocation() -> No
             "Recommend a compiler project",
             agent_settings,
             gateway_settings(),
+            memory_context=('{"kind":"preference","text":"Prefer weekend scope."}',),
         )
 
     session.__enter__.assert_called_once_with()
@@ -248,6 +249,8 @@ def test_invoke_gateway_agent_keeps_session_open_during_model_invocation() -> No
     generation_prompt = cast("str", fake_agent.call_args.args[0])
     assert generation_prompt.startswith("Recommend a compiler project\n\n")
     assert '"evidence_id":"book:0f5ba253568e4836"' in generation_prompt
+    assert "user-authored preferences and prior decisions" in generation_prompt
+    assert "Prefer weekend scope" in generation_prompt
     assert fake_agent.call_args.kwargs["structured_output_model"] is gateway.GatewayCandidateOutput
     assert fake_agent.call_args.kwargs["limits"] == {"turns": 5}
     assert result.candidates == candidate_set()

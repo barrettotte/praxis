@@ -149,6 +149,7 @@ def test_runtime_invoker_adapts_response_tools_and_correlated_trace() -> None:
             self.request = kwargs
             payload = {
                 "candidates": candidates.model_dump(mode="json")["candidates"],
+                "memory": {"retrieved_count": 0},
                 "tool_calls": [
                     {"name": "search_catalog", "count": 1},
                     {"name": "summarize_experience", "count": 1},
@@ -193,4 +194,7 @@ def test_runtime_invoker_adapts_response_tools_and_correlated_trace() -> None:
     assert runtime_client.request is not None
     assert logs_client.request is not None
     session_id = str(runtime_client.request["runtimeSessionId"])
+    request_payload = runtime_client.request["payload"]
+    assert isinstance(request_payload, bytes)
+    assert json.loads(request_payload)["actor_id"] == "praxis-evaluation"
     assert session_id in str(logs_client.request["filterPattern"])

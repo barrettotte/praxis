@@ -71,6 +71,7 @@ def candidate_set(evidence_id: str = "book:0f5ba253568e4836") -> ProjectCandidat
 def valid_response() -> dict[str, object]:
     payload = {
         "candidates": candidate_set().model_dump(mode="json")["candidates"],
+        "memory": {"retrieved_count": 2},
         "tool_calls": [{"name": "search_catalog", "count": 1}],
     }
     return {
@@ -98,12 +99,13 @@ def test_invoke_runtime_endpoint_signs_expected_request_contract() -> None:
             "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/example-runtime"
         ),
         "contentType": "application/json",
-        "payload": b'{"prompt": "Recommend a compiler project"}',
+        "payload": (b'{"actor_id": "praxis-smoke", "prompt": "Recommend a compiler project"}'),
         "qualifier": "stable",
         "runtimeSessionId": session_id,
     }
     assert result.candidates == candidate_set()
     assert result.tool_calls == (RuntimeToolCall(name="search_catalog", count=1),)
+    assert result.memory_retrieved_count == 2
 
 
 @pytest.mark.parametrize(
@@ -139,6 +141,7 @@ def test_write_evidence_omits_runtime_arn_and_session_id(tmp_path: Path) -> None
         (RuntimeToolCall(name="search_catalog", count=1),),
         "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4",
         "application/json",
+        2,
     )
 
     evidence_path = write_evidence(tmp_path, "stable", "2", result)
@@ -154,6 +157,7 @@ def test_write_evidence_omits_runtime_arn_and_session_id(tmp_path: Path) -> None
         "request_content_type": "application/json",
         "response_content_type": "application/json",
         "runtime_session_id_length": 36,
+        "memory_retrieved_count": 2,
         "tool_calls": [{"count": 1, "name": "search_catalog"}],
     }
 
@@ -173,6 +177,7 @@ class SequentialRuntimeClient:
 def response_for(evidence_id: str) -> dict[str, object]:
     payload = {
         "candidates": candidate_set(evidence_id).model_dump(mode="json")["candidates"],
+        "memory": {"retrieved_count": 2},
         "tool_calls": [{"name": "search_catalog", "count": 1}],
     }
     return {
@@ -238,12 +243,14 @@ def test_write_session_isolation_evidence_omits_session_ids(tmp_path: Path) -> N
             (RuntimeToolCall(name="search_catalog", count=1),),
             "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4",
             "application/json",
+            2,
         ),
         second=RuntimeSmokeResult(
             candidate_set("museum:17ca91a13603360c"),
             (RuntimeToolCall(name="search_catalog", count=1),),
             "51f4a405-8835-411d-9821-5980d73f51f6",
             "application/json",
+            2,
         ),
     )
 

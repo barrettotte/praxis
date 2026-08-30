@@ -47,6 +47,9 @@ preserve unrelated user changes.
   evaluation evidence for future default-model changes.
 - Tool boundary: AgentCore Gateway with strict MCP schemas and least-privilege
   Lambda targets.
+- Memory boundary: AgentCore Memory stores only explicit actor-scoped
+  preferences and prior decisions. Runtime access is read-only; never store
+  prompts, model responses, Gateway results, catalog facts, or evidence IDs.
 - Application boundary: API Gateway backed by an API Lambda. AgentCore Runtime
   must not be directly callable by arbitrary public clients.
 - Infrastructure: OpenTofu with the AWS provider.

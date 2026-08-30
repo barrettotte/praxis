@@ -11,6 +11,8 @@ for praxis_name in \
   PRAXIS_AGENT_MAX_LIFETIME \
   PRAXIS_AGENT_MAX_RESULTS \
   PRAXIS_AGENT_MAX_TOOL_CALLS \
+  PRAXIS_AGENT_MEMORY_ID \
+  PRAXIS_AGENT_MEMORY_TOP_K \
   PRAXIS_AGENT_MODEL_ID \
   PRAXIS_AGENT_OBSERVABILITY \
   PRAXIS_AGENT_OTEL_CONFIGURATOR \
@@ -44,6 +46,8 @@ praxis_environment="$(
     --arg gateway_url "${PRAXIS_AGENT_GATEWAY_URL}" \
     --arg max_results "${PRAXIS_AGENT_MAX_RESULTS}" \
     --arg max_tool_calls "${PRAXIS_AGENT_MAX_TOOL_CALLS}" \
+    --arg memory_id "${PRAXIS_AGENT_MEMORY_ID}" \
+    --arg memory_top_k "${PRAXIS_AGENT_MEMORY_TOP_K}" \
     --arg model_id "${PRAXIS_AGENT_MODEL_ID}" \
     --arg observability "${PRAXIS_AGENT_OBSERVABILITY}" \
     --arg otel_configurator "${PRAXIS_AGENT_OTEL_CONFIGURATOR}" \
@@ -58,6 +62,8 @@ praxis_environment="$(
       PRAXIS_GATEWAY_URL: $gateway_url,
       PRAXIS_MAX_CATALOG_RESULTS: $max_results,
       PRAXIS_MAX_TOOL_CALLS: $max_tool_calls,
+      PRAXIS_MEMORY_ID: $memory_id,
+      PRAXIS_MEMORY_TOP_K: $memory_top_k,
       PRAXIS_MODEL_ID: $model_id
     }'
 )"

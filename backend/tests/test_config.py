@@ -10,9 +10,11 @@ from praxis.config import (
     DEFAULT_MAX_TOOL_CALLS,
     AgentSettings,
     GatewaySettings,
+    MemorySettings,
     SettingsError,
     load_catalog_directory,
     load_gateway_settings,
+    load_memory_settings,
     load_settings,
 )
 
@@ -123,6 +125,22 @@ def test_load_gateway_settings_omits_runtime_profile() -> None:
     )
 
     assert settings.profile is None
+
+
+def test_load_memory_settings() -> None:
+    settings = load_memory_settings(
+        {
+            "PRAXIS_MEMORY_ID": "praxis_memory-abcdefghij",
+            "PRAXIS_MEMORY_TOP_K": "3",
+            "AWS_REGION": "us-east-1",
+        }
+    )
+
+    assert settings == MemorySettings(
+        memory_id="praxis_memory-abcdefghij",
+        region="us-east-1",
+        top_k=3,
+    )
 
 
 def test_load_catalog_directory_uses_configured_path() -> None:

@@ -16,6 +16,8 @@ locals {
     PRAXIS_GATEWAY_URL          = aws_bedrockagentcore_gateway.catalog.gateway_url
     PRAXIS_MAX_CATALOG_RESULTS  = "20"
     PRAXIS_MAX_TOOL_CALLS       = "4"
+    PRAXIS_MEMORY_ID            = aws_bedrockagentcore_memory.personalization.id
+    PRAXIS_MEMORY_TOP_K         = "5"
     PRAXIS_MODEL_ID             = var.agent_model_id
   }
   # Short development sessions limit idle compute while preserving useful continuity.
@@ -141,6 +143,20 @@ data "aws_iam_policy_document" "agentcore_runtime" {
     resources = [aws_bedrockagentcore_gateway.catalog.gateway_arn]
   }
 
+  # Runtime can personalize from memory but cannot create, update, or delete it.
+  statement {
+    sid       = "ReadActorMemory"
+    effect    = "Allow"
+    actions   = ["bedrock-agentcore:RetrieveMemoryRecords"]
+    resources = [aws_bedrockagentcore_memory.personalization.arn]
+
+    condition {
+      test     = "StringLike"
+      variable = "bedrock-agentcore:namespacePath"
+      values   = ["/actors/*"]
+    }
+  }
+
   # ADOT sends Strands spans to X-Ray for CloudWatch and AgentCore Evaluations.
   statement {
     sid    = "WriteRuntimeTraces"
@@ -218,6 +234,8 @@ resource "terraform_data" "agentcore_runtime_mmdsv2" {
       PRAXIS_AGENT_MAX_LIFETIME      = tostring(local.agentcore_runtime_lifecycle.max_lifetime)
       PRAXIS_AGENT_MAX_RESULTS       = local.agentcore_runtime_environment.PRAXIS_MAX_CATALOG_RESULTS
       PRAXIS_AGENT_MAX_TOOL_CALLS    = local.agentcore_runtime_environment.PRAXIS_MAX_TOOL_CALLS
+      PRAXIS_AGENT_MEMORY_ID         = local.agentcore_runtime_environment.PRAXIS_MEMORY_ID
+      PRAXIS_AGENT_MEMORY_TOP_K      = local.agentcore_runtime_environment.PRAXIS_MEMORY_TOP_K
       PRAXIS_AGENT_MODEL_ID          = var.agent_model_id
       PRAXIS_AGENT_OBSERVABILITY     = local.agentcore_runtime_environment.AGENT_OBSERVABILITY_ENABLED
       PRAXIS_AGENT_OTEL_CONFIGURATOR = local.agentcore_runtime_environment.OTEL_PYTHON_CONFIGURATOR

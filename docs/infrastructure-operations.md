@@ -98,10 +98,18 @@ in `docs/evidence/gateway-tool-metrics.json`:
 make smoke-catalog-dev
 make smoke-gateway-dev
 make smoke-agent-gateway-dev
+make smoke-memory-dev CONFIRM=smoke-memory-dev
 make smoke-runtime-dev
 make smoke-runtime-sessions-dev
 make smoke-runtime-traces-dev
 ```
+
+The Memory check has a distinct confirmation because its first run creates one
+typed preference and one typed decision for a dedicated smoke actor. A
+deterministic preflight makes later runs read-only once both records exist. It
+requires actor-scoped semantic retrieval, exercises the catalog-identifier
+rejection boundary, and writes only sanitized counts and kinds to
+`docs/evidence/agentcore-memory.json`.
 
 The agent-to-Gateway command uses the same SigV4 Strands MCP transport as the
 AgentCore Runtime, invokes the configured Bedrock model with the discovered

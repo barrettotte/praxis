@@ -19,10 +19,11 @@ flowchart TD
         agent[Python 3.13 ARM64 container<br/>Strands agent]
         memory[AgentCore Memory]
         runtimeEndpoint --> agent
-        agent --> memory
+        agent -->|Read typed preferences and decisions| memory
     end
 
     apiLambda --> runtimeEndpoint
+    apiLambda -.->|Explicit approved memory writes| memory
     agent --> bedrock[Amazon Bedrock<br/>Nova Lite]
 
     subgraph observability[Agent observability and evaluation]
