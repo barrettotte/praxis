@@ -3,29 +3,17 @@
 set -euo pipefail
 umask 077
 
-praxis_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-praxis_profile="${AWS_PROFILE:-praxis-dev}"
-praxis_region="${AWS_REGION:-us-east-1}"
-praxis_tofu="${TOFU:-tofu}"
-praxis_infra_dir="${praxis_repo_root}/infra/environments/dev"
-praxis_evidence_dir="${praxis_repo_root}/docs/evidence"
+praxis_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${praxis_script_dir}/lib/dev-smoke.sh"
 praxis_marker="untrusted-api-gateway-smoke-marker"
 praxis_goal="compiler"
 praxis_correlation_id="51f4a405-8835-411d-9821-5980d73f51f6"
 praxis_work_dir="$(mktemp -d)"
 trap 'rm -rf "${praxis_work_dir}"' EXIT
 
-for praxis_command in aws curl jq "${praxis_tofu}"; do
-  command -v "${praxis_command}" >/dev/null || {
-    printf 'Required command is unavailable: %s\n' "${praxis_command}" >&2
-    exit 2
-  }
-done
+praxis_require_commands aws curl jq "${praxis_tofu}"
 
-praxis_api_url="$(
-  AWS_PROFILE="${praxis_profile}" "${praxis_tofu}" \
-    -chdir="${praxis_infra_dir}" output -raw api_gateway_url
-)"
+praxis_api_url="$(praxis_tofu_output api_gateway_url)"
 praxis_api_url="${praxis_api_url%/}"
 
 # Keep short-lived credentials out of process arguments and evidence captures.

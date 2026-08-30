@@ -3,35 +3,17 @@
 set -euo pipefail
 umask 077
 
-praxis_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-praxis_profile="${AWS_PROFILE:-praxis-dev}"
-praxis_region="${AWS_REGION:-us-east-1}"
-praxis_tofu="${TOFU:-tofu}"
-praxis_infra_dir="${praxis_repo_root}/infra/environments/dev"
-praxis_evidence_dir="${praxis_repo_root}/docs/evidence"
+praxis_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${praxis_script_dir}/lib/dev-smoke.sh"
 praxis_denied_origin="https://not-praxis.invalid"
 praxis_work_dir="$(mktemp -d)"
 trap 'rm -rf "${praxis_work_dir}"' EXIT
 
-for praxis_command in aws curl jq "${praxis_tofu}"; do
-  command -v "${praxis_command}" >/dev/null || {
-    printf 'Required command is unavailable: %s\n' "${praxis_command}" >&2
-    exit 2
-  }
-done
+praxis_require_commands aws curl jq "${praxis_tofu}"
 
-praxis_api_id="$(
-  AWS_PROFILE="${praxis_profile}" "${praxis_tofu}" \
-    -chdir="${praxis_infra_dir}" output -raw api_gateway_id
-)"
-praxis_api_url="$(
-  AWS_PROFILE="${praxis_profile}" "${praxis_tofu}" \
-    -chdir="${praxis_infra_dir}" output -raw api_gateway_url
-)"
-praxis_frontend_origin="$(
-  AWS_PROFILE="${praxis_profile}" "${praxis_tofu}" \
-    -chdir="${praxis_infra_dir}" output -raw frontend_origin
-)"
+praxis_api_id="$(praxis_tofu_output api_gateway_id)"
+praxis_api_url="$(praxis_tofu_output api_gateway_url)"
+praxis_frontend_origin="$(praxis_tofu_output frontend_origin)"
 praxis_api_url="${praxis_api_url%/}"
 praxis_cors="$(
   aws --profile "${praxis_profile}" --region "${praxis_region}" \

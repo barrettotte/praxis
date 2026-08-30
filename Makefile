@@ -18,13 +18,14 @@ TOFU_BOOTSTRAP_DESTROY_PLAN ?= bootstrap-destroy.tfplan
 TOFU_DEV_PLAN ?= dev.tfplan
 TOFU_DEV_DESTROY_PLAN ?= dev-destroy.tfplan
 PROMPT ?=
+SUITE ?= config
 SOURCE_DATA_DIR ?= $(abspath ../barrettotte.github.io/data)
 PYTHON_SOURCES := backend/src backend/tests
 FRONTEND_NPM := $(NPM) --prefix frontend
 
 export UV_CACHE_DIR
 
-.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-api-lambda package-functions agent agent-image smoke-agent-container preview-agent-image-dev push-agent-image-dev eval-baseline eval-runtime-dev inspect-runtime-versions-dev tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-api-access-logs-dev smoke-api-cors-dev smoke-api-gateway-dev smoke-api-lambda-dev smoke-api-payload-dev smoke-api-throttling-dev smoke-catalog-dev smoke-gateway-dev smoke-agent-gateway-dev smoke-memory-dev smoke-runtime-dev smoke-runtime-sessions-dev smoke-runtime-traces-dev dev-frontend
+.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-api-lambda package-functions agent agent-image smoke-agent-container preview-agent-image-dev push-agent-image-dev eval-baseline eval-runtime-dev inspect-runtime-versions-dev tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-dev smoke-memory-dev dev-frontend
 
 help: ## Show the available Make targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-30s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -54,7 +55,7 @@ typecheck: ## Type-check the backend and frontend
 	$(UV) run pyright
 	$(FRONTEND_NPM) run typecheck
 
-test: ## Run backend and frontend unit tests
+test: ## Run backend and frontend tests
 	$(UV) run pytest
 	$(FRONTEND_NPM) run test
 
@@ -85,7 +86,7 @@ agent-image: ## Build the Python 3.13 ARM64 AgentCore Runtime image
 
 smoke-agent-container: ## Verify the local AgentCore Runtime container health endpoint
 	$(CONTAINER_TOOL) build --platform $(AGENT_SMOKE_PLATFORM) --label org.opencontainers.image.revision=$(AGENT_REVISION) --file backend/Containerfile --tag $(AGENT_SMOKE_IMAGE) .
-	CONTAINER_TOOL=$(CONTAINER_TOOL) AGENT_IMAGE=$(AGENT_SMOKE_IMAGE) AGENT_PLATFORM=$(AGENT_SMOKE_PLATFORM) ./scripts/smoke-agent-container.sh
+	CONTAINER_TOOL=$(CONTAINER_TOOL) AGENT_IMAGE=$(AGENT_SMOKE_IMAGE) AGENT_PLATFORM=$(AGENT_SMOKE_PLATFORM) ./scripts/smoke/smoke-agent-container.sh
 
 preview-agent-image-dev: ## Preview the immutable development ECR image publication
 	ACTION=preview AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) CONTAINER_TOOL=$(CONTAINER_TOOL) AGENT_IMAGE=$(AGENT_IMAGE) ./scripts/push-agent-image-dev.sh
@@ -163,44 +164,11 @@ tofu-destroy-dev: ## Apply the reviewed development teardown; requires CONFIRM=d
 seed-dev: ## Upload authoritative JSON and invoke ingestion; requires CONFIRM=seed-dev
 	CONFIRM=$(CONFIRM) AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) SOURCE_DATA_DIR=$(SOURCE_DATA_DIR) ./scripts/seed-dev.sh
 
-smoke-api-access-logs-dev: ## Verify privacy-safe API access log delivery
-	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-api-access-logs-dev.sh
-
-smoke-api-cors-dev: ## Verify only the configured frontend origin passes preflight
-	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-api-cors-dev.sh
-
-smoke-api-lambda-dev: ## Invoke the private application API Lambda smoke check
-	AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) ./scripts/smoke-api-lambda-dev.sh
-
-smoke-api-gateway-dev: ## Probe the deployed application HTTP API routes
-	AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) ./scripts/smoke-api-gateway-dev.sh
-
-smoke-api-payload-dev: ## Verify oversized API payloads fail before Runtime
-	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-api-payload-dev.sh
-
-smoke-api-throttling-dev: ## Verify the deployed session-route throttle configuration
-	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-api-throttling-dev.sh
-
-smoke-catalog-dev: ## Invoke a read-only deployed catalog search smoke test
-	AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) ./scripts/smoke-catalog-dev.sh
-
-smoke-gateway-dev: ## Exercise and capture every IAM-authenticated AgentCore Gateway tool
-	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-gateway-dev.sh
-
-smoke-agent-gateway-dev: ## Invoke the Strands agent through the IAM-authenticated Gateway
-	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) PROMPT="$(PROMPT)" ./scripts/smoke-agent-gateway-dev.sh
+smoke-dev: ## Run a deployed smoke suite; SUITE defaults to config
+	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) PROMPT="$(PROMPT)" ./scripts/smoke/smoke-dev.sh "$(SUITE)"
 
 smoke-memory-dev: ## Verify typed AgentCore Memory; requires CONFIRM=smoke-memory-dev
-	CONFIRM=$(CONFIRM) AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-memory-dev.sh
-
-smoke-runtime-dev: ## Invoke the stable AgentCore Runtime with a signed request
-	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) PROMPT="$(PROMPT)" ./scripts/smoke-runtime-dev.sh
-
-smoke-runtime-sessions-dev: ## Verify separate Runtime sessions return disjoint evidence
-	VERIFY_SESSION_ISOLATION=true AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) PROMPT="$(PROMPT)" ./scripts/smoke-runtime-dev.sh
-
-smoke-runtime-traces-dev: ## Invoke Runtime and verify its evaluation-compatible Strands trace
-	VERIFY_RUNTIME_TRACES=true AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) PROMPT="$(PROMPT)" ./scripts/smoke-runtime-dev.sh
+	CONFIRM=$(CONFIRM) AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke/smoke-memory-dev.sh
 
 dev-frontend: ## Start the frontend development server
 	$(FRONTEND_NPM) run dev

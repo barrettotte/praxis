@@ -83,32 +83,35 @@ four disposable copies, and saves the Lambda response under `build/`. Override
 Run the seed target after initial deployment and whenever a reviewed plan
 replaces the disposable catalog table.
 
-Run deployed smoke checks manually because they invoke metered AWS services.
-The Gateway check signs standard MCP `tools/list` and `tools/call` requests with
-the active profile, verifies all four catalog tools are discoverable, and
-confirms that every catalog tool returns evidence. It writes credential-free,
-deterministic captures to `docs/evidence/gateway-tools-list.json` and
+Run deployed checks through suites that keep non-inference, metered inference,
+and mutating operations visibly separate:
+
+| Command | Coverage | Model inference |
+| --- | --- | --- |
+| `make smoke-dev` | Fast API configuration, Cognito, and Runtime authorization | No |
+| `make smoke-dev SUITE=access-logs` | Eventually consistent API access-log delivery | No |
+| `make smoke-dev SUITE=tools` | Catalog Lambda and AgentCore Gateway tools | No |
+| `make smoke-dev SUITE=api` | API Gateway through AgentCore Runtime | Yes |
+| `make smoke-dev SUITE=agent` | Local Strands agent through Gateway | Yes |
+| `make smoke-dev SUITE=runtime` | Stable AgentCore Runtime endpoint | Yes |
+| `make smoke-dev SUITE=runtime-sessions` | Runtime session isolation | Yes, twice |
+| `make smoke-dev SUITE=runtime-traces` | Runtime response and trace delivery | Yes |
+| `make smoke-memory-dev CONFIRM=smoke-memory-dev` | Typed Memory records | May write records |
+
+Run `./scripts/smoke/smoke-dev.sh --help` for the same suite list. Narrow
+scripts in `scripts/smoke/` remain available for diagnosing one failed check,
+but they are not separate Make targets.
+
+The Gateway tools check signs standard MCP `tools/list` and `tools/call`
+requests with the active profile, verifies all four catalog tools are
+discoverable, and confirms that every catalog tool returns evidence. It writes
+credential-free, deterministic captures to
+`docs/evidence/gateway-tools-list.json` and
 `docs/evidence/gateway-tool-calls.json`. It also verifies excessive, malformed,
 and unsigned requests are rejected and records only sanitized outcomes in
 `docs/evidence/gateway-negative-calls.json`. Client-observed HTTPS latency and
 JSON request/raw response body sizes for each successful tool call are recorded
-in `docs/evidence/gateway-tool-metrics.json`:
-
-```shell
-make smoke-catalog-dev
-make smoke-api-access-logs-dev
-make smoke-api-cors-dev
-make smoke-api-lambda-dev
-make smoke-api-gateway-dev
-make smoke-api-payload-dev
-make smoke-api-throttling-dev
-make smoke-gateway-dev
-make smoke-agent-gateway-dev
-make smoke-memory-dev CONFIRM=smoke-memory-dev
-make smoke-runtime-dev
-make smoke-runtime-sessions-dev
-make smoke-runtime-traces-dev
-```
+in `docs/evidence/gateway-tool-metrics.json`.
 
 The API Gateway check signs its declared-route requests with the active AWS
 profile, requires an unsigned request to fail before Lambda invocation, and
@@ -122,8 +125,9 @@ both preflights without Lambda. The throttling check reads the deployed stage an
 session route to match the reviewed rate and burst values without invoking the
 API. The payload check invokes the private API Lambda with a body over 16 KiB
 and requires a fixed 413 response, proving validation stopped before Runtime.
-The direct API Lambda check exercises the Runtime-backed success path through
-authenticated Lambda invocation. The successful Runtime calls are metered.
+The `api` suite exercises the Runtime-backed success path through API Gateway.
+The direct Lambda script remains available only for targeted diagnosis. Every
+successful Runtime call is metered.
 
 The Memory check has a distinct confirmation because its first run creates one
 typed preference and one typed decision for a dedicated smoke actor. A
@@ -132,7 +136,12 @@ requires actor-scoped semantic retrieval, exercises the catalog-identifier
 rejection boundary, and writes only sanitized counts and kinds to
 `docs/evidence/agentcore-memory.json`.
 
-The agent-to-Gateway command uses the same SigV4 Strands MCP transport as the
+The Cognito check reads the deployed user pool without creating a user. It
+requires the reviewed admin-only email identity, recovery, password, cost-tier,
+and teardown settings and writes only sanitized configuration facts to
+`docs/evidence/cognito-user-pool.json`.
+
+The `agent` suite uses the same SigV4 Strands MCP transport as the
 AgentCore Runtime, invokes the configured Bedrock model with the discovered
 tools, and requires at least one Gateway tool call plus exactly three
 schema-valid candidates with an evidence citation on each. It writes sanitized
@@ -141,7 +150,7 @@ counts and tool-call metadata to
 `docs/evidence/strands-gateway-agent-run.json`. Override its deterministic smoke
 prompt with `PROMPT='your goal'` when needed.
 
-The Runtime command signs `InvokeAgentRuntime` with the active AWS profile,
+The `runtime` suite signs `InvokeAgentRuntime` with the active AWS profile,
 targets the named `stable` endpoint, and uses a new Runtime session ID. It
 requires exactly three schema-valid cited candidates and at least one Gateway
 tool call. The command prints endpoint-resolution and invocation stages and
@@ -149,6 +158,15 @@ enforces a three-minute wall-clock timeout. Its credential-free capture is
 written to `docs/evidence/agentcore-runtime-invocation.json`; override the prompt with
 `PROMPT='your goal'` or the deadline with `RUNTIME_SMOKE_TIMEOUT_SECONDS=seconds`
 when needed.
+
+The Runtime authorization check reads the immutable version served by the
+`stable` endpoint and requires its omitted custom JWT authorizer to select the
+service's [default IAM authorization](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-oauth.html).
+It then sends an unsigned request directly to the Runtime service endpoint and
+requires a 403 response. Authentication rejects the request before the Runtime
+container or model is invoked, so this check does not create a metered
+inference. Its sanitized result is written to
+`docs/evidence/agentcore-runtime-auth.json`.
 
 The Runtime session check invokes the stable endpoint with two distinct session
 IDs and catalog topics whose expected evidence does not overlap. It fails if
@@ -170,7 +188,7 @@ After deploying the ADOT-instrumented image and promoting its immutable Runtime
 version, invoke and verify one evaluation-compatible trace:
 
 ```shell
-make smoke-runtime-traces-dev
+make smoke-dev SUITE=runtime-traces
 ```
 
 The command waits up to three minutes for ADOT delivery to the named Runtime

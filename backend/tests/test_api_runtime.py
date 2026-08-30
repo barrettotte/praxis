@@ -184,9 +184,17 @@ def test_rejects_runtime_failures(response: dict[str, object], message: str) -> 
     assert client.request is not None
 
 
-def test_hides_aws_runtime_errors() -> None:
+@pytest.mark.parametrize(
+    ("code", "detail"),
+    [
+        ("ModelErrorException", "sensitive model provider detail"),
+        ("RuntimeClientError", "sensitive Gateway tool detail"),
+    ],
+    ids=["model", "tool"],
+)
+def test_hides_model_and_tool_runtime_errors(code: str, detail: str) -> None:
     error = ClientError(
-        {"Error": {"Code": "AccessDeniedException", "Message": "sensitive detail"}},
+        {"Error": {"Code": code, "Message": detail}},
         "InvokeAgentRuntime",
     )
 
@@ -199,4 +207,24 @@ def test_hides_aws_runtime_errors() -> None:
             CORRELATION_ID,
         )
 
-    assert "sensitive detail" not in str(captured.value)
+    assert detail not in str(captured.value)
+    assert code not in str(captured.value)
+
+
+def test_hides_invalid_runtime_response_content() -> None:
+    marker = "sensitive model or tool output"
+    response = {
+        **valid_response(),
+        "response": FakeBody(marker.encode()),
+    }
+
+    with pytest.raises(ApiRuntimeError, match="invalid response") as captured:
+        invoke_runtime(
+            FakeRuntimeClient(response),
+            settings(),
+            "compiler",
+            SESSION_ID,
+            CORRELATION_ID,
+        )
+
+    assert marker not in str(captured.value)

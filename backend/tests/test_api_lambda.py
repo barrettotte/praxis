@@ -315,11 +315,20 @@ def test_api_lambda_invokes_runtime_for_valid_create_session(
     assert observed == [(marker, CORRELATION_ID)]
 
 
-def test_api_lambda_returns_safe_unavailable_when_runtime_fails(
+@pytest.mark.parametrize(
+    "sensitive_detail",
+    [
+        "Bedrock model failure: secret provider detail",
+        "Gateway tool failure: secret catalog detail",
+    ],
+    ids=["model", "tool"],
+)
+def test_api_lambda_returns_safe_unavailable_for_model_and_tool_failures(
     monkeypatch: pytest.MonkeyPatch,
+    sensitive_detail: str,
 ) -> None:
     def fail_create_session(_goal: str, _correlation_id: str) -> CreateSessionData:
-        raise ApiRuntimeError("sensitive dependency failure")
+        raise ApiRuntimeError(sensitive_detail)
 
     monkeypatch.setattr(api_function, "create_session", fail_create_session)
 
@@ -341,11 +350,13 @@ def test_api_lambda_returns_safe_unavailable_when_runtime_fails(
         },
         "body": (
             '{"error":{"code":"service_unavailable",'
-            '"message":"Application API routes are unavailable."}}'
+            '"message":"Recommendation service is temporarily unavailable."}}'
         ),
         "isBase64Encoded": False,
     }
-    assert "sensitive dependency failure" not in json.dumps(response)
+    assert sensitive_detail not in json.dumps(response)
+    assert "Bedrock" not in json.dumps(response)
+    assert "Gateway" not in json.dumps(response)
 
 
 def test_api_lambda_returns_safe_bad_request_for_invalid_input() -> None:

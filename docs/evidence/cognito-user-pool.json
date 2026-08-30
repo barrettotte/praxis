@@ -1,0 +1,9 @@
+{
+  "account_recovery": "verified_email",
+  "admin_created_users_only": true,
+  "case_insensitive_email_sign_in": true,
+  "deletion_protection": false,
+  "minimum_password_length": 14,
+  "mfa": "OFF",
+  "user_pool_tier": "LITE"
+}

@@ -2,28 +2,16 @@
 # Verify the private API Lambda returns buffered Runtime-backed candidates.
 set -euo pipefail
 
-praxis_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-praxis_profile="${AWS_PROFILE:-praxis-dev}"
-praxis_tofu="${TOFU:-tofu}"
-praxis_infra_dir="${praxis_repo_root}/infra/environments/dev"
-praxis_build_dir="${praxis_repo_root}/build"
-praxis_evidence_dir="${praxis_repo_root}/docs/evidence"
+praxis_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${praxis_script_dir}/lib/dev-smoke.sh"
 praxis_goal="compiler"
 praxis_correlation_id="51f4a405-8835-411d-9821-5980d73f51f6"
 
-for praxis_command in aws jq "${praxis_tofu}"; do
-  command -v "${praxis_command}" >/dev/null || {
-    printf 'Required command is unavailable: %s\n' "${praxis_command}" >&2
-    exit 2
-  }
-done
+praxis_require_commands aws jq "${praxis_tofu}"
 
 # Keep transport metadata separate from the Lambda application response.
 mkdir -p "${praxis_build_dir}" "${praxis_evidence_dir}"
-praxis_function_name="$(
-  AWS_PROFILE="${praxis_profile}" "${praxis_tofu}" \
-    -chdir="${praxis_infra_dir}" output -raw api_lambda_name
-)"
+praxis_function_name="$(praxis_tofu_output api_lambda_name)"
 praxis_payload="$(
   jq -nc \
     --arg correlation_id "${praxis_correlation_id}" \
@@ -40,7 +28,7 @@ praxis_payload="$(
       body: ({goal: $goal} | tojson)
     }'
 )"
-aws --profile "${praxis_profile}" --region us-east-1 lambda invoke \
+aws --profile "${praxis_profile}" --region "${praxis_region}" lambda invoke \
   --function-name "${praxis_function_name}" \
   --cli-binary-format raw-in-base64-out \
   --payload "${praxis_payload}" \

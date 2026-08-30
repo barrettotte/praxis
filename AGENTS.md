@@ -21,6 +21,8 @@ preserve unrelated user changes.
   and decision history in ADRs rather than scattering it through the codebase.
 - Keep local development usable before requiring deployed AWS services.
 - Give every shell script a `.sh` file extension.
+- Add deployed checks to the named `smoke-dev` suites instead of creating new
+  Make targets. Keep mutating checks separate with explicit confirmation.
 - Never run commands that create, modify, or destroy AWS resources. The user
   must manually execute all provisioning and teardown commands, including
   `tofu apply` and `tofu destroy`, after reviewing the plan. Read-only,

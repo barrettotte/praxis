@@ -2,16 +2,10 @@
 # Exercise every deployed catalog tool through signed AgentCore Gateway requests.
 set -euo pipefail
 
-praxis_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-praxis_profile="${AWS_PROFILE:-praxis-dev}"
-praxis_region="${AWS_REGION:-us-east-1}"
-praxis_tofu="${TOFU:-tofu}"
+praxis_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${praxis_script_dir}/lib/dev-smoke.sh"
 # Read the deployed endpoint from state instead of duplicating environment values.
-praxis_gateway_url="$(
-  AWS_PROFILE="${praxis_profile}" "${praxis_tofu}" \
-    -chdir="${praxis_repo_root}/infra/environments/dev" \
-    output -raw agentcore_gateway_url
-)"
+praxis_gateway_url="$(praxis_tofu_output agentcore_gateway_url)"
 
 UV_CACHE_DIR="${praxis_repo_root}/.cache/uv" uv run --project "${praxis_repo_root}" \
   python -m praxis.gateway_smoke \

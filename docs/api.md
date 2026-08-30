@@ -30,6 +30,12 @@ structurally valid routes return the non-cacheable unavailable response until
 their handlers are connected. Invalid requests return a fixed 400 response
 without validation internals or submitted values.
 
+Model-provider errors, Gateway or catalog-tool errors, Runtime timeouts, and
+invalid Runtime output converge on the fixed `service_unavailable` response.
+The API does not expose dependency names, provider codes, retry diagnostics,
+tool output, prompts, exception text, or stack traces. Clients may retry with
+backoff and use the response correlation header for investigation.
+
 Session creation allows a burst of one request and refills at 0.1 requests per
 second. Requests above that route limit receive API Gateway's 429 response
 before Lambda or Runtime invocation. Clients should wait before retrying and
@@ -67,7 +73,7 @@ Errors contain a stable machine-readable code and safe display text:
 | --- | --- | --- |
 | `400` | `invalid_request` | The request violates the public contract. |
 | `413` | `payload_too_large` | The decoded JSON request body exceeds 16 KiB. |
-| `503` | `service_unavailable` | The requested application handler is unavailable. |
+| `503` | `service_unavailable` | Recommendation generation or its dependencies are temporarily unavailable. |
 
 All Lambda responses are UTF-8 JSON, explicitly mark `isBase64Encoded` false,
 and use `cache-control: no-store`. Error responses never include validation
@@ -83,3 +89,11 @@ a trusted fallback ID, preventing untrusted header content from being reflected.
 Correlation IDs remain transport metadata and do not appear in response bodies.
 The Runtime adapter forwards the selected ID as W3C tracing baggage so the
 downstream invocation can be correlated without adding it to the agent prompt.
+
+## Verification
+
+`make test` exercises the request validator, Lambda dispatcher, Runtime adapter,
+strict downstream response validation, and public response envelope in one
+process without AWS credentials or model calls. The deployed
+`make smoke-dev SUITE=api` check separately verifies API authorization and the
+complete API Gateway-to-Runtime success path.

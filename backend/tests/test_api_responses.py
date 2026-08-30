@@ -37,7 +37,7 @@ def test_builds_success_response_envelope() -> None:
         (
             ApiErrorCode.SERVICE_UNAVAILABLE,
             503,
-            "Application API routes are unavailable.",
+            "Recommendation service is temporarily unavailable.",
         ),
     ],
 )

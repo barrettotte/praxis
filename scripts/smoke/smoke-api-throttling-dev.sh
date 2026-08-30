@@ -2,25 +2,13 @@
 # Verify the deployed session route declares the reviewed API Gateway limits.
 set -euo pipefail
 
-praxis_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-praxis_profile="${AWS_PROFILE:-praxis-dev}"
-praxis_region="${AWS_REGION:-us-east-1}"
-praxis_tofu="${TOFU:-tofu}"
-praxis_infra_dir="${praxis_repo_root}/infra/environments/dev"
-praxis_evidence_dir="${praxis_repo_root}/docs/evidence"
+praxis_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${praxis_script_dir}/lib/dev-smoke.sh"
 praxis_route="POST /v1/sessions"
 
-for praxis_command in aws jq "${praxis_tofu}"; do
-  command -v "${praxis_command}" >/dev/null || {
-    printf 'Required command is unavailable: %s\n' "${praxis_command}" >&2
-    exit 2
-  }
-done
+praxis_require_commands aws jq "${praxis_tofu}"
 
-praxis_api_id="$(
-  AWS_PROFILE="${praxis_profile}" "${praxis_tofu}" \
-    -chdir="${praxis_infra_dir}" output -raw api_gateway_id
-)"
+praxis_api_id="$(praxis_tofu_output api_gateway_id)"
 praxis_route_settings="$(
   aws --profile "${praxis_profile}" --region "${praxis_region}" \
     apigatewayv2 get-stage \

@@ -1,0 +1,8 @@
+{
+  "authorization": "AWS_IAM",
+  "direct_unsigned_request_rejected": true,
+  "direct_unsigned_status": 403,
+  "runtime_handler_reached": false,
+  "model_invoked": false,
+  "stable_runtime_ready": true
+}

@@ -317,15 +317,15 @@ POST /v1/projects/{candidateId}/select
 - [x] Configure payload limits
 - [x] Add access logging
 - [x] Add CORS for the known frontend origin only
-- [ ] Return model and tool errors safely
-- [ ] Add API integration tests
-- [ ] Confirm arbitrary public callers cannot invoke AgentCore Runtime
+- [x] Return model and tool errors safely
+- [x] Add API integration tests
+- [x] Confirm arbitrary public callers cannot invoke AgentCore Runtime
 
 Definition of done: a client can complete the read-only workflow entirely through API Gateway.
 
 ## Phase 7 - Authentication and frontend
 
-- [ ] Create a Cognito user pool
+- [x] Create a Cognito user pool
 - [ ] Create an application client
 - [ ] Add API Gateway JWT authorization
 - [ ] Build login and logout

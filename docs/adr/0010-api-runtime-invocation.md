@@ -35,7 +35,9 @@ validate the entire Runtime response before constructing a 201 response. Return
 only the session ID and three schema-valid cited candidates; keep Memory and
 tool-call measurements inside the service boundary. Map configuration, SDK,
 HTTP, and response-validation failures to the fixed `service_unavailable`
-response.
+response. This includes model-provider and Gateway/tool failures surfaced by
+Runtime; never preserve their service codes, messages, tool output, prompts, or
+stack traces in the public response.
 
 AWS evaluates qualified Runtime calls against both the Runtime and endpoint
 resources, so both ARNs appear in the identity policy, as described in the

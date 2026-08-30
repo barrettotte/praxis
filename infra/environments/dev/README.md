@@ -67,7 +67,9 @@ payloads use the envelopes documented in `docs/api.md`; fixed machine-readable
 error codes remain separate from safe display text. The Lambda propagates a
 valid client UUIDv4 correlation ID or uses API Gateway's request ID, returning
 the selected value as response metadata and forwarding it as tracing baggage
-without placing it in response bodies or prompts.
+without placing it in response bodies or prompts. Model, Gateway, tool,
+timeout, and invalid-output failures share one fixed 503 envelope that omits
+downstream exception details.
 
 The session-create route has a burst limit of one and a steady rate of 0.1
 requests per second. API Gateway rejects excess requests before Lambda
@@ -86,6 +88,12 @@ CloudWatch log group with seven-day retention. Records contain request IDs,
 route templates, status, latency, and byte counts only; they omit bodies,
 prompts, raw paths, caller identities, IP addresses, user agents, and error
 text.
+
+The Cognito Lite user pool is an admin-provisioned, single-user directory with
+case-insensitive email sign-in, verified-email recovery, and no public
+self-registration. OpenTofu manages no user or password, and deletion
+protection remains inactive so guarded development teardown removes the pool.
+The browser app client and API JWT authorizer are separate resources.
 
 The AgentCore Gateway exposes an MCP endpoint protected by AWS IAM. Its service
 role trust is restricted to AgentCore gateways in this account and region. The
@@ -109,3 +117,5 @@ MMDSv2 compatibility update documented in
 returns to `READY` with MMDSv2 enabled. The named `stable` endpoint targets the
 explicitly configured immutable Runtime version and does not follow `DEFAULT`;
 new versions require a separate reviewed promotion.
+The `smoke-runtime-auth-dev` target checks the deployed stable version and
+proves a direct unsigned request is rejected before container dispatch.

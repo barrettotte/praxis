@@ -61,7 +61,7 @@ _ERROR_DEFINITIONS: dict[ApiErrorCode, tuple[int, str]] = {
     ApiErrorCode.PAYLOAD_TOO_LARGE: (413, "Request payload is too large."),
     ApiErrorCode.SERVICE_UNAVAILABLE: (
         503,
-        "Application API routes are unavailable.",
+        "Recommendation service is temporarily unavailable.",
     ),
 }
 

@@ -31,6 +31,16 @@ output "frontend_origin" {
   value       = var.frontend_origin
 }
 
+output "cognito_user_pool_id" {
+  description = "Identifier of the application Cognito user pool."
+  value       = aws_cognito_user_pool.application.id
+}
+
+output "cognito_user_pool_arn" {
+  description = "ARN of the application Cognito user pool."
+  value       = aws_cognito_user_pool.application.arn
+}
+
 output "api_gateway_access_log_group_name" {
   description = "CloudWatch log group receiving application API access records."
   value       = aws_cloudwatch_log_group.api_gateway_access.name
