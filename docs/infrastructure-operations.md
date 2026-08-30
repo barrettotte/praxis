@@ -106,6 +106,12 @@ make smoke-runtime-sessions-dev
 make smoke-runtime-traces-dev
 ```
 
+The API Gateway check signs its declared-route requests with the active AWS
+profile, requires an unsigned request to fail before Lambda invocation, and
+validates one complete buffered Runtime response without recording candidate or
+session content. The direct API Lambda check exercises the same Runtime-backed
+handler through authenticated Lambda invocation. Both calls are metered.
+
 The Memory check has a distinct confirmation because its first run creates one
 typed preference and one typed decision for a dedicated smoke actor. A
 deterministic preflight makes later runs read-only once both records exist. It

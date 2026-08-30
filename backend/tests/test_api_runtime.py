@@ -1,0 +1,202 @@
+"""Tests for the API Lambda's bounded AgentCore Runtime adapter."""
+
+import json
+
+import pytest
+from botocore.exceptions import ClientError
+
+from praxis.api.runtime import (
+    ApiRuntimeError,
+    ApiRuntimeSettings,
+    invoke_runtime,
+    load_runtime_settings,
+)
+
+RUNTIME_ARN = "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/example-runtime"
+SESSION_ID = "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4"
+CORRELATION_ID = "51f4a405-8835-411d-9821-5980d73f51f6"
+
+
+class FakeBody:
+    """In-memory stand-in for botocore's streaming response body."""
+
+    def __init__(self, payload: bytes) -> None:
+        self.payload = payload
+
+    def read(self) -> bytes:
+        return self.payload
+
+
+class FakeRuntimeClient:
+    """Capture one Runtime invocation and return a configured response."""
+
+    def __init__(self, response: dict[str, object] | Exception) -> None:
+        self.response = response
+        self.request: dict[str, object] | None = None
+
+    def invoke_agent_runtime(self, **kwargs: object) -> dict[str, object]:
+        self.request = kwargs
+        if isinstance(self.response, Exception):
+            raise self.response
+        return self.response
+
+
+def candidate(number: int) -> dict[str, object]:
+    """Return one schema-valid Runtime candidate."""
+    return {
+        "title": f"Candidate {number}",
+        "summary": "Build a focused compiler project.",
+        "rationale": "The evidence provides relevant implementation context.",
+        "estimated_scope": "multi-week",
+        "technologies": ["Python"],
+        "first_milestone": "Implement one instruction-selection rule.",
+        "evidence_citations": [
+            {
+                "evidence_id": "book:0f5ba253568e4836",
+                "generated_connection": "The evidence supports this learning path.",
+            }
+        ],
+    }
+
+
+def valid_response() -> dict[str, object]:
+    """Return a buffered response matching the deployed Runtime contract."""
+    payload = {
+        "candidates": [candidate(number) for number in range(1, 4)],
+        "memory": {"retrieved_count": 1},
+        "tool_calls": [{"name": "search_catalog", "count": 1}],
+    }
+    return {
+        "contentType": "application/json",
+        "response": FakeBody(json.dumps(payload).encode()),
+        "runtimeSessionId": SESSION_ID,
+        "statusCode": 200,
+    }
+
+
+def settings() -> ApiRuntimeSettings:
+    return ApiRuntimeSettings(
+        runtime_arn=RUNTIME_ARN,
+        qualifier="stable",
+        actor_id="praxis-single-user",
+    )
+
+
+def test_loads_complete_runtime_settings() -> None:
+    assert (
+        load_runtime_settings(
+            {
+                "PRAXIS_API_ACTOR_ID": "praxis-single-user",
+                "PRAXIS_AGENT_RUNTIME_ARN": RUNTIME_ARN,
+                "PRAXIS_AGENT_RUNTIME_QUALIFIER": "stable",
+            }
+        )
+        == settings()
+    )
+
+
+@pytest.mark.parametrize(
+    "environment",
+    [
+        {},
+        {
+            "PRAXIS_API_ACTOR_ID": "user:other",
+            "PRAXIS_AGENT_RUNTIME_ARN": RUNTIME_ARN,
+            "PRAXIS_AGENT_RUNTIME_QUALIFIER": "stable",
+        },
+    ],
+)
+def test_rejects_invalid_runtime_settings(environment: dict[str, str]) -> None:
+    with pytest.raises(ApiRuntimeError, match="invalid Runtime configuration"):
+        load_runtime_settings(environment)
+
+
+def test_invokes_runtime_and_returns_only_public_session_data() -> None:
+    client = FakeRuntimeClient(valid_response())
+
+    result = invoke_runtime(
+        client,
+        settings(),
+        "  Recommend a compiler project  ",
+        SESSION_ID,
+        CORRELATION_ID,
+    )
+
+    assert client.request == {
+        "accept": "application/json",
+        "agentRuntimeArn": RUNTIME_ARN,
+        "baggage": f"praxis.correlation_id={CORRELATION_ID}",
+        "contentType": "application/json",
+        "payload": b'{"actor_id":"praxis-single-user","prompt":"Recommend a compiler project"}',
+        "qualifier": "stable",
+        "runtimeSessionId": SESSION_ID,
+    }
+    assert result.model_dump(mode="json", by_alias=True) == {
+        "sessionId": SESSION_ID,
+        "candidates": [candidate(number) for number in range(1, 4)],
+    }
+
+
+def test_percent_encodes_gateway_correlation_id_in_tracing_baggage() -> None:
+    client = FakeRuntimeClient(valid_response())
+
+    invoke_runtime(client, settings(), "compiler", SESSION_ID, "MqgCjHCKoAMEPLw=")
+
+    assert client.request is not None
+    assert client.request["baggage"] == "praxis.correlation_id=MqgCjHCKoAMEPLw%3D"
+
+
+@pytest.mark.parametrize(
+    ("response", "message"),
+    [
+        ({"statusCode": 503}, "invocation failed"),
+        (
+            {
+                "contentType": "text/plain",
+                "response": FakeBody(b"not JSON"),
+                "runtimeSessionId": SESSION_ID,
+                "statusCode": 200,
+            },
+            "invalid response",
+        ),
+        (
+            {
+                "contentType": "application/json",
+                "response": FakeBody(b'{"candidates":[]}'),
+                "runtimeSessionId": SESSION_ID,
+                "statusCode": 200,
+            },
+            "invalid response",
+        ),
+        (
+            {
+                **valid_response(),
+                "runtimeSessionId": "51f4a405-8835-411d-9821-5980d73f51f6",
+            },
+            "invalid response",
+        ),
+    ],
+)
+def test_rejects_runtime_failures(response: dict[str, object], message: str) -> None:
+    client = FakeRuntimeClient(response)
+    with pytest.raises(ApiRuntimeError, match=message):
+        invoke_runtime(client, settings(), "compiler", SESSION_ID, CORRELATION_ID)
+    assert client.request is not None
+
+
+def test_hides_aws_runtime_errors() -> None:
+    error = ClientError(
+        {"Error": {"Code": "AccessDeniedException", "Message": "sensitive detail"}},
+        "InvokeAgentRuntime",
+    )
+
+    with pytest.raises(ApiRuntimeError, match="invocation failed") as captured:
+        invoke_runtime(
+            FakeRuntimeClient(error),
+            settings(),
+            "compiler",
+            SESSION_ID,
+            CORRELATION_ID,
+        )
+
+    assert "sensitive detail" not in str(captured.value)

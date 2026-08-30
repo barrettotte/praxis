@@ -23,6 +23,7 @@ UV_CACHE_DIR="${praxis_repo_root}/.cache/uv" uv pip install \
 cp "${praxis_repo_root}/backend/src/praxis/__init__.py" "${praxis_package_dir}/package/praxis/"
 cp "${praxis_repo_root}/backend/src/praxis/py.typed" "${praxis_package_dir}/package/praxis/"
 cp -R "${praxis_repo_root}/backend/src/praxis/api" "${praxis_package_dir}/package/praxis/"
+cp -R "${praxis_repo_root}/backend/src/praxis/domain" "${praxis_package_dir}/package/praxis/"
 cp "${praxis_repo_root}/backend/src/praxis/functions/__init__.py" \
   "${praxis_package_dir}/package/praxis/functions/"
 cp "${praxis_repo_root}/backend/src/praxis/functions/api.py" \

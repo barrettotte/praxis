@@ -1,8 +1,10 @@
 # Application API
 
-The API Gateway HTTP API accepts JSON through four explicit routes. Unknown
-routes stop at API Gateway, and the Lambda rejects unknown fields and query
-parameters without reflecting invalid input.
+The API Gateway HTTP API accepts IAM-signed JSON requests through four explicit
+routes. Unknown routes stop at API Gateway, unsigned declared-route requests
+return 403, and the Lambda rejects unknown fields and query parameters without
+reflecting invalid input. Cognito JWT authorization replaces development IAM
+authorization when the frontend authentication boundary is deployed.
 
 | Method | Path | JSON body |
 | --- | --- | --- |
@@ -16,9 +18,13 @@ parameters without reflecting invalid input.
 underscores, or hyphens. POST requests require an `application/json` content
 type; API Gateway base64-encoded UTF-8 bodies are supported.
 
-Structurally valid requests return the non-cacheable unavailable response until
-their application handlers are connected. Invalid requests return a fixed 400
-response without validation internals or submitted values.
+`POST /v1/sessions` invokes the version-pinned AgentCore Runtime and returns a
+complete buffered response with a generated session ID and exactly three
+validated, evidence-backed candidates. Runtime Memory and tool-call metrics are
+validated internally but are not part of the public response. Other
+structurally valid routes return the non-cacheable unavailable response until
+their handlers are connected. Invalid requests return a fixed 400 response
+without validation internals or submitted values.
 
 ## Response envelopes
 
@@ -31,6 +37,11 @@ Successful responses place route-specific fields under `data`:
   }
 }
 ```
+
+The session-create response also includes `data.candidates`, an array of three
+objects using the project-candidate contract: `title`, `summary`, `rationale`,
+`estimated_scope`, `technologies`, `first_milestone`, and one or more
+`evidence_citations` containing stable evidence IDs and generated connections.
 
 Errors contain a stable machine-readable code and safe display text:
 
@@ -60,3 +71,5 @@ error responses. Without the header, the API uses API Gateway's trusted request
 ID. An invalid client value produces the fixed `invalid_request` response with
 a trusted fallback ID, preventing untrusted header content from being reflected.
 Correlation IDs remain transport metadata and do not appear in response bodies.
+The Runtime adapter forwards the selected ID as W3C tracing baggage so the
+downstream invocation can be correlated without adding it to the agent prompt.

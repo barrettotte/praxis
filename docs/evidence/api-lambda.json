@@ -1,5 +1,9 @@
 {
+  "all_candidates_cited": true,
   "authenticated_direct_invocation": true,
-  "handler_status": 503,
-  "payload_reflected": false
+  "buffered_response": true,
+  "candidate_count": 3,
+  "correlation_id_propagated": true,
+  "handler_status": 201,
+  "runtime_invoked": true
 }

@@ -12,7 +12,9 @@ from praxis.api.requests import (
     SessionMessageRequest,
     validate_api_request,
 )
-from praxis.functions.api import lambda_handler
+from praxis.api.runtime import ApiRuntimeError, CreateSessionData
+from praxis.domain import EvidenceCitation, ProjectCandidate
+from praxis.functions import api as api_function
 
 SESSION_ID = "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4"
 CORRELATION_ID = "51f4a405-8835-411d-9821-5980d73f51f6"
@@ -184,13 +186,90 @@ def test_rejects_invalid_requests(event: object) -> None:
         validate_api_request(event)
 
 
-def test_api_lambda_returns_unavailable_for_valid_request() -> None:
+def test_api_lambda_invokes_runtime_for_valid_create_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     marker = "do-not-reflect"
+    observed: list[tuple[str, str]] = []
 
-    response = lambda_handler(
+    def create_session(goal: str, correlation_id: str) -> CreateSessionData:
+        observed.append((goal, correlation_id))
+        return CreateSessionData(
+            session_id=SESSION_ID,
+            candidates=[
+                ProjectCandidate(
+                    title=f"Candidate {number}",
+                    summary="Build a focused compiler project.",
+                    rationale="The evidence provides relevant implementation context.",
+                    estimated_scope="multi-week",
+                    technologies=["Python"],
+                    first_milestone="Implement one instruction-selection rule.",
+                    evidence_citations=[
+                        EvidenceCitation(
+                            evidence_id="book:0f5ba253568e4836",
+                            generated_connection="The evidence supports this learning path.",
+                        )
+                    ],
+                )
+                for number in range(1, 4)
+            ],
+        )
+
+    monkeypatch.setattr(api_function, "create_session", create_session)
+
+    response = api_function.lambda_handler(
         http_event(
             "POST /v1/sessions",
             body=json.dumps({"goal": marker}),
+            correlation_id=CORRELATION_ID,
+        ),
+        object(),
+    )
+
+    assert response["statusCode"] == 201
+    assert response["headers"] == {
+        "cache-control": "no-store",
+        "content-type": "application/json",
+        "x-correlation-id": CORRELATION_ID,
+    }
+    assert json.loads(str(response["body"])) == {
+        "data": {
+            "sessionId": SESSION_ID,
+            "candidates": [
+                {
+                    "title": f"Candidate {number}",
+                    "summary": "Build a focused compiler project.",
+                    "rationale": "The evidence provides relevant implementation context.",
+                    "estimated_scope": "multi-week",
+                    "technologies": ["Python"],
+                    "first_milestone": "Implement one instruction-selection rule.",
+                    "evidence_citations": [
+                        {
+                            "evidence_id": "book:0f5ba253568e4836",
+                            "generated_connection": "The evidence supports this learning path.",
+                        }
+                    ],
+                }
+                for number in range(1, 4)
+            ],
+        }
+    }
+    assert response["isBase64Encoded"] is False
+    assert observed == [(marker, CORRELATION_ID)]
+
+
+def test_api_lambda_returns_safe_unavailable_when_runtime_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_create_session(_goal: str, _correlation_id: str) -> CreateSessionData:
+        raise ApiRuntimeError("sensitive dependency failure")
+
+    monkeypatch.setattr(api_function, "create_session", fail_create_session)
+
+    response = api_function.lambda_handler(
+        http_event(
+            "POST /v1/sessions",
+            body=json.dumps({"goal": "compiler"}),
             correlation_id=CORRELATION_ID,
         ),
         object(),
@@ -209,13 +288,13 @@ def test_api_lambda_returns_unavailable_for_valid_request() -> None:
         ),
         "isBase64Encoded": False,
     }
-    assert marker not in json.dumps(response)
+    assert "sensitive dependency failure" not in json.dumps(response)
 
 
 def test_api_lambda_returns_safe_bad_request_for_invalid_input() -> None:
     marker = "do-not-reflect"
 
-    response = lambda_handler(
+    response = api_function.lambda_handler(
         http_event(
             "POST /v1/sessions",
             body=json.dumps({"unexpected": marker}),
@@ -235,10 +314,13 @@ def test_api_lambda_returns_safe_bad_request_for_invalid_input() -> None:
 
 
 def test_api_lambda_returns_independent_response_objects() -> None:
-    event = http_event("POST /v1/sessions", body=json.dumps({"goal": "Learn Rust"}))
+    event = http_event(
+        "GET /v1/sessions/{sessionId}",
+        path_parameters={"sessionId": SESSION_ID},
+    )
 
-    first = lambda_handler(event, object())
-    second = lambda_handler(event, object())
+    first = api_function.lambda_handler(event, object())
+    second = api_function.lambda_handler(event, object())
 
     assert first is not second
     assert first["headers"] is not second["headers"]

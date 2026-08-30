@@ -33,6 +33,17 @@ data "aws_iam_policy_document" "api_lambda" {
     ]
     resources = ["${aws_cloudwatch_log_group.api_lambda.arn}:*"]
   }
+
+  # Both resources participate in authorization for a qualified invocation.
+  statement {
+    sid     = "InvokeStableAgentRuntime"
+    effect  = "Allow"
+    actions = ["bedrock-agentcore:InvokeAgentRuntime"]
+    resources = [
+      aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn,
+      aws_bedrockagentcore_agent_runtime_endpoint.stable.agent_runtime_endpoint_arn,
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "api_lambda" {
@@ -53,7 +64,15 @@ resource "aws_lambda_function" "api" {
   source_code_hash = filebase64sha256(local.api_lambda_package_path)
 
   memory_size = 256
-  timeout     = 30
+  timeout     = 29
+
+  environment {
+    variables = {
+      PRAXIS_AGENT_RUNTIME_ARN       = aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn
+      PRAXIS_AGENT_RUNTIME_QUALIFIER = aws_bedrockagentcore_agent_runtime_endpoint.stable.name
+      PRAXIS_API_ACTOR_ID            = "praxis-single-user"
+    }
+  }
 
   logging_config {
     log_format = "JSON"

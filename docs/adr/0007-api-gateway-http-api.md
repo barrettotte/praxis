@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded in part by ADR 0010 for authorization and Runtime invocation.
 
 ## Context
 
@@ -19,8 +19,8 @@ Use an API Gateway HTTP API with a Lambda proxy integration using payload format
 stage. Do not create a catch-all route, so unknown paths stop at API Gateway.
 
 Scope Lambda invocation permission to this API's execution ARN. Keep the Lambda
-without a function URL or AgentCore Runtime permission. The HTTP endpoint has no
-authorizer while its handler exposes only a fixed unavailable response.
+without a function URL. Authorization and downstream permissions are defined by
+the Runtime integration decision.
 
 ## Consequences
 

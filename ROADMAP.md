@@ -311,8 +311,8 @@ POST /v1/projects/{candidateId}/select
 - [x] Add request validation
 - [x] Add consistent response and error schemas
 - [x] Propagate correlation IDs
-- [ ] Invoke AgentCore Runtime from the API Lambda
-- [ ] Start with buffered responses
+- [x] Invoke AgentCore Runtime from the API Lambda
+- [x] Start with buffered responses
 - [ ] Configure throttling
 - [ ] Configure payload limits
 - [ ] Add access logging

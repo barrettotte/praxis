@@ -180,7 +180,9 @@ to serve the required
 accepts `{"actor_id": "...", "prompt": "..."}` and returns three validated
 candidates, the sanitized Memory retrieval count, and bounded tool-call counts
 as one buffered JSON response. The authenticated API derives `actor_id`; clients
-must not select another user's Memory scope.
+must not select another user's Memory scope. The single-user deployment reads
+that actor from API Lambda configuration; the Cognito boundary will derive it
+from authenticated claims without changing the Runtime payload contract.
 
 Build and verify the service contract without invoking AWS:
 

@@ -50,18 +50,22 @@ catalog table, and write to its own seven-day log group. No bucket notification
 or schedule can trigger ingestion unexpectedly.
 
 The application API Lambda uses an independent deployment ZIP with locked
-validation dependencies. It has no function URL or Runtime permission, and its
-execution role can write only to its seven-day log group. A low-cost API Gateway
-HTTP API invokes it through payload format 2.0 on the four explicit application
-routes. The default stage deploys OpenTofu-managed route changes automatically;
-undeclared routes return 404 without invoking the function. The HTTP endpoint
-has no authorizer while the Lambda validates the route, path identifiers,
-content type, query parameters, and strict JSON body before returning a fixed
-response that does not reflect invocation payloads. Success and error payloads
-use the envelopes documented in `docs/api.md`; fixed machine-readable error
-codes remain separate from safe display text. The Lambda propagates a valid
-client UUIDv4 correlation ID or uses API Gateway's request ID, returning the
-selected value as response metadata without placing it in response bodies.
+validation dependencies and no function URL. Its execution role can write only
+to its seven-day log group and invoke the configured Runtime plus its stable
+endpoint. A low-cost API Gateway HTTP API invokes it through payload format 2.0
+on four explicit AWS IAM-authorized application routes. The default stage
+deploys OpenTofu-managed route changes automatically; unsigned declared-route
+requests return 403, and undeclared routes return 404 without invoking the
+function. The Lambda validates the route, path identifiers, content type, query
+parameters, and strict JSON body. Session creation invokes Runtime with a
+deployment-owned single-user actor, a generated UUIDv4 session, a 25-second SDK
+read deadline, and a 29-second Lambda timeout. It validates the complete Runtime
+response before returning only the session and candidates. Success and error
+payloads use the envelopes documented in `docs/api.md`; fixed machine-readable
+error codes remain separate from safe display text. The Lambda propagates a
+valid client UUIDv4 correlation ID or uses API Gateway's request ID, returning
+the selected value as response metadata and forwarding it as tracing baggage
+without placing it in response bodies or prompts.
 
 The AgentCore Gateway exposes an MCP endpoint protected by AWS IAM. Its service
 role trust is restricted to AgentCore gateways in this account and region. The
