@@ -6,6 +6,26 @@ output "ecr_repository_urls" {
   }
 }
 
+output "api_lambda_name" {
+  description = "Name of the private application API Lambda function."
+  value       = aws_lambda_function.api.function_name
+}
+
+output "api_lambda_arn" {
+  description = "ARN of the private application API Lambda function."
+  value       = aws_lambda_function.api.arn
+}
+
+output "api_gateway_id" {
+  description = "Identifier of the application HTTP API."
+  value       = aws_apigatewayv2_api.application.id
+}
+
+output "api_gateway_url" {
+  description = "Base URL of the application HTTP API default stage."
+  value       = aws_apigatewayv2_api.application.api_endpoint
+}
+
 output "catalog_table_name" {
   description = "Name of the DynamoDB table containing the disposable catalog."
   value       = aws_dynamodb_table.catalog.name

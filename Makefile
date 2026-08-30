@@ -24,7 +24,7 @@ FRONTEND_NPM := $(NPM) --prefix frontend
 
 export UV_CACHE_DIR
 
-.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-functions agent agent-image smoke-agent-container preview-agent-image-dev push-agent-image-dev eval-baseline eval-runtime-dev inspect-runtime-versions-dev tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-catalog-dev smoke-gateway-dev smoke-agent-gateway-dev smoke-memory-dev smoke-runtime-dev smoke-runtime-sessions-dev smoke-runtime-traces-dev dev-frontend
+.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-api-lambda package-functions agent agent-image smoke-agent-container preview-agent-image-dev push-agent-image-dev eval-baseline eval-runtime-dev inspect-runtime-versions-dev tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-api-gateway-dev smoke-api-lambda-dev smoke-catalog-dev smoke-gateway-dev smoke-agent-gateway-dev smoke-memory-dev smoke-runtime-dev smoke-runtime-sessions-dev smoke-runtime-traces-dev dev-frontend
 
 help: ## Show the available Make targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-30s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -73,6 +73,9 @@ tool-schemas-check: ## Verify AgentCore Gateway schemas match strict tool contra
 package-functions: ## Build the reproducible Python 3.13 Lambda ZIP
 	./scripts/package-functions.sh
 
+package-api-lambda: ## Build the isolated Python 3.13 API Lambda ZIP
+	./scripts/package-api-lambda.sh
+
 agent: ## Run the local Strands agent; pass PROMPT='your goal'
 	@test -n "$(PROMPT)" || { echo "PROMPT is required (example: make agent PROMPT='Suggest a project')"; exit 2; }
 	@set -a; if [ -f .env ]; then . ./.env; fi; set +a; $(UV) run praxis "$(PROMPT)"
@@ -114,7 +117,7 @@ tofu-format: ## Format all OpenTofu configuration
 tofu-format-check: ## Verify OpenTofu formatting
 	$(TOFU) fmt -check -recursive infra
 
-tofu-validate: tool-schemas-check package-functions ## Validate the bootstrap and development OpenTofu roots
+tofu-validate: tool-schemas-check package-functions package-api-lambda ## Validate the bootstrap and development OpenTofu roots
 	$(TOFU) -chdir=infra/bootstrap validate
 	$(TOFU) -chdir=infra/environments/dev validate
 
@@ -139,7 +142,7 @@ tofu-destroy-bootstrap: ## Apply the reviewed bootstrap teardown; requires CONFI
 	@test "$(CONFIRM)" = "destroy-bootstrap" || { echo "CONFIRM=destroy-bootstrap is required"; exit 2; }
 	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/bootstrap apply $(TOFU_BOOTSTRAP_DESTROY_PLAN)
 
-tofu-plan-dev: tool-schemas-check package-functions ## Plan temporary development resources without applying them
+tofu-plan-dev: tool-schemas-check package-functions package-api-lambda ## Plan temporary development resources without applying them
 	@test "$(TOFU_DEV_PLAN)" = "$(notdir $(TOFU_DEV_PLAN))" || { echo "TOFU_DEV_PLAN must be a file name"; exit 2; }
 	$(RM) infra/environments/dev/$(TOFU_DEV_PLAN)
 	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/environments/dev plan -out=$(TOFU_DEV_PLAN)
@@ -148,7 +151,7 @@ tofu-apply-dev: ## Apply the reviewed development plan; requires CONFIRM=apply-d
 	@test "$(CONFIRM)" = "apply-dev" || { echo "CONFIRM=apply-dev is required"; exit 2; }
 	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/environments/dev apply $(TOFU_DEV_PLAN)
 
-tofu-plan-destroy-dev: tool-schemas-check package-functions ## Plan temporary development teardown without applying it
+tofu-plan-destroy-dev: tool-schemas-check package-functions package-api-lambda ## Plan temporary development teardown without applying it
 	@test "$(TOFU_DEV_DESTROY_PLAN)" = "$(notdir $(TOFU_DEV_DESTROY_PLAN))" || { echo "TOFU_DEV_DESTROY_PLAN must be a file name"; exit 2; }
 	$(RM) infra/environments/dev/$(TOFU_DEV_DESTROY_PLAN)
 	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/environments/dev plan -destroy -out=$(TOFU_DEV_DESTROY_PLAN)
@@ -159,6 +162,12 @@ tofu-destroy-dev: ## Apply the reviewed development teardown; requires CONFIRM=d
 
 seed-dev: ## Upload authoritative JSON and invoke ingestion; requires CONFIRM=seed-dev
 	CONFIRM=$(CONFIRM) AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) SOURCE_DATA_DIR=$(SOURCE_DATA_DIR) ./scripts/seed-dev.sh
+
+smoke-api-lambda-dev: ## Invoke the private application API Lambda smoke check
+	AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) ./scripts/smoke-api-lambda-dev.sh
+
+smoke-api-gateway-dev: ## Probe the deployed application HTTP API routes
+	AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) ./scripts/smoke-api-gateway-dev.sh
 
 smoke-catalog-dev: ## Invoke a read-only deployed catalog search smoke test
 	AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) ./scripts/smoke-catalog-dev.sh

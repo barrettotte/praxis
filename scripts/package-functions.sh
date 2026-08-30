@@ -24,7 +24,13 @@ cp "${praxis_repo_root}/backend/src/praxis/__init__.py" "${praxis_package_dir}/p
 cp "${praxis_repo_root}/backend/src/praxis/py.typed" "${praxis_package_dir}/package/praxis/"
 cp -R "${praxis_repo_root}/backend/src/praxis/catalog" "${praxis_package_dir}/package/praxis/"
 cp -R "${praxis_repo_root}/backend/src/praxis/domain" "${praxis_package_dir}/package/praxis/"
-cp -R "${praxis_repo_root}/backend/src/praxis/functions" "${praxis_package_dir}/package/praxis/"
+mkdir -p "${praxis_package_dir}/package/praxis/functions"
+cp "${praxis_repo_root}/backend/src/praxis/functions/__init__.py" \
+  "${praxis_package_dir}/package/praxis/functions/"
+cp "${praxis_repo_root}/backend/src/praxis/functions/catalog.py" \
+  "${praxis_package_dir}/package/praxis/functions/"
+cp "${praxis_repo_root}/backend/src/praxis/functions/ingestion.py" \
+  "${praxis_package_dir}/package/praxis/functions/"
 cp -R "${praxis_repo_root}/backend/src/praxis/tools" "${praxis_package_dir}/package/praxis/"
 
 # Normalize contents, timestamps, ordering, and ZIP metadata for a stable hash.

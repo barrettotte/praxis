@@ -96,6 +96,8 @@ in `docs/evidence/gateway-tool-metrics.json`:
 
 ```shell
 make smoke-catalog-dev
+make smoke-api-lambda-dev
+make smoke-api-gateway-dev
 make smoke-gateway-dev
 make smoke-agent-gateway-dev
 make smoke-memory-dev CONFIRM=smoke-memory-dev

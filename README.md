@@ -11,7 +11,7 @@ flowchart TD
     user[User] --> ui[React + TypeScript application]
     ui -->|Authenticate| cognito[Amazon Cognito]
     cognito -->|JWT| ui
-    ui -->|JWT request| apiGateway[Amazon API Gateway]
+    ui -->|JWT request| apiGateway[Amazon API Gateway HTTP API]
     apiGateway --> apiLambda[API Lambda]
 
     subgraph runtime[Amazon Bedrock AgentCore Runtime]

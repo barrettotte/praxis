@@ -308,8 +308,8 @@ GET  /v1/sessions/{sessionId}
 POST /v1/projects/{candidateId}/select
 ```
 
-- [ ] Create the API Lambda
-- [ ] Create API Gateway with OpenTofu
+- [x] Create the API Lambda
+- [x] Create API Gateway with OpenTofu
 - [ ] Add request validation
 - [ ] Add consistent response and error schemas
 - [ ] Propagate correlation IDs
