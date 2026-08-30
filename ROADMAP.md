@@ -283,10 +283,10 @@ Definition of done: an authenticated MCP client can discover and invoke all read
 - [x] Containerize the agent
 - [x] Push the image to ECR
 - [x] Create AgentCore Runtime with OpenTofu
-- [ ] Configure an immutable runtime version
-- [ ] Invoke it with a signed development request
-- [ ] Confirm sessions remain isolated
-- [ ] Instrument Strands traces for AgentCore Evaluations
+- [x] Configure an immutable runtime version
+- [x] Invoke it with a signed development request
+- [x] Confirm sessions remain isolated
+- [x] Instrument Strands traces for AgentCore Evaluations
 - [ ] Run the Phase 1 evaluation set against the deployed agent
 - [ ] Compare Nova Micro with one stronger model on the baseline
 - [ ] Keep Nova Micro as the default unless measured results justify a change

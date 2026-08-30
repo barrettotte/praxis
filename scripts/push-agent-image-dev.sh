@@ -33,20 +33,13 @@ for praxis_command in aws git jq "${praxis_tofu}" "${praxis_container_tool}"; do
   }
 done
 
-# An OCI revision label is meaningful only when all image inputs are committed.
 praxis_dirty_image_sources="$(
   git -C "${praxis_repo_root}" status --porcelain=v1 --untracked-files=all -- \
     .dockerignore backend/Containerfile backend/src pyproject.toml uv.lock README.md LICENSE
 )"
-if [[ -n "${praxis_dirty_image_sources}" ]]; then
-  printf 'Commit image-affecting changes before publication:\n%s\n' \
-    "${praxis_dirty_image_sources}" >&2
-  exit 2
-fi
 
-# AgentCore requires ARM64; bind the image to the exact source revision as well.
+# AgentCore requires ARM64 and the image must identify its base source revision.
 praxis_commit="$(git -C "${praxis_repo_root}" rev-parse --verify HEAD)"
-praxis_tag="git-${praxis_commit}"
 praxis_architecture="$(
   "${praxis_container_tool}" image inspect \
     --format '{{.Architecture}}' "${praxis_source_image}"
@@ -64,6 +57,25 @@ praxis_image_revision="$(
 if [[ "${praxis_image_revision}" != "${praxis_commit}" ]]; then
   printf 'Source image revision does not match HEAD; run make agent-image\n' >&2
   exit 2
+fi
+
+# Clean images use the source revision; dirty images use their local OCI content ID.
+if [[ -n "${praxis_dirty_image_sources}" ]]; then
+  praxis_image_id="$(
+    "${praxis_container_tool}" image inspect \
+      --format '{{.Id}}' "${praxis_source_image}"
+  )"
+  praxis_image_id="${praxis_image_id#sha256:}"
+  if [[ ! "${praxis_image_id}" =~ ^[0-9a-f]{64}$ ]]; then
+    printf 'Source image has an invalid OCI image ID: %s\n' "${praxis_image_id}" >&2
+    exit 2
+  fi
+  praxis_tag="dirty-${praxis_image_id}"
+  printf 'Warning: image-affecting sources are uncommitted:\n%s\n' \
+    "${praxis_dirty_image_sources}" >&2
+  printf 'The immutable tag identifies local image content, not a reproducible Git revision.\n' >&2
+else
+  praxis_tag="git-${praxis_commit}"
 fi
 
 # Resolve the environment-specific repository from deployed OpenTofu state.

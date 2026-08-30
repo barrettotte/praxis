@@ -26,6 +26,7 @@ class EvidenceState:
 
     evidence_ids: frozenset[str]
     conflicting_ids: frozenset[str]
+    ordered_evidence_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,33 +53,54 @@ class CatalogEvidenceLedger:
             event.result = _error_result(event, "Catalog tool returned invalid evidence")
             return
 
-        facts = _evidence_facts(event.invocation_state)
-        updates: dict[str, dict[str, object]] = {}
-        conflicting_ids: set[str] = set()
-        for evidence_id, observed in observations:
-            known = facts.get(evidence_id, {}) | updates.get(evidence_id, {})
-            if any(key in known and known[key] != value for key, value in observed.items()):
-                conflicting_ids.add(evidence_id)
-            updates.setdefault(evidence_id, {}).update(observed)
+        conflict_message = _record_observations(observations, event.invocation_state)
+        if conflict_message is not None:
+            event.result = _error_result(event, conflict_message)
 
-        if conflicting_ids:
-            _conflicting_ids(event.invocation_state).update(conflicting_ids)
-            listed_ids = ", ".join(sorted(conflicting_ids))
-            event.result = _error_result(
-                event,
-                f"Conflicting catalog facts detected for evidence: {listed_ids}",
-            )
-            return
 
-        for evidence_id, observed in updates.items():
-            facts.setdefault(evidence_id, {}).update(observed)
+def record_catalog_evidence(
+    tool_name: ToolName,
+    payload: object,
+    invocation_state: dict[str, object],
+) -> str | None:
+    """Validate and retain one catalog response, returning a safe conflict message."""
+    return _record_observations(
+        _evidence_observations(tool_name, payload),
+        invocation_state,
+    )
+
+
+def _record_observations(
+    observations: list[tuple[str, dict[str, object]]],
+    invocation_state: dict[str, object],
+) -> str | None:
+    """Merge validated observations into the invocation ledger."""
+    facts = _evidence_facts(invocation_state)
+    updates: dict[str, dict[str, object]] = {}
+    conflicting_ids: set[str] = set()
+    for evidence_id, observed in observations:
+        known = facts.get(evidence_id, {}) | updates.get(evidence_id, {})
+        if any(key in known and known[key] != value for key, value in observed.items()):
+            conflicting_ids.add(evidence_id)
+        updates.setdefault(evidence_id, {}).update(observed)
+
+    if conflicting_ids:
+        _conflicting_ids(invocation_state).update(conflicting_ids)
+        listed_ids = ", ".join(sorted(conflicting_ids))
+        return f"Conflicting catalog facts detected for evidence: {listed_ids}"
+
+    for evidence_id, observed in updates.items():
+        facts.setdefault(evidence_id, {}).update(observed)
+    return None
 
 
 def read_evidence_state(invocation_state: dict[str, object]) -> EvidenceState:
     """Return an immutable view of evidence collected by the Gateway agent."""
+    evidence_ids = tuple(_evidence_facts(invocation_state))
     return EvidenceState(
-        evidence_ids=frozenset(_evidence_facts(invocation_state)),
+        evidence_ids=frozenset(evidence_ids),
         conflicting_ids=frozenset(_conflicting_ids(invocation_state)),
+        ordered_evidence_ids=evidence_ids,
     )
 
 

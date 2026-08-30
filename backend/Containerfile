@@ -21,4 +21,4 @@ USER praxis
 
 EXPOSE 8080
 
-CMD ["python", "-m", "praxis.agent.runtime"]
+CMD ["opentelemetry-instrument", "python", "-m", "praxis.agent.runtime"]

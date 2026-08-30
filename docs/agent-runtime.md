@@ -63,7 +63,8 @@ sets these non-negotiable behaviors:
 - Retrieve catalog evidence before making a project recommendation.
 - Treat current-invocation tool results as the sole factual authority for the
   user's catalog, experience, and interests.
-- Use only evidence IDs returned during the current invocation.
+- Cite only evidence returned during the current invocation; the Gateway adapter
+  maps constrained evidence positions back to exact IDs retained by the ledger.
 - Keep retrieved facts distinct from generated analysis.
 - Decline to recommend when no relevant evidence is available and disclose
   conflicting evidence without resolving it through assumptions.
@@ -78,9 +79,11 @@ tool budgets, and approval controls remain independent enforcement boundaries.
 
 Each invocation may execute at most four model-selected catalog tool calls by
 default. A Strands pre-tool hook raises a domain error before a fifth call can
-reach Gateway. The internal `ProjectCandidateSet` structured-output tool does
+reach Gateway. The internal `GatewayCandidateOutput` structured-output tool does
 not consume this budget. `PRAXIS_MAX_TOOL_CALLS` can lower or raise the positive
 integer limit when an evaluation demonstrates a different need.
+Strands model turns are capped at the catalog tool-call budget plus one final
+response turn so structured-output retries cannot create an unbounded loop.
 
 Successful catalog responses may contribute at most 20 evidence records per
 invocation by default. Search results, item lookups, experience matches, and
@@ -92,6 +95,11 @@ retrieval limit.
 
 ## Evidence boundary
 
+- Each planning invocation deterministically derives a bounded lexical query and
+  retrieves initial evidence through the IAM-authenticated Gateway before model
+  generation. This makes retrieval a code-enforced prerequisite rather than a
+  prompt-only behavior. The model may make additional bounded catalog calls
+  when the initial evidence is insufficient.
 - Tool results are retrieved facts and retain stable `evidence_id` values. They
   remain in the catalog/tool-result boundary instead of being copied into the
   recommendation contract.
@@ -102,7 +110,12 @@ retrieval limit.
   represented as a retrieved fact.
 - Gateway and local generation both use the `ProjectCandidateSet` structured
   output contract. It requires exactly three candidates and at least one
-  well-formed citation per candidate.
+  well-formed citation per candidate. The Nova-facing Gateway adapter presents
+  flat required scalar fields for three candidates, avoiding nested collection
+  constraints at the model boundary. The application maps each constrained
+  evidence position to the exact ID retained by the invocation-scoped evidence
+  ledger, then normalizes the fields into the nested domain contract. Domain
+  validation remains authoritative after normalization.
 - JSON Schema and Pydantic validation reject uncited, malformed, or incorrectly
   sized candidate output before it reaches an application client.
 - An invocation-scoped Gateway ledger records every returned evidence ID and
@@ -115,6 +128,28 @@ retrieval limit.
 Empty or contradictory evidence produces an explicit planning error rather
 than an ungrounded recommendation. A conflicting Gateway tool response is also
 replaced with an error before its content can return to the model.
+
+## Tracing
+
+The Runtime image starts through the AWS Distro for OpenTelemetry (ADOT)
+auto-instrumentor. Strands automatically emits agent, model-cycle, inference,
+and model-selected tool spans under its supported
+`strands.telemetry.tracer` scope. AgentCore correlates those spans with the
+Runtime session and supplies the endpoint-specific OTEL service name. The
+execution role can submit traces and retrieve X-Ray sampling rules but cannot
+read traces or change observability configuration.
+
+AgentCore Evaluations consumes the standard Strands spans rather than a Praxis-
+specific trace schema. AgentCore stores them in the named Runtime endpoint's
+CloudWatch `spans` stream. Trace data may contain the user prompt, model response, and tool
+inputs and results required for quality and tool-use evaluation; it must never
+contain credentials or secrets. The Runtime trace smoke check records only
+scope, operation, service, span, and trace counts, omitting content and IDs.
+
+AWS documents the required ADOT entrypoint and X-Ray permissions in its
+[AgentCore observability setup](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability-configure.html),
+and Strands documents its native OTEL span structure in the
+[Strands tracing guide](https://strandsagents.com/docs/user-guide/observability-evaluation/traces/).
 
 ## Lifecycle and isolation
 
@@ -132,7 +167,8 @@ describes the service's session and immutable-version boundaries.
 ## Container contract
 
 `backend/Containerfile` packages the runtime as a non-root Python 3.13 ARM64
-container. `praxis.agent.runtime` uses the AgentCore SDK to serve the required
+container. ADOT launches `praxis.agent.runtime`, which uses the AgentCore SDK
+to serve the required
 `GET /ping` and `POST /invocations` endpoints on `0.0.0.0:8080`. An invocation
 accepts `{"prompt": "..."}` and returns three validated candidates plus bounded
 tool-call counts as one buffered JSON response.

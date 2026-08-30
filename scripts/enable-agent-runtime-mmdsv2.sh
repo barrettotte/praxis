@@ -12,6 +12,10 @@ for praxis_name in \
   PRAXIS_AGENT_MAX_RESULTS \
   PRAXIS_AGENT_MAX_TOOL_CALLS \
   PRAXIS_AGENT_MODEL_ID \
+  PRAXIS_AGENT_OBSERVABILITY \
+  PRAXIS_AGENT_OTEL_CONFIGURATOR \
+  PRAXIS_AGENT_OTEL_DISTRO \
+  PRAXIS_AGENT_OTEL_PROTOCOL \
   PRAXIS_AGENT_ROLE_ARN \
   PRAXIS_AGENT_RUNTIME_ID \
   PRAXIS_AGENT_RUNTIME_REGION; do
@@ -41,8 +45,16 @@ praxis_environment="$(
     --arg max_results "${PRAXIS_AGENT_MAX_RESULTS}" \
     --arg max_tool_calls "${PRAXIS_AGENT_MAX_TOOL_CALLS}" \
     --arg model_id "${PRAXIS_AGENT_MODEL_ID}" \
+    --arg observability "${PRAXIS_AGENT_OBSERVABILITY}" \
+    --arg otel_configurator "${PRAXIS_AGENT_OTEL_CONFIGURATOR}" \
+    --arg otel_distro "${PRAXIS_AGENT_OTEL_DISTRO}" \
+    --arg otel_protocol "${PRAXIS_AGENT_OTEL_PROTOCOL}" \
     '{
+      AGENT_OBSERVABILITY_ENABLED: $observability,
       AWS_REGION: $region,
+      OTEL_EXPORTER_OTLP_PROTOCOL: $otel_protocol,
+      OTEL_PYTHON_CONFIGURATOR: $otel_configurator,
+      OTEL_PYTHON_DISTRO: $otel_distro,
       PRAXIS_GATEWAY_URL: $gateway_url,
       PRAXIS_MAX_CATALOG_RESULTS: $max_results,
       PRAXIS_MAX_TOOL_CALLS: $max_tool_calls,

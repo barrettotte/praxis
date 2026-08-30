@@ -1,0 +1,24 @@
+{
+  "endpoint_qualifier": "stable",
+  "endpoint_version": "8",
+  "evaluation_scope_present": true,
+  "operation_names": [
+    "chat",
+    "execute_event_loop_cycle",
+    "execute_tool",
+    "invoke_agent"
+  ],
+  "scope_names": [
+    "amazon.opentelemetry.distro.instrumentation.mcp",
+    "opentelemetry.instrumentation.botocore.bedrock-runtime",
+    "opentelemetry.instrumentation.starlette",
+    "strands.telemetry.tracer"
+  ],
+  "service_names": [
+    "praxis_dev_agent.stable"
+  ],
+  "session_correlated": true,
+  "span_count": 14,
+  "telemetry_backend": "AgentCore endpoint CloudWatch spans stream",
+  "trace_count": 1
+}

@@ -24,6 +24,19 @@ class ToolCallBudgetError(RuntimeError):
     """Raised before a model-selected tool would exceed its invocation budget."""
 
 
+def seed_catalog_budgets(
+    invocation_state: dict[str, object],
+    *,
+    tool_calls: int,
+    result_count: int,
+) -> None:
+    """Account for deterministic catalog retrieval before model execution."""
+    if tool_calls < 0 or result_count < 0:
+        raise ValueError("Catalog budget counts cannot be negative")
+    invocation_state[_TOOL_CALL_COUNT_KEY] = tool_calls
+    invocation_state[_CATALOG_RESULT_COUNT_KEY] = result_count
+
+
 @dataclass(frozen=True, slots=True)
 class ToolCallBudget:
     """Enforce a hard call limit for a named set of external tools."""

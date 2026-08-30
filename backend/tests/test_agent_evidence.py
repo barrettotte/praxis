@@ -71,6 +71,10 @@ def test_evidence_ledger_collects_ids_from_catalog_results() -> None:
 
     state = read_evidence_state(invocation_state)
     assert state.evidence_ids == frozenset({"book:0000000000000001", "project:0000000000000002"})
+    assert state.ordered_evidence_ids == (
+        "book:0000000000000001",
+        "project:0000000000000002",
+    )
     assert not state.conflicting_ids
 
 
@@ -94,7 +98,9 @@ def test_evidence_ledger_accepts_consistent_search_and_lookup_facts() -> None:
     ledger.after_tool_call(lookup)
 
     assert lookup.result["status"] == "success"
-    assert not read_evidence_state(invocation_state).conflicting_ids
+    state = read_evidence_state(invocation_state)
+    assert state.ordered_evidence_ids == (evidence_id,)
+    assert not state.conflicting_ids
 
 
 def test_evidence_ledger_rejects_conflicting_facts_for_one_id() -> None:

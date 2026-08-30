@@ -80,6 +80,8 @@ make seed-dev CONFIRM=seed-dev
 The target reads the authoritative files without modifying them, uploads the
 four disposable copies, and saves the Lambda response under `build/`. Override
 `SOURCE_DATA_DIR` only when the sibling repository is in another location.
+Run the seed target after initial deployment and whenever a reviewed plan
+replaces the disposable catalog table.
 
 Run deployed smoke checks manually because they invoke metered AWS services.
 The Gateway check signs standard MCP `tools/list` and `tools/call` requests with
@@ -96,9 +98,12 @@ in `docs/evidence/gateway-tool-metrics.json`:
 make smoke-catalog-dev
 make smoke-gateway-dev
 make smoke-agent-gateway-dev
+make smoke-runtime-dev
+make smoke-runtime-sessions-dev
+make smoke-runtime-traces-dev
 ```
 
-The final command uses the same SigV4 Strands MCP transport intended for the
+The agent-to-Gateway command uses the same SigV4 Strands MCP transport as the
 AgentCore Runtime, invokes Nova Micro with the discovered tools, and requires at
 least one Gateway tool call plus exactly three schema-valid candidates with an
 evidence citation on each. It writes sanitized counts and tool-call metadata to
@@ -106,10 +111,49 @@ evidence citation on each. It writes sanitized counts and tool-call metadata to
 `docs/evidence/strands-gateway-agent-run.json`. Override its deterministic smoke
 prompt with `PROMPT='your goal'` when needed.
 
+The Runtime command signs `InvokeAgentRuntime` with the active AWS profile,
+targets the named `stable` endpoint, and uses a new Runtime session ID. It
+requires exactly three schema-valid cited candidates and at least one Gateway
+tool call. The command prints endpoint-resolution and invocation stages and
+enforces a three-minute wall-clock timeout. Its credential-free capture is
+written to `docs/evidence/agentcore-runtime-invocation.json`; override the prompt with
+`PROMPT='your goal'` or the deadline with `RUNTIME_SMOKE_TIMEOUT_SECONDS=seconds`
+when needed.
+
+The Runtime session check invokes the stable endpoint with two distinct session
+IDs and catalog topics whose expected evidence does not overlap. It fails if
+either response is invalid or their citations overlap, and writes a sanitized
+capture without session IDs to
+`docs/evidence/agentcore-runtime-session-isolation.json`.
+
+## Runtime traces
+
+CloudWatch Transaction Search must accept OTEL spans before Runtime trace
+verification. This is a one-time account and Region setting. In the CloudWatch
+console for `us-east-1`, open **Settings**, choose **X-Ray traces**, edit
+**Transaction Search**, enable it for X-Ray users, and retain the free 1% trace
+indexing setting. Wait until **Ingest OpenTelemetry spans** reports enabled.
+AWS documents the same console procedure in its
+[AgentCore observability guide](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability-get-started.html#enabling-transaction-search).
+
+After deploying the ADOT-instrumented image and promoting its immutable Runtime
+version, invoke and verify one evaluation-compatible trace:
+
+```shell
+make smoke-runtime-traces-dev
+```
+
+The command waits up to three minutes for ADOT delivery to the named Runtime
+endpoint's CloudWatch `spans` stream, requires a session-correlated
+`strands.telemetry.tracer` `invoke_agent` span for the deployed Runtime, and
+writes sanitized metadata to
+`docs/evidence/agentcore-runtime-traces.json`. It never records prompts,
+responses, session IDs, trace IDs, span IDs, account IDs, or resource ARNs.
+Override only the delivery wait with `RUNTIME_TRACE_TIMEOUT_SECONDS=seconds`.
+
 ## Agent image publication
 
-Build the AgentCore Runtime image from committed sources, then preview its
-immutable ECR destination:
+Build the AgentCore Runtime image, then preview its immutable ECR destination:
 
 ```shell
 make agent-image
@@ -118,8 +162,11 @@ make preview-agent-image-dev
 
 The image must be ARM64 and carry an OCI revision label matching `HEAD`. The
 preview derives the ECR repository from OpenTofu state, uses the full Git commit
-as the immutable `git-<sha>` tag, and reports whether that tag already exists.
-After reviewing it, manually perform the write:
+as the immutable `git-<sha>` tag for a clean worktree, and reports whether that
+tag already exists. Images built with uncommitted inputs receive a warning and
+an immutable `dirty-<image-id>` tag derived from their local OCI content rather
+than a reproducible Git revision. After reviewing it, manually perform the
+write:
 
 ```shell
 make push-agent-image-dev CONFIRM=push-agent-image-dev
@@ -136,6 +183,14 @@ and the apply-time MMDSv2 compatibility update in the saved OpenTofu plan before
 applying it. The apply waits for the Runtime to return to `READY` and verifies
 that MMDSv2 is enabled. The compatibility update uses the same temporary AWS
 profile as OpenTofu and performs no invocation.
+
+The named `stable` Runtime endpoint uses the explicit
+`agent_runtime_endpoint_version` value. Runtime configuration changes create a
+new provider-managed version followed by an MMDSv2-enabled version, while the
+endpoint remains on its prior target. Verify the replacement Runtime version is
+`READY` with MMDSv2 enabled, then promote that version in a separate reviewed
+plan. Never point application callers at the automatically moving `DEFAULT`
+endpoint.
 
 Before an extended pause or project completion, review and apply a saved
 destroy plan:

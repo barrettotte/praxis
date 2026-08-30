@@ -17,10 +17,7 @@ from praxis.config import (
     GatewaySettings,
 )
 
-DEFAULT_PROMPT = (
-    "Call search_catalog once with query 'compiler' and limit 3. Then return exactly three "
-    "learning-project candidates using only the returned evidence."
-)
+DEFAULT_PROMPT = "compiler"
 
 
 def write_evidence(evidence_directory: Path, tools: tuple[str, ...]) -> Path:

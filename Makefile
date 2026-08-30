@@ -24,7 +24,7 @@ FRONTEND_NPM := $(NPM) --prefix frontend
 
 export UV_CACHE_DIR
 
-.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-functions agent agent-image smoke-agent-container preview-agent-image-dev push-agent-image-dev eval-baseline tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-catalog-dev smoke-gateway-dev smoke-agent-gateway-dev dev-frontend
+.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-functions agent agent-image smoke-agent-container preview-agent-image-dev push-agent-image-dev eval-baseline tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-catalog-dev smoke-gateway-dev smoke-agent-gateway-dev smoke-runtime-dev smoke-runtime-sessions-dev smoke-runtime-traces-dev dev-frontend
 
 help: ## Show the available Make targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-30s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -162,6 +162,15 @@ smoke-gateway-dev: ## Exercise and capture every IAM-authenticated AgentCore Gat
 
 smoke-agent-gateway-dev: ## Invoke the Strands agent through the IAM-authenticated Gateway
 	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) PROMPT="$(PROMPT)" ./scripts/smoke-agent-gateway-dev.sh
+
+smoke-runtime-dev: ## Invoke the stable AgentCore Runtime with a signed request
+	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) PROMPT="$(PROMPT)" ./scripts/smoke-runtime-dev.sh
+
+smoke-runtime-sessions-dev: ## Verify separate Runtime sessions return disjoint evidence
+	VERIFY_SESSION_ISOLATION=true AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) PROMPT="$(PROMPT)" ./scripts/smoke-runtime-dev.sh
+
+smoke-runtime-traces-dev: ## Invoke Runtime and verify its evaluation-compatible Strands trace
+	VERIFY_RUNTIME_TRACES=true AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) PROMPT="$(PROMPT)" ./scripts/smoke-runtime-dev.sh
 
 dev-frontend: ## Start the frontend development server
 	$(FRONTEND_NPM) run dev

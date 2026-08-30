@@ -15,13 +15,24 @@ flowchart TD
     apiGateway --> apiLambda[API Lambda]
 
     subgraph runtime[Amazon Bedrock AgentCore Runtime]
+        runtimeEndpoint[stable endpoint<br/>Pinned Runtime version]
         agent[Python 3.13 ARM64 container<br/>Strands agent]
         memory[AgentCore Memory]
+        runtimeEndpoint --> agent
         agent --> memory
     end
 
-    apiLambda --> agent
+    apiLambda --> runtimeEndpoint
     agent --> bedrock[Amazon Bedrock<br/>Nova Micro]
+
+    subgraph observability[Agent observability and evaluation]
+        xray[AWS X-Ray ingest]
+        cloudwatch[CloudWatch transaction search]
+        evaluations[AgentCore Evaluations]
+        xray --> cloudwatch --> evaluations
+    end
+
+    agent -->|Strands OTEL spans via ADOT| xray
 
     subgraph tools[AgentCore Gateway MCP tool boundary]
         gateway[AgentCore Gateway]

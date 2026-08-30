@@ -6,7 +6,12 @@ from strands import Agent
 from strands.hooks import AfterToolCallEvent, BeforeToolCallEvent
 from strands.types.tools import ToolResult
 
-from praxis.agent.budget import CatalogResultBudget, ToolCallBudget, ToolCallBudgetError
+from praxis.agent.budget import (
+    CatalogResultBudget,
+    ToolCallBudget,
+    ToolCallBudgetError,
+    seed_catalog_budgets,
+)
 
 
 def tool_event(name: str, state: dict[str, object]) -> BeforeToolCallEvent:
@@ -83,6 +88,15 @@ def test_tool_call_budget_is_scoped_to_one_invocation() -> None:
 def test_tool_call_budget_requires_a_positive_limit() -> None:
     with pytest.raises(ValueError, match="positive"):
         ToolCallBudget(maximum_calls=0, tool_names=frozenset({"search_catalog"}))
+
+
+def test_seeded_catalog_call_counts_against_model_budget() -> None:
+    invocation_state: dict[str, object] = {}
+    seed_catalog_budgets(invocation_state, tool_calls=1, result_count=3)
+    budget = ToolCallBudget(maximum_calls=1, tool_names=frozenset({"search_catalog"}))
+
+    with pytest.raises(ToolCallBudgetError, match="maximum 1 calls"):
+        budget.before_tool_call(tool_event("search_catalog", invocation_state))
 
 
 @pytest.mark.parametrize(

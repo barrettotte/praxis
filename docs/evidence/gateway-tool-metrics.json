@@ -4,25 +4,25 @@
   "scope": "Client-observed HTTPS round trip; sizes are JSON request and raw response bodies.",
   "tools": [
     {
-      "latency_ms": 1007.956,
+      "latency_ms": 952.216,
       "name": "get_catalog_item",
       "request_bytes": 164,
       "response_bytes": 381
     },
     {
-      "latency_ms": 1550.968,
+      "latency_ms": 1725.6,
       "name": "score_project_candidates",
       "request_bytes": 355,
       "response_bytes": 376
     },
     {
-      "latency_ms": 3679.551,
+      "latency_ms": 2195.441,
       "name": "search_catalog",
       "request_bytes": 160,
       "response_bytes": 397
     },
     {
-      "latency_ms": 1126.053,
+      "latency_ms": 1097.311,
       "name": "summarize_experience",
       "request_bytes": 243,
       "response_bytes": 307

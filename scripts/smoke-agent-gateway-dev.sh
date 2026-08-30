@@ -15,7 +15,7 @@ fi
 praxis_model_id="${PRAXIS_MODEL_ID:-}"
 praxis_max_catalog_results="${PRAXIS_MAX_CATALOG_RESULTS:-20}"
 praxis_max_tool_calls="${PRAXIS_MAX_TOOL_CALLS:-4}"
-praxis_prompt="${PROMPT:-Call search_catalog once with query 'compiler' and limit 3. Then return exactly three learning-project candidates using only the returned evidence.}"
+praxis_prompt="${PROMPT:-compiler}"
 if [[ -z "${praxis_model_id}" ]]; then
   printf 'PRAXIS_MODEL_ID is required; set it in .env or the environment\n' >&2
   exit 2

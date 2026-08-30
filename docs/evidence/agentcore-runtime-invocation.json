@@ -1,0 +1,22 @@
+{
+  "all_candidates_cited": true,
+  "authentication": "AWS_IAM",
+  "candidate_count": 3,
+  "client": "Boto3 AgentCore Runtime",
+  "endpoint_qualifier": "stable",
+  "endpoint_version": "8",
+  "evidence_ids": [
+    "book:0f5ba253568e4836",
+    "book:1a243cc49c0803c6",
+    "book:22b55557e3c236b5"
+  ],
+  "request_content_type": "application/json",
+  "response_content_type": "application/json",
+  "runtime_session_id_length": 36,
+  "tool_calls": [
+    {
+      "count": 2,
+      "name": "search_catalog"
+    }
+  ]
+}

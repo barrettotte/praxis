@@ -8,13 +8,14 @@ license = "MIT"
 license-files = ["LICENSE"]
 classifiers = ["Private :: Do Not Upload"]
 dependencies = [
+  "aws-opentelemetry-distro>=0.10,<1",
   "bedrock-agentcore>=1.8,<2",
   "boto3>=1.43,<2",
   "botocore[crt]",
   "jsonschema>=4.26,<5",
   "mcp-proxy-for-aws==1.6.4",
   "pydantic>=2.13,<3",
-  "strands-agents>=1.0,<2",
+  "strands-agents[otel]>=1.0,<2",
 ]
 
 [project.scripts]

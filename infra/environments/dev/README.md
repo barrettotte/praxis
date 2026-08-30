@@ -60,9 +60,13 @@ on `2025-03-26`, while the current Strands MCP client negotiates `2025-11-25`.
 
 The AgentCore Runtime runs the digest-pinned Strands container with IAM inbound
 authorization and public outbound networking. Its execution role can pull only
-the agent image, invoke the configured Nova Micro model and catalog Gateway, and
-write Runtime logs. It has no direct access to catalog storage or ingestion.
+the agent image, invoke the configured Nova Micro model and catalog Gateway,
+write Runtime logs, and submit ADOT traces to X-Ray. It has no direct access to
+catalog storage or ingestion. The ADOT entrypoint exports evaluation-compatible
+Strands spans correlated with AgentCore Runtime sessions to CloudWatch.
 Session timeouts limit idle development cost. During apply, OpenTofu runs the
 MMDSv2 compatibility update documented in
 `docs/adr/0004-agentcore-runtime-deployment.md` and fails unless the Runtime
-returns to `READY` with MMDSv2 enabled.
+returns to `READY` with MMDSv2 enabled. The named `stable` endpoint targets the
+explicitly configured immutable Runtime version and does not follow `DEFAULT`;
+new versions require a separate reviewed promotion.
