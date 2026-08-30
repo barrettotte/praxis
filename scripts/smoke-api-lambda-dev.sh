@@ -9,6 +9,7 @@ praxis_infra_dir="${praxis_repo_root}/infra/environments/dev"
 praxis_build_dir="${praxis_repo_root}/build"
 praxis_evidence_dir="${praxis_repo_root}/docs/evidence"
 praxis_marker="untrusted-api-smoke-marker"
+praxis_correlation_id="51f4a405-8835-411d-9821-5980d73f51f6"
 
 for praxis_command in aws jq "${praxis_tofu}"; do
   command -v "${praxis_command}" >/dev/null || {
@@ -24,12 +25,18 @@ praxis_function_name="$(
     -chdir="${praxis_infra_dir}" output -raw api_lambda_name
 )"
 praxis_payload="$(
-  jq -nc --arg marker "${praxis_marker}" \
+  jq -nc \
+    --arg correlation_id "${praxis_correlation_id}" \
+    --arg marker "${praxis_marker}" \
     '{
       version: "2.0",
       routeKey: "POST /v1/sessions",
-      headers: {"content-type": "application/json"},
+      headers: {
+        "content-type": "application/json",
+        "x-correlation-id": $correlation_id
+      },
       isBase64Encoded: false,
+      requestContext: {requestId: "MqgCjHCKoAMEPLw="},
       body: ({goal: $marker} | tojson)
     }'
 )"
@@ -50,10 +57,13 @@ if [[ -n "${praxis_function_error}" ]]; then
 fi
 
 # Require the fixed response and prove the untrusted event was not reflected.
-if ! jq -e --arg marker "${praxis_marker}" \
+if ! jq -e \
+  --arg correlation_id "${praxis_correlation_id}" \
+  --arg marker "${praxis_marker}" \
   '.statusCode == 503
     and .headers["cache-control"] == "no-store"
     and .headers["content-type"] == "application/json"
+    and .headers["x-correlation-id"] == $correlation_id
     and .isBase64Encoded == false
     and ((.body | fromjson)
       | .error.code == "service_unavailable"
@@ -66,6 +76,6 @@ if ! jq -e --arg marker "${praxis_marker}" \
 fi
 
 jq -n \
-  '{authenticated_direct_invocation: true, error_schema_valid: true, handler_status: 503, payload_reflected: false}' \
+  '{authenticated_direct_invocation: true, correlation_id_propagated: true, error_schema_valid: true, handler_status: 503, payload_reflected: false}' \
   >"${praxis_evidence_dir}/api-lambda.json"
 jq . "${praxis_evidence_dir}/api-lambda.json"

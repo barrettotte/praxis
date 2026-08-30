@@ -15,6 +15,8 @@ from praxis.api.requests import (
 from praxis.functions.api import lambda_handler
 
 SESSION_ID = "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4"
+CORRELATION_ID = "51f4a405-8835-411d-9821-5980d73f51f6"
+GATEWAY_REQUEST_ID = "MqgCjHCKoAMEPLw="
 
 
 def http_event(
@@ -25,6 +27,7 @@ def http_event(
     query_parameters: dict[str, str] | None = None,
     is_base64_encoded: bool = False,
     content_type: str = "application/json",
+    correlation_id: str | None = None,
 ) -> dict[str, object]:
     """Build the API Gateway v2 fields consumed by the request validator."""
     event: dict[str, object] = {
@@ -32,7 +35,12 @@ def http_event(
         "routeKey": route_key,
         "headers": {"content-type": content_type},
         "isBase64Encoded": is_base64_encoded,
+        "requestContext": {"requestId": GATEWAY_REQUEST_ID},
     }
+    if correlation_id is not None:
+        headers = event["headers"]
+        assert isinstance(headers, dict)
+        headers["x-correlation-id"] = correlation_id
     if body is not None:
         event["body"] = body
     if path_parameters is not None:
@@ -48,6 +56,7 @@ def test_validates_create_session_request() -> None:
     )
 
     assert request.route_key == "POST /v1/sessions"
+    assert request.correlation_id == GATEWAY_REQUEST_ID
     assert request.path_parameters == {}
     assert request.body == CreateSessionRequest(goal="Learn Rust")
 
@@ -67,6 +76,18 @@ def test_validates_base64_encoded_message_request() -> None:
 
     assert request.path_parameters == {"sessionId": SESSION_ID}
     assert request.body == SessionMessageRequest(message="Continue")
+
+
+def test_validates_client_correlation_id() -> None:
+    request = validate_api_request(
+        http_event(
+            "POST /v1/sessions",
+            body=json.dumps({"goal": "Learn Rust"}),
+            correlation_id=CORRELATION_ID,
+        )
+    )
+
+    assert request.correlation_id == CORRELATION_ID
 
 
 def test_validates_get_session_request_without_body() -> None:
@@ -136,6 +157,11 @@ def test_validates_candidate_selection_request() -> None:
             body="not-base64",
             is_base64_encoded=True,
         ),
+        http_event(
+            "POST /v1/sessions",
+            body=json.dumps({"goal": "valid"}),
+            correlation_id="not-a-uuid",
+        ),
     ],
     ids=[
         "unknown-route",
@@ -150,6 +176,7 @@ def test_validates_candidate_selection_request() -> None:
         "get-body",
         "invalid-candidate-id",
         "invalid-base64",
+        "invalid-correlation-id",
     ],
 )
 def test_rejects_invalid_requests(event: object) -> None:
@@ -161,7 +188,11 @@ def test_api_lambda_returns_unavailable_for_valid_request() -> None:
     marker = "do-not-reflect"
 
     response = lambda_handler(
-        http_event("POST /v1/sessions", body=json.dumps({"goal": marker})),
+        http_event(
+            "POST /v1/sessions",
+            body=json.dumps({"goal": marker}),
+            correlation_id=CORRELATION_ID,
+        ),
         object(),
     )
 
@@ -170,6 +201,7 @@ def test_api_lambda_returns_unavailable_for_valid_request() -> None:
         "headers": {
             "cache-control": "no-store",
             "content-type": "application/json",
+            "x-correlation-id": CORRELATION_ID,
         },
         "body": (
             '{"error":{"code":"service_unavailable",'
@@ -184,11 +216,20 @@ def test_api_lambda_returns_safe_bad_request_for_invalid_input() -> None:
     marker = "do-not-reflect"
 
     response = lambda_handler(
-        http_event("POST /v1/sessions", body=json.dumps({"unexpected": marker})),
+        http_event(
+            "POST /v1/sessions",
+            body=json.dumps({"unexpected": marker}),
+            correlation_id=CORRELATION_ID,
+        ),
         object(),
     )
 
     assert response["statusCode"] == 400
+    assert response["headers"] == {
+        "cache-control": "no-store",
+        "content-type": "application/json",
+        "x-correlation-id": CORRELATION_ID,
+    }
     assert response["body"] == ('{"error":{"code":"invalid_request","message":"Invalid request."}}')
     assert marker not in json.dumps(response)
 

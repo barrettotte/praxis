@@ -38,16 +38,13 @@ flowchart TD
     subgraph tools[AgentCore Gateway MCP tool boundary]
         gateway[AgentCore Gateway]
         catalogLambda[Catalog Lambda]
-        githubLambda[GitHub Lambda]
         researchLambda[Research Lambda]
         gateway --> catalogLambda
-        gateway --> githubLambda
         gateway --> researchLambda
     end
 
     agent -->|IAM-authenticated MCP| gateway
     catalogLambda --> catalog[(DynamoDB catalog)]
-    githubLambda --> github[GitHub API]
     researchLambda --> external[External APIs]
 
     sources[Read-only source JSON] -->|Reproducible seed| sourceBucket[(S3 source copies)]

@@ -5,6 +5,8 @@ from typing import Annotated, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from praxis.api.correlation import validate_response_correlation_id
+
 
 class ResponseModel(BaseModel):
     """Apply strict validation to public API response bodies."""
@@ -62,12 +64,17 @@ _ERROR_DEFINITIONS: dict[ApiErrorCode, tuple[int, str]] = {
 }
 
 
-def _json_response(status_code: int, payload: ResponseModel) -> dict[str, object]:
+def _json_response(
+    status_code: int,
+    payload: ResponseModel,
+    correlation_id: str,
+) -> dict[str, object]:
     response = _LambdaProxyResponse(
         status_code=status_code,
         headers={
             "cache-control": "no-store",
             "content-type": "application/json",
+            "x-correlation-id": validate_response_correlation_id(correlation_id),
         },
         body=payload.model_dump_json(by_alias=True),
         isBase64Encoded=False,
@@ -75,17 +82,22 @@ def _json_response(status_code: int, payload: ResponseModel) -> dict[str, object
     return cast("dict[str, object]", response.model_dump(by_alias=True))
 
 
-def success_response(status_code: int, data: dict[str, JsonValue]) -> dict[str, object]:
+def success_response(
+    status_code: int,
+    data: dict[str, JsonValue],
+    correlation_id: str,
+) -> dict[str, object]:
     """Build a validated, non-cacheable success response."""
     if not 200 <= status_code <= 299:
         raise ValueError("success status must be between 200 and 299")
-    return _json_response(status_code, ApiSuccessResponse(data=data))
+    return _json_response(status_code, ApiSuccessResponse(data=data), correlation_id)
 
 
-def error_response(code: ApiErrorCode) -> dict[str, object]:
+def error_response(code: ApiErrorCode, correlation_id: str) -> dict[str, object]:
     """Build a fixed safe response for a stable error code."""
     status_code, message = _ERROR_DEFINITIONS[code]
     return _json_response(
         status_code,
         ApiErrorResponse(error=ApiError(code=code, message=message)),
+        correlation_id,
     )

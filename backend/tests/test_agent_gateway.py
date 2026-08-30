@@ -148,7 +148,7 @@ def test_create_gateway_client_uses_sigv4_and_catalog_allowlist() -> None:
     assert options["application_name"] == "praxis-agent"
     allowed = cast("list[re.Pattern[str]]", options["tool_filters"]["allowed"])
     assert all(allowed[0].fullmatch(tool.tool_name) for tool in catalog_tools())
-    assert not allowed[0].fullmatch("praxis-dev-github___create_issues")
+    assert not allowed[0].fullmatch("praxis-dev-catalog___delete_records")
 
 
 def test_validate_gateway_tools_requires_exact_catalog_boundary() -> None:

@@ -1,5 +1,6 @@
 {
   "api_gateway_reached": true,
+  "correlation_id_propagated": true,
   "error_schema_valid": true,
   "handler_status": 503,
   "invalid_request_status": 400,

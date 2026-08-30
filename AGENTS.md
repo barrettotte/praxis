@@ -31,8 +31,8 @@ preserve unrelated user changes.
   below $10. Preserve only documented bootstrap resources when tearing down.
 - Keep source data in the sibling repository authoritative and read-only;
   ingested cloud copies must be disposable and reproducible.
-- External actions are read-only by default. Any write must have a
-  distinct authenticated preview/approval step, idempotency, and an audit trail.
+- Keep AgentCore Gateway tools and external integrations read-only. External
+  write workflows are outside product scope.
 - Preserve evidence provenance and identifiers. Separate retrieved facts from
   generated recommendations, and require evidence citations in agent output.
 - Start each shell script (after its shebang) and OpenTofu file with a concise

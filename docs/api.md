@@ -51,3 +51,12 @@ Errors contain a stable machine-readable code and safe display text:
 All Lambda responses are UTF-8 JSON, explicitly mark `isBase64Encoded` false,
 and use `cache-control: no-store`. Error responses never include validation
 internals, submitted values, stack traces, or service exception text.
+
+## Correlation IDs
+
+Clients may send `x-correlation-id` as a canonical lowercase UUIDv4. The API
+returns that value in the `x-correlation-id` response header on both success and
+error responses. Without the header, the API uses API Gateway's trusted request
+ID. An invalid client value produces the fixed `invalid_request` response with
+a trusted fallback ID, preventing untrusted header content from being reflected.
+Correlation IDs remain transport metadata and do not appear in response bodies.

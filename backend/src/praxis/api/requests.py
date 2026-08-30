@@ -7,6 +7,8 @@ from typing import Annotated, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
+from praxis.api.correlation import CorrelationIdError, correlation_id_from_event
+
 type ApiRoute = Literal[
     "GET /v1/sessions/{sessionId}",
     "POST /v1/projects/{candidateId}/select",
@@ -84,6 +86,7 @@ class ValidatedApiRequest:
     route_key: ApiRoute
     path_parameters: dict[str, str]
     body: ApiRequestBody | None
+    correlation_id: str
 
 
 _SESSION_ID_ADAPTER: TypeAdapter[str] = TypeAdapter(SessionId)
@@ -142,25 +145,26 @@ def _validate_path_parameters(event: _HttpApiEvent) -> dict[str, str]:
     return {}
 
 
-def _validate_event(event: _HttpApiEvent) -> ValidatedApiRequest:
+def _validate_event(event: _HttpApiEvent, correlation_id: str) -> ValidatedApiRequest:
     if event.query_parameters:
         raise ValueError("route does not accept query parameters")
     path_parameters = _validate_path_parameters(event)
     if event.route_key == "GET /v1/sessions/{sessionId}":
         if event.body is not None or event.is_base64_encoded:
             raise ValueError("route does not accept a request body")
-        return ValidatedApiRequest(event.route_key, path_parameters, None)
+        return ValidatedApiRequest(event.route_key, path_parameters, None, correlation_id)
     if not _has_json_content_type(event.headers):
         raise ValueError("content-type must be application/json")
     body = cast(
         "ApiRequestBody", _BODY_MODELS[event.route_key].model_validate_json(_decode_body(event))
     )
-    return ValidatedApiRequest(event.route_key, path_parameters, body)
+    return ValidatedApiRequest(event.route_key, path_parameters, body, correlation_id)
 
 
 def validate_api_request(event: object) -> ValidatedApiRequest:
     """Validate an API Gateway v2 event without exposing failure details."""
     try:
-        return _validate_event(_HttpApiEvent.model_validate(event))
-    except (KeyError, ValidationError, ValueError) as error:
+        correlation_id = correlation_id_from_event(event)
+        return _validate_event(_HttpApiEvent.model_validate(event), correlation_id)
+    except (CorrelationIdError, KeyError, ValidationError, ValueError) as error:
         raise ApiRequestError("invalid API request") from error

@@ -29,7 +29,7 @@ This roadmap is the source of truth for the project's intended scope and current
 - Infrastructure as code: OpenTofu with the AWS provider
 - Frontend: React and TypeScript in the same repository
 - Initial architecture: serverless and without a VPC
-- Initial external actions: read-only; later writes require explicit approval
+- External integrations are read-only; external writes are outside product scope
 - AWS region: `us-east-1` (US East, N. Virginia)
 - Initial model: Amazon Nova Micro using on-demand inference
 - Initial model ID: `amazon.nova-micro-v1:0`
@@ -39,7 +39,7 @@ This roadmap is the source of truth for the project's intended scope and current
 ### Model strategy
 
 Amazon Nova Lite is the default model because the deployed baseline showed materially better reliability and quality than Nova Micro.
-Keep the model ID in configuration rather than application code. Use expanded evaluation results in Phase 10 to decide whether particular
+Keep the model ID in configuration rather than application code. Use expanded evaluation results in Phase 9 to decide whether particular
 workflows require another model change; do not change the default without measured evidence.
 
 Use in-region inference in `us-east-1` initially. Cross-region inference can be evaluated later if throughput or 
@@ -81,7 +81,6 @@ turns a goal into several differentiated, buildable project candidates.
 3. The agent proposes three candidates and cites supporting personal evidence.
 4. The user compares and selects a candidate.
 5. The agent produces a scoped project brief with milestones, risks, and acceptance criteria.
-6. For the showcase release, the user can preview, explicitly approve, and create GitHub issues from the selected brief.
 
 ### Source datasets
 
@@ -97,7 +96,7 @@ turns a goal into several differentiated, buildable project candidates.
 - Three project candidates per request
 - Evidence citations on recommendations
 - Buffered API responses before streaming
-- No autonomous external writes
+- No external writes
 - No multi-agent orchestration
 - No VPC unless a concrete private-network requirement appears
 
@@ -125,7 +124,6 @@ AgentCore Runtime
       v
 AgentCore Gateway
       +-- Catalog Lambda ---- DynamoDB
-      +-- GitHub Lambda ----- GitHub API
       +-- Research Lambda --- External APIs
 
 Source JSON ---- Ingestion Lambda ---- DynamoDB / S3
@@ -312,7 +310,7 @@ POST /v1/projects/{candidateId}/select
 - [x] Create API Gateway with OpenTofu
 - [x] Add request validation
 - [x] Add consistent response and error schemas
-- [ ] Propagate correlation IDs
+- [x] Propagate correlation IDs
 - [ ] Invoke AgentCore Runtime from the API Lambda
 - [ ] Start with buffered responses
 - [ ] Configure throttling
@@ -344,29 +342,7 @@ Definition of done: a client can complete the read-only workflow entirely throug
 
 Definition of done: the complete application is usable from a browser.
 
-## Phase 8 - Showcase workflow: approved GitHub actions
-
-- [ ] Create a separate GitHub tool Lambda
-- [ ] Register the GitHub Lambda with AgentCore Gateway as MCP tools
-- [ ] Store credentials through an appropriate secrets or identity mechanism
-- [ ] Request the narrowest possible GitHub scopes
-- [ ] Implement read-only repository lookup first
-- [ ] Add `preview_github_issues`
-- [ ] Add `create_github_issues`
-- [ ] Require explicit approval between preview and execution
-- [ ] Make write requests idempotent
-- [ ] Record who approved each action
-- [ ] Add an audit record
-- [ ] Prevent arbitrary repository selection
-- [ ] Test expired and revoked credentials
-- [ ] Test partial failure during issue creation
-- [ ] Create issues in a designated test repository after explicit approval
-- [ ] Capture the approval, resulting issue URLs, and audit record
-
-Definition of done: the agent can prepare GitHub issues but cannot create them without distinct, authenticated approval, 
-and one approved end-to-end action is demonstrated against a designated test repository.
-
-## Phase 9 - Knowledge Base and richer evidence
+## Phase 8 - Knowledge Base and richer evidence
 
 - [ ] Fetch selected GitHub README content
 - [ ] Store source snapshots in S3
@@ -382,7 +358,7 @@ and one approved end-to-end action is demonstrated against a designated test rep
 
 Definition of done: recommendations can use both structured facts and cited semantic evidence.
 
-## Phase 10 - Expanded evaluation and token efficiency
+## Phase 9 - Expanded evaluation and token efficiency
 
 - [ ] Expand the initial set to at least 30 evaluation prompts
 - [ ] Include straightforward, ambiguous, and impossible requests
@@ -406,14 +382,14 @@ Definition of done: recommendations can use both structured facts and cited sema
 
 Definition of done: measurements show that cost or latency improved without a material reduction in quality.
 
-## Phase 11 - Security and failure testing
+## Phase 10 - Security and failure testing
 
 - [ ] Apply least-privilege IAM policies
 - [ ] Separate API, runtime, gateway, and tool roles
 - [ ] Enable encryption and set log-retention periods
 - [ ] Configure Bedrock Guardrails where appropriate
 - [ ] Test prompt injection inside catalog records
-- [ ] Test attempts to bypass approval
+- [ ] Test attempts to invoke unregistered tools
 - [ ] Test cross-session data access
 - [ ] Test oversized prompts and tool arguments
 - [ ] Test Lambda timeout and throttling behavior
@@ -424,7 +400,7 @@ Definition of done: measurements show that cost or latency improved without a ma
 
 Definition of done: the project demonstrates working controls instead of only listing security claims.
 
-## Phase 12 - Observability and demonstration package
+## Phase 11 - Observability and demonstration package
 
 - [ ] Add structured logs throughout
 - [ ] Extend OpenTelemetry instrumentation across API, runtime, and tools
@@ -434,13 +410,13 @@ Definition of done: the project demonstrates working controls instead of only li
 - [ ] Create a polished architecture diagram
 - [ ] Create a five-minute demo script
 - [ ] Capture one successful trace
-- [ ] Capture one rejected write attempt
+- [ ] Capture one rejected invalid request
 - [ ] Capture one failure-and-recovery trace
 - [ ] Document architectural tradeoffs
 - [ ] Document cost and token optimizations
 - [ ] Explain changes needed for a multi-user enterprise deployment
 - [ ] Diagram a production evolution with private networking only where justified
-- [ ] Map the personal-data and GitHub workflow to an enterprise integration pattern
+- [ ] Map the personal-data workflow to an enterprise retrieval pattern
 - [ ] Publish a concise public README
 - [ ] Record a short demonstration video
 
@@ -448,8 +424,9 @@ Definition of done: another engineer can deploy the project, understand its cont
 
 ## MVP release gate
 
-The showcase release ends after Phase 8 plus the essential expanded evaluation, security, and observability work from Phases 10 through 12. 
-The Knowledge Base can follow.
+The showcase release includes Phases 0 through 7 plus the essential expanded
+evaluation, security, and observability work from Phases 9 through 11. The
+Knowledge Base in Phase 8 can follow.
 
 The MVP must prove:
 
@@ -459,8 +436,6 @@ The MVP must prove:
 - [ ] AgentCore Gateway exposes Lambda tools with captured `tools/list` and `tools/call` evidence
 - [ ] The agent searches real personal data
 - [ ] Recommendations cite actual evidence
-- [ ] A GitHub action requires preview, authenticated approval, and an audit record
-- [ ] One approved action creates issues in the designated test repository
 - [ ] Authentication and basic observability are enabled
 - [ ] A repeatable evaluation suite measures quality, latency, and tokens
 - [ ] Measurements compare at least two candidate models
