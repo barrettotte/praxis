@@ -32,6 +32,20 @@ variable "environment" {
   }
 }
 
+variable "frontend_origin" {
+  description = "Exact browser origin allowed to call the development HTTP API."
+  type        = string
+  default     = "http://localhost:5173"
+
+  validation {
+    condition = (
+      can(regex("^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?$", var.frontend_origin)) ||
+      can(regex("^http://localhost(:[0-9]{1,5})?$", var.frontend_origin))
+    )
+    error_message = "Frontend origin must be HTTPS or an HTTP localhost origin without a path."
+  }
+}
+
 variable "agent_model_id" {
   description = "Bedrock model identifier used by the AgentCore Runtime."
   type        = string

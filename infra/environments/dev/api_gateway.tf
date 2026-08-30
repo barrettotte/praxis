@@ -13,6 +13,19 @@ resource "aws_apigatewayv2_api" "application" {
   description   = "Application boundary for the Praxis API"
   protocol_type = "HTTP"
 
+  # API Gateway owns preflight responses and appends these headers to integrations.
+  cors_configuration {
+    allow_headers = [
+      "authorization",
+      "content-type",
+      "x-correlation-id",
+    ]
+    allow_methods  = ["GET", "OPTIONS", "POST"]
+    allow_origins  = [var.frontend_origin]
+    expose_headers = ["x-correlation-id"]
+    max_age        = 300
+  }
+
   tags = {
     Name    = "${local.name_prefix}-api"
     Purpose = "Application HTTP API"
@@ -36,10 +49,44 @@ resource "aws_apigatewayv2_route" "application" {
   authorization_type = "AWS_IAM"
 }
 
+resource "aws_cloudwatch_log_group" "api_gateway_access" {
+  name              = "/aws/apigateway/${local.name_prefix}-api-access"
+  retention_in_days = 7
+
+  tags = {
+    Name    = "${local.name_prefix}-api-access-logs"
+    Purpose = "Disposable application API access logs"
+  }
+}
+
 resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.application.id
   name        = "$default"
   auto_deploy = true
+
+  # Record operational fields only; omit request content and caller identifiers.
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.api_gateway_access.arn
+    format = jsonencode({
+      http_method            = "$context.httpMethod"
+      integration_latency_ms = "$context.integration.latency"
+      integration_request_id = "$context.integration.requestId"
+      integration_status     = "$context.integration.status"
+      request_id             = "$context.requestId"
+      request_time_epoch_ms  = "$context.requestTimeEpoch"
+      response_latency_ms    = "$context.responseLatency"
+      response_length_bytes  = "$context.responseLength"
+      route_key              = "$context.routeKey"
+      status                 = "$context.status"
+    })
+  }
+
+  # A single-user session route should not start concurrent metered agent runs.
+  route_settings {
+    route_key              = "POST /v1/sessions"
+    throttling_burst_limit = 1
+    throttling_rate_limit  = 0.1
+  }
 
   tags = {
     Name    = "${local.name_prefix}-api-default"

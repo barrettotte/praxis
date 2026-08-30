@@ -6,6 +6,9 @@ from base64 import b64encode
 import pytest
 
 from praxis.api.requests import (
+    MAX_API_BODY_BYTES,
+    MAX_API_TEXT_CHARACTERS,
+    ApiPayloadTooLargeError,
     ApiRequestError,
     CreateSessionRequest,
     SelectCandidateRequest,
@@ -115,6 +118,60 @@ def test_validates_candidate_selection_request() -> None:
 
     assert request.path_parameters == {"candidateId": "candidate_1"}
     assert request.body == SelectCandidateRequest(sessionId=SESSION_ID)
+
+
+@pytest.mark.parametrize("is_base64_encoded", [False, True], ids=["raw", "base64"])
+def test_accepts_request_at_body_size_limit(is_base64_encoded: bool) -> None:
+    decoded_body = json.dumps({"sessionId": SESSION_ID})
+    decoded_body += " " * (MAX_API_BODY_BYTES - len(decoded_body.encode("utf-8")))
+    body = b64encode(decoded_body.encode("utf-8")).decode() if is_base64_encoded else decoded_body
+
+    request = validate_api_request(
+        http_event(
+            "POST /v1/projects/{candidateId}/select",
+            body=body,
+            path_parameters={"candidateId": "candidate_1"},
+            is_base64_encoded=is_base64_encoded,
+        )
+    )
+
+    assert len(decoded_body.encode("utf-8")) == MAX_API_BODY_BYTES
+    assert request.body == SelectCandidateRequest(sessionId=SESSION_ID)
+
+
+@pytest.mark.parametrize("is_base64_encoded", [False, True], ids=["raw", "base64"])
+def test_rejects_request_above_body_size_limit(is_base64_encoded: bool) -> None:
+    decoded_body = "\u00e9" * ((MAX_API_BODY_BYTES // 2) + 1)
+    body = b64encode(decoded_body.encode("utf-8")).decode() if is_base64_encoded else decoded_body
+
+    with pytest.raises(ApiPayloadTooLargeError, match="payload exceeds"):
+        validate_api_request(
+            http_event(
+                "POST /v1/sessions",
+                body=body,
+                is_base64_encoded=is_base64_encoded,
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    ("route_key", "field"),
+    [
+        ("POST /v1/sessions", "goal"),
+        ("POST /v1/sessions/{sessionId}/messages", "message"),
+    ],
+)
+def test_rejects_text_field_above_character_limit(route_key: str, field: str) -> None:
+    path_parameters = {"sessionId": SESSION_ID} if "{sessionId}" in route_key else None
+
+    with pytest.raises(ApiRequestError, match="invalid API request"):
+        validate_api_request(
+            http_event(
+                route_key,
+                body=json.dumps({field: "a" * (MAX_API_TEXT_CHARACTERS + 1)}),
+                path_parameters=path_parameters,
+            )
+        )
 
 
 @pytest.mark.parametrize(
@@ -310,6 +367,39 @@ def test_api_lambda_returns_safe_bad_request_for_invalid_input() -> None:
         "x-correlation-id": CORRELATION_ID,
     }
     assert response["body"] == ('{"error":{"code":"invalid_request","message":"Invalid request."}}')
+    assert marker not in json.dumps(response)
+
+
+def test_api_lambda_rejects_oversized_payload_before_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    marker = "do-not-reflect"
+
+    def unexpected_create_session(_goal: str, _correlation_id: str) -> CreateSessionData:
+        pytest.fail("oversized request invoked Runtime")
+
+    monkeypatch.setattr(api_function, "create_session", unexpected_create_session)
+    response = api_function.lambda_handler(
+        http_event(
+            "POST /v1/sessions",
+            body=json.dumps({"goal": marker, "padding": "x" * MAX_API_BODY_BYTES}),
+            correlation_id=CORRELATION_ID,
+        ),
+        object(),
+    )
+
+    assert response == {
+        "statusCode": 413,
+        "headers": {
+            "cache-control": "no-store",
+            "content-type": "application/json",
+            "x-correlation-id": CORRELATION_ID,
+        },
+        "body": (
+            '{"error":{"code":"payload_too_large","message":"Request payload is too large."}}'
+        ),
+        "isBase64Encoded": False,
+    }
     assert marker not in json.dumps(response)
 
 

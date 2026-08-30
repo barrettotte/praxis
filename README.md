@@ -28,12 +28,14 @@ flowchart TD
     agent --> bedrock[Amazon Bedrock<br/>Nova Lite]
 
     subgraph observability[Agent observability and evaluation]
+        apiAccessLogs[CloudWatch Logs<br/>API access metadata]
         xray[AWS X-Ray ingest]
         cloudwatch[CloudWatch transaction search]
         evaluations[AgentCore Evaluations]
         xray --> cloudwatch --> evaluations
     end
 
+    apiGateway -->|Privacy-safe access records| apiAccessLogs
     agent -->|Strands OTEL spans via ADOT| xray
 
     subgraph tools[AgentCore Gateway MCP tool boundary]

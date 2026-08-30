@@ -96,8 +96,12 @@ in `docs/evidence/gateway-tool-metrics.json`:
 
 ```shell
 make smoke-catalog-dev
+make smoke-api-access-logs-dev
+make smoke-api-cors-dev
 make smoke-api-lambda-dev
 make smoke-api-gateway-dev
+make smoke-api-payload-dev
+make smoke-api-throttling-dev
 make smoke-gateway-dev
 make smoke-agent-gateway-dev
 make smoke-memory-dev CONFIRM=smoke-memory-dev
@@ -109,8 +113,17 @@ make smoke-runtime-traces-dev
 The API Gateway check signs its declared-route requests with the active AWS
 profile, requires an unsigned request to fail before Lambda invocation, and
 validates one complete buffered Runtime response without recording candidate or
-session content. The direct API Lambda check exercises the same Runtime-backed
-handler through authenticated Lambda invocation. Both calls are metered.
+session content. The access-log check verifies the stage's privacy-safe JSON
+schema and seven-day retention, then correlates an unsigned 403 request with its
+delivered CloudWatch record without invoking Lambda. Initial log delivery can
+take up to two minutes. The CORS check requires an exact frontend origin and
+proves an unrelated origin receives no allow-origin header; API Gateway answers
+both preflights without Lambda. The throttling check reads the deployed stage and requires the
+session route to match the reviewed rate and burst values without invoking the
+API. The payload check invokes the private API Lambda with a body over 16 KiB
+and requires a fixed 413 response, proving validation stopped before Runtime.
+The direct API Lambda check exercises the Runtime-backed success path through
+authenticated Lambda invocation. The successful Runtime calls are metered.
 
 The Memory check has a distinct confirmation because its first run creates one
 typed preference and one typed decision for a dedicated smoke actor. A

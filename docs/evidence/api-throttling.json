@@ -1,0 +1,6 @@
+{
+  "configured": true,
+  "route": "POST /v1/sessions",
+  "throttling_burst_limit": 1,
+  "throttling_rate_limit_rps": 0.1
+}

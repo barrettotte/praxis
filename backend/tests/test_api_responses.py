@@ -30,6 +30,11 @@ def test_builds_success_response_envelope() -> None:
     [
         (ApiErrorCode.INVALID_REQUEST, 400, "Invalid request."),
         (
+            ApiErrorCode.PAYLOAD_TOO_LARGE,
+            413,
+            "Request payload is too large.",
+        ),
+        (
             ApiErrorCode.SERVICE_UNAVAILABLE,
             503,
             "Application API routes are unavailable.",

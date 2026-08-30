@@ -7,7 +7,12 @@ from uuid import uuid4
 from pydantic import JsonValue
 
 from praxis.api.correlation import response_correlation_id
-from praxis.api.requests import ApiRequestError, CreateSessionRequest, validate_api_request
+from praxis.api.requests import (
+    ApiPayloadTooLargeError,
+    ApiRequestError,
+    CreateSessionRequest,
+    validate_api_request,
+)
 from praxis.api.responses import ApiErrorCode, error_response, success_response
 from praxis.api.runtime import (
     ApiRuntimeError,
@@ -41,6 +46,8 @@ def lambda_handler(event: object, context: object) -> dict[str, object]:
     fallback_correlation_id = response_correlation_id(event, context)
     try:
         request = validate_api_request(event)
+    except ApiPayloadTooLargeError:
+        return error_response(ApiErrorCode.PAYLOAD_TOO_LARGE, fallback_correlation_id)
     except ApiRequestError:
         return error_response(ApiErrorCode.INVALID_REQUEST, fallback_correlation_id)
     if request.route_key == "POST /v1/sessions":

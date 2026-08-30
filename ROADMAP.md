@@ -313,10 +313,10 @@ POST /v1/projects/{candidateId}/select
 - [x] Propagate correlation IDs
 - [x] Invoke AgentCore Runtime from the API Lambda
 - [x] Start with buffered responses
-- [ ] Configure throttling
-- [ ] Configure payload limits
-- [ ] Add access logging
-- [ ] Add CORS for the known frontend origin only
+- [x] Configure throttling
+- [x] Configure payload limits
+- [x] Add access logging
+- [x] Add CORS for the known frontend origin only
 - [ ] Return model and tool errors safely
 - [ ] Add API integration tests
 - [ ] Confirm arbitrary public callers cannot invoke AgentCore Runtime

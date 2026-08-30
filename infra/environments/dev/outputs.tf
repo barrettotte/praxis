@@ -26,6 +26,16 @@ output "api_gateway_url" {
   value       = aws_apigatewayv2_api.application.api_endpoint
 }
 
+output "frontend_origin" {
+  description = "Exact browser origin allowed by the development API CORS policy."
+  value       = var.frontend_origin
+}
+
+output "api_gateway_access_log_group_name" {
+  description = "CloudWatch log group receiving application API access records."
+  value       = aws_cloudwatch_log_group.api_gateway_access.name
+}
+
 output "catalog_table_name" {
   description = "Name of the DynamoDB table containing the disposable catalog."
   value       = aws_dynamodb_table.catalog.name

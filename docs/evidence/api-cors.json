@@ -1,0 +1,7 @@
+{
+  "allowed_origin": "http://localhost:5173",
+  "allowed_preflight": true,
+  "denied_origin_omitted": true,
+  "lambda_invoked": false,
+  "wildcard_origin": false
+}

@@ -57,7 +57,9 @@ on four explicit AWS IAM-authorized application routes. The default stage
 deploys OpenTofu-managed route changes automatically; unsigned declared-route
 requests return 403, and undeclared routes return 404 without invoking the
 function. The Lambda validates the route, path identifiers, content type, query
-parameters, and strict JSON body. Session creation invokes Runtime with a
+parameters, and strict JSON body. It rejects decoded bodies over 16 KiB before
+JSON parsing or Runtime invocation and limits goal and message text to 4,000
+characters. Session creation invokes Runtime with a
 deployment-owned single-user actor, a generated UUIDv4 session, a 25-second SDK
 read deadline, and a 29-second Lambda timeout. It validates the complete Runtime
 response before returning only the session and candidates. Success and error
@@ -66,6 +68,24 @@ error codes remain separate from safe display text. The Lambda propagates a
 valid client UUIDv4 correlation ID or uses API Gateway's request ID, returning
 the selected value as response metadata and forwarding it as tracing baggage
 without placing it in response bodies or prompts.
+
+The session-create route has a burst limit of one and a steady rate of 0.1
+requests per second. API Gateway rejects excess requests before Lambda
+invocation, limiting accidental concurrent model work while leaving other
+routes available for their own handler-specific limits.
+
+API Gateway handles browser preflight requests and permits only the configured
+frontend origin. Development defaults to `http://localhost:5173`; set
+`TF_VAR_frontend_origin` while creating the reviewed plan when the frontend is
+deployed behind an HTTPS origin. Only GET, POST, and OPTIONS plus the
+authorization, content-type, and correlation headers are allowed. CORS is a
+browser boundary and does not replace API authorization.
+
+The default API stage writes structured access records to a dedicated
+CloudWatch log group with seven-day retention. Records contain request IDs,
+route templates, status, latency, and byte counts only; they omit bodies,
+prompts, raw paths, caller identities, IP addresses, user agents, and error
+text.
 
 The AgentCore Gateway exposes an MCP endpoint protected by AWS IAM. Its service
 role trust is restricted to AgentCore gateways in this account and region. The

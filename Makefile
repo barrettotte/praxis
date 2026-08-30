@@ -24,7 +24,7 @@ FRONTEND_NPM := $(NPM) --prefix frontend
 
 export UV_CACHE_DIR
 
-.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-api-lambda package-functions agent agent-image smoke-agent-container preview-agent-image-dev push-agent-image-dev eval-baseline eval-runtime-dev inspect-runtime-versions-dev tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-api-gateway-dev smoke-api-lambda-dev smoke-catalog-dev smoke-gateway-dev smoke-agent-gateway-dev smoke-memory-dev smoke-runtime-dev smoke-runtime-sessions-dev smoke-runtime-traces-dev dev-frontend
+.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-api-lambda package-functions agent agent-image smoke-agent-container preview-agent-image-dev push-agent-image-dev eval-baseline eval-runtime-dev inspect-runtime-versions-dev tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-api-access-logs-dev smoke-api-cors-dev smoke-api-gateway-dev smoke-api-lambda-dev smoke-api-payload-dev smoke-api-throttling-dev smoke-catalog-dev smoke-gateway-dev smoke-agent-gateway-dev smoke-memory-dev smoke-runtime-dev smoke-runtime-sessions-dev smoke-runtime-traces-dev dev-frontend
 
 help: ## Show the available Make targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-30s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -163,11 +163,23 @@ tofu-destroy-dev: ## Apply the reviewed development teardown; requires CONFIRM=d
 seed-dev: ## Upload authoritative JSON and invoke ingestion; requires CONFIRM=seed-dev
 	CONFIRM=$(CONFIRM) AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) SOURCE_DATA_DIR=$(SOURCE_DATA_DIR) ./scripts/seed-dev.sh
 
+smoke-api-access-logs-dev: ## Verify privacy-safe API access log delivery
+	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-api-access-logs-dev.sh
+
+smoke-api-cors-dev: ## Verify only the configured frontend origin passes preflight
+	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-api-cors-dev.sh
+
 smoke-api-lambda-dev: ## Invoke the private application API Lambda smoke check
 	AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) ./scripts/smoke-api-lambda-dev.sh
 
 smoke-api-gateway-dev: ## Probe the deployed application HTTP API routes
 	AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) ./scripts/smoke-api-gateway-dev.sh
+
+smoke-api-payload-dev: ## Verify oversized API payloads fail before Runtime
+	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-api-payload-dev.sh
+
+smoke-api-throttling-dev: ## Verify the deployed session-route throttle configuration
+	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke-api-throttling-dev.sh
 
 smoke-catalog-dev: ## Invoke a read-only deployed catalog search smoke test
 	AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) ./scripts/smoke-catalog-dev.sh

@@ -1,0 +1,17 @@
+{
+  "access_log_delivery": true,
+  "fields": [
+    "http_method",
+    "integration_latency_ms",
+    "integration_request_id",
+    "integration_status",
+    "request_id",
+    "request_time_epoch_ms",
+    "response_latency_ms",
+    "response_length_bytes",
+    "route_key",
+    "status"
+  ],
+  "retention_days": 7,
+  "unauthorized_probe_status": 403
+}

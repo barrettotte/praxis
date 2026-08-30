@@ -1,0 +1,6 @@
+{
+  "authenticated_direct_invocation": true,
+  "body_limit_bytes": 16384,
+  "oversized_status": 413,
+  "runtime_invoked": false
+}

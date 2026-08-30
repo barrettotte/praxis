@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verify signed application requests reach Runtime while anonymous requests stop.
+# Verify signed Runtime requests and anonymous rejection through the application API.
 set -euo pipefail
 umask 077
 

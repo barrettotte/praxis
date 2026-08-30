@@ -9,6 +9,10 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 from praxis.api.correlation import CorrelationIdError, correlation_id_from_event
 
+MAX_API_BODY_BYTES = 16 * 1024
+MAX_API_TEXT_CHARACTERS = 4_000
+_MAX_BASE64_BODY_CHARACTERS = ((MAX_API_BODY_BYTES + 2) // 3) * 4
+
 type ApiRoute = Literal[
     "GET /v1/sessions/{sessionId}",
     "POST /v1/projects/{candidateId}/select",
@@ -29,6 +33,10 @@ class ApiRequestError(ValueError):
     """Raised when an API Gateway event violates the public request contract."""
 
 
+class ApiPayloadTooLargeError(ApiRequestError):
+    """Raised when a request body exceeds the application payload limit."""
+
+
 class RequestModel(BaseModel):
     """Apply strict validation to public JSON request bodies."""
 
@@ -45,13 +53,13 @@ class RequestModel(BaseModel):
 class CreateSessionRequest(RequestModel):
     """A goal that starts a planning session."""
 
-    goal: Annotated[str, Field(min_length=1)]
+    goal: Annotated[str, Field(min_length=1, max_length=MAX_API_TEXT_CHARACTERS)]
 
 
 class SessionMessageRequest(RequestModel):
     """A follow-up message within an existing session."""
 
-    message: Annotated[str, Field(min_length=1)]
+    message: Annotated[str, Field(min_length=1, max_length=MAX_API_TEXT_CHARACTERS)]
 
 
 class SelectCandidateRequest(RequestModel):
@@ -110,10 +118,21 @@ def _decode_body(event: _HttpApiEvent) -> str:
     if event.body is None:
         raise ValueError("request body is required")
     if not event.is_base64_encoded:
+        if len(event.body.encode("utf-8")) > MAX_API_BODY_BYTES:
+            raise ApiPayloadTooLargeError(f"API request payload exceeds {MAX_API_BODY_BYTES} bytes")
         return event.body
+    # Reject clearly oversized encoded input before allocating its decoded form.
+    if len(event.body) > _MAX_BASE64_BODY_CHARACTERS:
+        raise ApiPayloadTooLargeError(f"API request payload exceeds {MAX_API_BODY_BYTES} bytes")
     try:
-        return b64decode(event.body, validate=True).decode("utf-8")
-    except (Base64Error, UnicodeDecodeError) as error:
+        decoded_body = b64decode(event.body, validate=True)
+    except Base64Error as error:
+        raise ValueError("request body is not valid base64-encoded UTF-8") from error
+    if len(decoded_body) > MAX_API_BODY_BYTES:
+        raise ApiPayloadTooLargeError(f"API request payload exceeds {MAX_API_BODY_BYTES} bytes")
+    try:
+        return decoded_body.decode("utf-8")
+    except UnicodeDecodeError as error:
         raise ValueError("request body is not valid base64-encoded UTF-8") from error
 
 
@@ -166,5 +185,7 @@ def validate_api_request(event: object) -> ValidatedApiRequest:
     try:
         correlation_id = correlation_id_from_event(event)
         return _validate_event(_HttpApiEvent.model_validate(event), correlation_id)
+    except ApiPayloadTooLargeError:
+        raise
     except (CorrelationIdError, KeyError, ValidationError, ValueError) as error:
         raise ApiRequestError("invalid API request") from error

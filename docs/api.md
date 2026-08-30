@@ -13,10 +13,14 @@ authorization when the frontend authentication boundary is deployed.
 | `GET` | `/v1/sessions/{sessionId}` | None |
 | `POST` | `/v1/projects/{candidateId}/select` | `{ "sessionId": "UUIDv4" }` |
 
-`sessionId` path and body values are canonical lowercase UUIDv4 strings.
+Every decoded JSON request body is limited to 16 KiB. The `goal` and `message`
+fields are each limited to 4,000 characters; bodies at or below the byte limit
+that violate a field contract remain invalid requests. `sessionId` path and body
+values are canonical lowercase UUIDv4 strings.
 `candidateId` is an opaque, URL-safe identifier of at most 64 letters, digits,
 underscores, or hyphens. POST requests require an `application/json` content
-type; API Gateway base64-encoded UTF-8 bodies are supported.
+type; API Gateway base64-encoded UTF-8 bodies are supported, with the limit
+applied to their decoded bytes.
 
 `POST /v1/sessions` invokes the version-pinned AgentCore Runtime and returns a
 complete buffered response with a generated session ID and exactly three
@@ -25,6 +29,11 @@ validated internally but are not part of the public response. Other
 structurally valid routes return the non-cacheable unavailable response until
 their handlers are connected. Invalid requests return a fixed 400 response
 without validation internals or submitted values.
+
+Session creation allows a burst of one request and refills at 0.1 requests per
+second. Requests above that route limit receive API Gateway's 429 response
+before Lambda or Runtime invocation. Clients should wait before retrying and
+must not treat throttling as a completed session.
 
 ## Response envelopes
 
@@ -57,6 +66,7 @@ Errors contain a stable machine-readable code and safe display text:
 | HTTP status | Error code | Meaning |
 | --- | --- | --- |
 | `400` | `invalid_request` | The request violates the public contract. |
+| `413` | `payload_too_large` | The decoded JSON request body exceeds 16 KiB. |
 | `503` | `service_unavailable` | The requested application handler is unavailable. |
 
 All Lambda responses are UTF-8 JSON, explicitly mark `isBase64Encoded` false,
