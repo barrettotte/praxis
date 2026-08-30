@@ -23,10 +23,20 @@ praxis_function_name="$(
   AWS_PROFILE="${praxis_profile}" "${praxis_tofu}" \
     -chdir="${praxis_infra_dir}" output -raw api_lambda_name
 )"
+praxis_payload="$(
+  jq -nc --arg marker "${praxis_marker}" \
+    '{
+      version: "2.0",
+      routeKey: "POST /v1/sessions",
+      headers: {"content-type": "application/json"},
+      isBase64Encoded: false,
+      body: ({goal: $marker} | tojson)
+    }'
+)"
 aws --profile "${praxis_profile}" --region us-east-1 lambda invoke \
   --function-name "${praxis_function_name}" \
   --cli-binary-format raw-in-base64-out \
-  --payload "{\"untrusted\":\"${praxis_marker}\"}" \
+  --payload "${praxis_payload}" \
   "${praxis_build_dir}/api-lambda-smoke-response.json" \
   --output json >"${praxis_build_dir}/api-lambda-smoke-metadata.json"
 

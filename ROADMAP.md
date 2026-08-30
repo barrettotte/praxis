@@ -310,7 +310,7 @@ POST /v1/projects/{candidateId}/select
 
 - [x] Create the API Lambda
 - [x] Create API Gateway with OpenTofu
-- [ ] Add request validation
+- [x] Add request validation
 - [ ] Add consistent response and error schemas
 - [ ] Propagate correlation IDs
 - [ ] Invoke AgentCore Runtime from the API Lambda

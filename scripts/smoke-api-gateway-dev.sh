@@ -31,7 +31,7 @@ praxis_known_status="$(
     --write-out '%{http_code}' \
     --request POST \
     --header 'content-type: application/json' \
-    --data "{\"untrusted\":\"${praxis_marker}\"}" \
+    --data "{\"goal\":\"${praxis_marker}\"}" \
     "${praxis_api_url}/v1/sessions"
 )"
 if [[ "${praxis_known_status}" != "503" ]] || \
@@ -42,6 +42,26 @@ if [[ "${praxis_known_status}" != "503" ]] || \
   printf 'Declared API route returned an unexpected response (HTTP %s):\n' \
     "${praxis_known_status}" >&2
   jq . "${praxis_work_dir}/known-route.json" >&2 || true
+  exit 1
+fi
+
+# A malformed request must fail safely without reflecting its payload.
+praxis_invalid_status="$(
+  curl --silent --show-error \
+    --output "${praxis_work_dir}/invalid-request.json" \
+    --write-out '%{http_code}' \
+    --request POST \
+    --header 'content-type: application/json' \
+    --data "{\"unexpected\":\"${praxis_marker}\"}" \
+    "${praxis_api_url}/v1/sessions"
+)"
+if [[ "${praxis_invalid_status}" != "400" ]] || \
+  ! jq -e --arg marker "${praxis_marker}" \
+    '.error == "Invalid request." and (tostring | contains($marker) | not)' \
+    "${praxis_work_dir}/invalid-request.json" >/dev/null; then
+  printf 'Invalid API request returned an unexpected response (HTTP %s):\n' \
+    "${praxis_invalid_status}" >&2
+  jq . "${praxis_work_dir}/invalid-request.json" >&2 || true
   exit 1
 fi
 
@@ -61,6 +81,6 @@ fi
 
 mkdir -p "${praxis_evidence_dir}"
 jq -n \
-  '{api_gateway_reached: true, handler_status: 503, payload_reflected: false, unknown_route_status: 404}' \
+  '{api_gateway_reached: true, handler_status: 503, invalid_request_status: 400, payload_reflected: false, unknown_route_status: 404}' \
   >"${praxis_evidence_dir}/api-gateway.json"
 jq . "${praxis_evidence_dir}/api-gateway.json"

@@ -49,14 +49,16 @@ can read only the four expected source objects, scan and batch-write only the
 catalog table, and write to its own seven-day log group. No bucket notification
 or schedule can trigger ingestion unexpectedly.
 
-The application API Lambda uses an independent dependency-free deployment ZIP.
-It has no function URL or Runtime permission, and its execution role can write
-only to its seven-day log group. A low-cost API Gateway HTTP API invokes it
-through payload format 2.0 on the four explicit application routes. The default
-stage deploys OpenTofu-managed route changes automatically; undeclared routes
-return 404 without invoking the function. The HTTP endpoint has no authorizer
-while the Lambda returns only a fixed unavailable response that does not reflect
-invocation payloads.
+The application API Lambda uses an independent deployment ZIP with locked
+validation dependencies. It has no function URL or Runtime permission, and its
+execution role can write only to its seven-day log group. A low-cost API Gateway
+HTTP API invokes it through payload format 2.0 on the four explicit application
+routes. The default stage deploys OpenTofu-managed route changes automatically;
+undeclared routes return 404 without invoking the function. The HTTP endpoint
+has no authorizer while the Lambda validates the route, path identifiers,
+content type, query parameters, and strict JSON body before returning a fixed
+response that does not reflect invocation payloads. The public request contract
+is documented in `docs/api.md`.
 
 The AgentCore Gateway exposes an MCP endpoint protected by AWS IAM. Its service
 role trust is restricted to AgentCore gateways in this account and region. The

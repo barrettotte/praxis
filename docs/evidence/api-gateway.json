@@ -1,6 +1,7 @@
 {
   "api_gateway_reached": true,
   "handler_status": 503,
+  "invalid_request_status": 400,
   "payload_reflected": false,
   "unknown_route_status": 404
 }

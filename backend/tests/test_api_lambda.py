@@ -1,12 +1,169 @@
-"""Tests for the private application API Lambda shell."""
+"""Tests for application API request validation and the Lambda entry point."""
 
 import json
+from base64 import b64encode
 
+import pytest
+
+from praxis.api.requests import (
+    ApiRequestError,
+    CreateSessionRequest,
+    SelectCandidateRequest,
+    SessionMessageRequest,
+    validate_api_request,
+)
 from praxis.functions.api import lambda_handler
 
+SESSION_ID = "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4"
 
-def test_api_lambda_returns_fixed_non_cacheable_unavailable_response() -> None:
-    response = lambda_handler({"untrusted": "do-not-reflect"}, object())
+
+def http_event(
+    route_key: str,
+    *,
+    body: str | None = None,
+    path_parameters: dict[str, str] | None = None,
+    query_parameters: dict[str, str] | None = None,
+    is_base64_encoded: bool = False,
+    content_type: str = "application/json",
+) -> dict[str, object]:
+    """Build the API Gateway v2 fields consumed by the request validator."""
+    event: dict[str, object] = {
+        "version": "2.0",
+        "routeKey": route_key,
+        "headers": {"content-type": content_type},
+        "isBase64Encoded": is_base64_encoded,
+    }
+    if body is not None:
+        event["body"] = body
+    if path_parameters is not None:
+        event["pathParameters"] = path_parameters
+    if query_parameters is not None:
+        event["queryStringParameters"] = query_parameters
+    return event
+
+
+def test_validates_create_session_request() -> None:
+    request = validate_api_request(
+        http_event("POST /v1/sessions", body=json.dumps({"goal": " Learn Rust "}))
+    )
+
+    assert request.route_key == "POST /v1/sessions"
+    assert request.path_parameters == {}
+    assert request.body == CreateSessionRequest(goal="Learn Rust")
+
+
+def test_validates_base64_encoded_message_request() -> None:
+    encoded_body = b64encode(json.dumps({"message": "Continue"}).encode()).decode()
+
+    request = validate_api_request(
+        http_event(
+            "POST /v1/sessions/{sessionId}/messages",
+            body=encoded_body,
+            path_parameters={"sessionId": SESSION_ID},
+            is_base64_encoded=True,
+            content_type="application/json; charset=utf-8",
+        )
+    )
+
+    assert request.path_parameters == {"sessionId": SESSION_ID}
+    assert request.body == SessionMessageRequest(message="Continue")
+
+
+def test_validates_get_session_request_without_body() -> None:
+    request = validate_api_request(
+        http_event(
+            "GET /v1/sessions/{sessionId}",
+            path_parameters={"sessionId": SESSION_ID},
+        )
+    )
+
+    assert request.path_parameters == {"sessionId": SESSION_ID}
+    assert request.body is None
+
+
+def test_validates_candidate_selection_request() -> None:
+    request = validate_api_request(
+        http_event(
+            "POST /v1/projects/{candidateId}/select",
+            body=json.dumps({"sessionId": SESSION_ID}),
+            path_parameters={"candidateId": "candidate_1"},
+        )
+    )
+
+    assert request.path_parameters == {"candidateId": "candidate_1"}
+    assert request.body == SelectCandidateRequest(sessionId=SESSION_ID)
+
+
+@pytest.mark.parametrize(
+    "event",
+    [
+        {"routeKey": "POST /not-a-route"},
+        http_event("POST /v1/sessions", body="not-json"),
+        http_event("POST /v1/sessions", body="[]"),
+        http_event("POST /v1/sessions", body="{}"),
+        http_event("POST /v1/sessions", body=json.dumps({"goal": "   "})),
+        http_event(
+            "POST /v1/sessions",
+            body=json.dumps({"goal": "valid", "unexpected": True}),
+        ),
+        http_event(
+            "POST /v1/sessions",
+            body=json.dumps({"goal": "valid"}),
+            content_type="text/plain",
+        ),
+        http_event(
+            "POST /v1/sessions",
+            body=json.dumps({"goal": "valid"}),
+            query_parameters={"debug": "true"},
+        ),
+        http_event(
+            "POST /v1/sessions/{sessionId}/messages",
+            body=json.dumps({"message": "valid"}),
+            path_parameters={"sessionId": "not-a-session"},
+        ),
+        http_event(
+            "GET /v1/sessions/{sessionId}",
+            body="{}",
+            path_parameters={"sessionId": SESSION_ID},
+        ),
+        http_event(
+            "POST /v1/projects/{candidateId}/select",
+            body=json.dumps({"sessionId": SESSION_ID}),
+            path_parameters={"candidateId": "not/a/candidate"},
+        ),
+        http_event(
+            "POST /v1/sessions",
+            body="not-base64",
+            is_base64_encoded=True,
+        ),
+    ],
+    ids=[
+        "unknown-route",
+        "malformed-json",
+        "non-object-json",
+        "missing-field",
+        "blank-field",
+        "unknown-field",
+        "wrong-content-type",
+        "query-parameter",
+        "invalid-session-id",
+        "get-body",
+        "invalid-candidate-id",
+        "invalid-base64",
+    ],
+)
+def test_rejects_invalid_requests(event: object) -> None:
+    with pytest.raises(ApiRequestError, match="invalid API request"):
+        validate_api_request(event)
+
+
+def test_api_lambda_returns_unavailable_for_valid_request() -> None:
+    marker = "do-not-reflect"
+
+    response = lambda_handler(
+        http_event("POST /v1/sessions", body=json.dumps({"goal": marker})),
+        object(),
+    )
 
     assert response == {
         "statusCode": 503,
@@ -16,12 +173,27 @@ def test_api_lambda_returns_fixed_non_cacheable_unavailable_response() -> None:
         },
         "body": '{"error":"Application API routes are unavailable."}',
     }
-    assert "do-not-reflect" not in json.dumps(response)
+    assert marker not in json.dumps(response)
+
+
+def test_api_lambda_returns_safe_bad_request_for_invalid_input() -> None:
+    marker = "do-not-reflect"
+
+    response = lambda_handler(
+        http_event("POST /v1/sessions", body=json.dumps({"unexpected": marker})),
+        object(),
+    )
+
+    assert response["statusCode"] == 400
+    assert response["body"] == '{"error":"Invalid request."}'
+    assert marker not in json.dumps(response)
 
 
 def test_api_lambda_returns_independent_response_objects() -> None:
-    first = lambda_handler({}, object())
-    second = lambda_handler({}, object())
+    event = http_event("POST /v1/sessions", body=json.dumps({"goal": "Learn Rust"}))
+
+    first = lambda_handler(event, object())
+    second = lambda_handler(event, object())
 
     assert first is not second
     assert first["headers"] is not second["headers"]
