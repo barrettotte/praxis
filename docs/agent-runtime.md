@@ -2,7 +2,7 @@
 
 Praxis uses one Strands agent to turn a project-planning goal into exactly three
 structured, evidence-backed candidates. The agent is hosted by AgentCore Runtime,
-uses Amazon Nova Micro through Bedrock, and reaches catalog data only through the
+uses Amazon Nova Lite through Bedrock, and reaches catalog data only through the
 IAM-authenticated AgentCore Gateway.
 
 ## Loop
@@ -11,7 +11,7 @@ IAM-authenticated AgentCore Gateway.
 validated user goal
         |
         v
-Strands Agent -----------> Bedrock Converse (Nova Micro)
+Strands Agent -----------> Bedrock Converse (Nova Lite)
         ^                            |
         |                            | tool request
         |                            v

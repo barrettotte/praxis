@@ -35,7 +35,7 @@ variable "environment" {
 variable "agent_model_id" {
   description = "Bedrock model identifier used by the AgentCore Runtime."
   type        = string
-  default     = "amazon.nova-micro-v1:0"
+  default     = "amazon.nova-lite-v1:0"
 
   validation {
     condition     = length(trimspace(var.agent_model_id)) > 0
@@ -57,7 +57,7 @@ variable "agent_image_digest" {
 variable "agent_runtime_endpoint_version" {
   description = "Verified immutable Runtime version promoted to the stable endpoint."
   type        = string
-  default     = "8"
+  default     = "10"
 
   validation {
     condition     = can(regex("^[1-9][0-9]{0,4}$", var.agent_runtime_endpoint_version))

@@ -2,6 +2,11 @@
 locals {
   agentcore_runtime_name          = replace("${local.name_prefix}-agent", "-", "_")
   agentcore_runtime_container_uri = "${aws_ecr_repository.deployable["agent"].repository_url}@${var.agent_image_digest}"
+  # Keep the measured Micro fallback callable alongside the configured default.
+  agentcore_runtime_model_ids = distinct([
+    "amazon.nova-micro-v1:0",
+    var.agent_model_id,
+  ])
   agentcore_runtime_environment = {
     AGENT_OBSERVABILITY_ENABLED = "true"
     AWS_REGION                  = var.aws_region
@@ -117,14 +122,15 @@ data "aws_iam_policy_document" "agentcore_runtime" {
   }
 
   statement {
-    sid    = "InvokeConfiguredModel"
+    sid    = "InvokeConfiguredModels"
     effect = "Allow"
     actions = [
       "bedrock:InvokeModel",
       "bedrock:InvokeModelWithResponseStream",
     ]
     resources = [
-      "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}::foundation-model/${var.agent_model_id}",
+      for model_id in local.agentcore_runtime_model_ids :
+      "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}::foundation-model/${model_id}"
     ]
   }
 

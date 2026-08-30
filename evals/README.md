@@ -38,6 +38,6 @@ event-loop cycles. `summarize_experience` is compared with the local
 `compare_project_history` expectation because they represent the same catalog
 operation on opposite sides of the Gateway boundary.
 
-`PRAXIS_MODEL_ID` defaults to `amazon.nova-micro-v1:0`. Set it only when it
-matches the model configured on the deployed Runtime so result metadata remains
-accurate. `RUNTIME_EVAL_TRACE_TIMEOUT_SECONDS` changes the per-case trace wait.
+The deployed command reads its model and image identity from the immutable
+Runtime version served by the endpoint. `RUNTIME_EVAL_TRACE_TIMEOUT_SECONDS`
+changes the per-case trace wait.

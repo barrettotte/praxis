@@ -33,13 +33,14 @@ This roadmap is the source of truth for the project's intended scope and current
 - AWS region: `us-east-1` (US East, N. Virginia)
 - Initial model: Amazon Nova Micro using on-demand inference
 - Initial model ID: `amazon.nova-micro-v1:0`
+- Current default model: Amazon Nova Lite (`amazon.nova-lite-v1:0`)
 - Deployment posture: temporary development environments, destroyed when the project is inactive or complete
 
 ### Model strategy
 
-Amazon Nova Micro is the initial model because Praxis begins as a text-only workflow and should minimize development inference cost. 
-Keep the model ID in configuration rather than application code. Use evaluation results beginning with the Phase 1 baseline and 
-expanded in Phase 10 to decide whether particular workflows require a stronger model; do not upgrade the default model without measured evidence.
+Amazon Nova Lite is the default model because the deployed baseline showed materially better reliability and quality than Nova Micro.
+Keep the model ID in configuration rather than application code. Use expanded evaluation results in Phase 10 to decide whether particular
+workflows require another model change; do not change the default without measured evidence.
 
 Use in-region inference in `us-east-1` initially. Cross-region inference can be evaluated later if throughput or 
 availability becomes a demonstrated problem.
@@ -272,7 +273,7 @@ Definition of done: an authenticated MCP client can discover and invoke all read
 - [x] Implement the agent in Python with Strands Agents SDK
 - [x] Document the Strands agent loop and tool integration
 - [x] Use a Bedrock conversation API
-- [x] Read the Nova Micro model ID from environment configuration
+- [x] Read the Bedrock model ID from environment configuration
 - [x] Connect the agent to AgentCore Gateway
 - [x] Define the system instructions
 - [x] Require evidence IDs for every proposed project
@@ -288,8 +289,8 @@ Definition of done: an authenticated MCP client can discover and invoke all read
 - [x] Confirm sessions remain isolated
 - [x] Instrument Strands traces for AgentCore Evaluations
 - [x] Run the Phase 1 evaluation set against the deployed agent
-- [ ] Compare Nova Micro with one stronger model on the baseline
-- [ ] Keep Nova Micro as the default unless measured results justify a change
+- [x] Compare Nova Micro with one stronger model on the baseline
+- [x] Select Nova Lite as the default after deployed measurements justified the change
 - [ ] Add AgentCore Memory for preferences and prior decisions
 - [ ] Keep authoritative catalog data out of agent memory
 
@@ -399,7 +400,7 @@ Definition of done: recommendations can use both structured facts and cited sema
 - [ ] Test conversation summarization
 - [ ] Add prompt caching where repeated context qualifies
 - [ ] Compare DSPy-optimized instructions with the maintained baseline on a held-out evaluation set
-- [ ] Repeat the Nova Micro versus stronger-model comparison
+- [ ] Repeat the default-model versus stronger-model comparison
 - [ ] Establish regression thresholds
 - [ ] Make evaluation repeatable locally or in CI
 
@@ -462,7 +463,7 @@ The MVP must prove:
 - [ ] One approved action creates issues in the designated test repository
 - [ ] Authentication and basic observability are enabled
 - [ ] A repeatable evaluation suite measures quality, latency, and tokens
-- [ ] Measurements compare Nova Micro with a stronger model
+- [ ] Measurements compare at least two candidate models
 - [ ] Demonstration artifacts include successful, rejected, and recovered traces
 
 ## Immediate next steps

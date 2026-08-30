@@ -110,7 +110,7 @@ class BaselineSummary(EvaluationModel):
 
 
 class BaselineResult(EvaluationModel):
-    """One immutable project-recommendation Nova baseline artifact."""
+    """One immutable project-recommendation model baseline artifact."""
 
     suite: Literal["project-recommendation-baseline"]
     prompts_version: Literal[1]

@@ -104,9 +104,10 @@ make smoke-runtime-traces-dev
 ```
 
 The agent-to-Gateway command uses the same SigV4 Strands MCP transport as the
-AgentCore Runtime, invokes Nova Micro with the discovered tools, and requires at
-least one Gateway tool call plus exactly three schema-valid candidates with an
-evidence citation on each. It writes sanitized counts and tool-call metadata to
+AgentCore Runtime, invokes the configured Bedrock model with the discovered
+tools, and requires at least one Gateway tool call plus exactly three
+schema-valid candidates with an evidence citation on each. It writes sanitized
+counts and tool-call metadata to
 `docs/evidence/strands-gateway-tools-list.json` and
 `docs/evidence/strands-gateway-agent-run.json`. Override its deterministic smoke
 prompt with `PROMPT='your goal'` when needed.
@@ -167,8 +168,54 @@ from OpenTofu state, then writes a versioned result under
 `evals/project-recommendations/results/`. The artifact excludes AWS account,
 resource, session, trace, and span identifiers. Use
 `RUNTIME_EVAL_TRACE_TIMEOUT_SECONDS=seconds` to change the per-case trace wait.
-If the deployed Runtime uses a non-default model, set `PRAXIS_MODEL_ID` to the
-same configured model before running the command.
+The command reads the model ID and image digest from the immutable Runtime
+version served by the endpoint, preventing manual metadata mismatches.
+
+### Model selection and rollback
+
+ADR 0005 defines Nova Lite (`amazon.nova-lite-v1:0`) as the default and Nova
+Micro as the measured rollback model. Stage any future comparison model without
+changing checked-in defaults by creating a saved plan override:
+
+```shell
+TF_VAR_agent_model_id=MODEL_ID make tofu-plan-dev
+tofu -chdir=infra/environments/dev show dev.tfplan
+make tofu-apply-dev CONFIRM=apply-dev
+```
+
+The stable endpoint remains on its pinned version while the new Runtime version
+is staged. Inspect the immutable versions and select the highest version that
+is `READY`, uses the intended model and image digest, and reports MMDSv2 as
+`true`:
+
+```shell
+make inspect-runtime-versions-dev
+```
+
+Promote the reviewed version while retaining both overrides in the plan:
+
+```shell
+TF_VAR_agent_model_id=MODEL_ID \
+  TF_VAR_agent_runtime_endpoint_version=VERSION \
+  make tofu-plan-dev
+tofu -chdir=infra/environments/dev show dev.tfplan
+make tofu-apply-dev CONFIRM=apply-dev
+make eval-runtime-dev
+```
+
+After capturing the comparison result, either adopt the measured model and
+version in the checked-in defaults through a reviewed change, or restore the
+current defaults with a normal plan and apply:
+
+```shell
+make tofu-plan-dev
+tofu -chdir=infra/environments/dev show dev.tfplan
+make tofu-apply-dev CONFIRM=apply-dev
+```
+
+Never change the default based on subjective output review alone. Compare
+reliability, deterministic quality, evidence coverage, tool trajectory, latency,
+and tokens on the canonical suite and record the decision in an ADR.
 
 ## Agent image publication
 

@@ -54,7 +54,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     timestamp = result.metadata.generated_at.strftime("%Y%m%dT%H%M%SZ")
     output_directory.mkdir(parents=True, exist_ok=True)
-    output_path = output_directory / f"nova-micro-{timestamp}.json"
+    output_path = output_directory / f"local-{timestamp}.json"
     with output_path.open("x", encoding="utf-8") as output:
         output.write(result.model_dump_json(indent=2))
         output.write("\n")

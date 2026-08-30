@@ -175,7 +175,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--qualifier", required=True)
     parser.add_argument("--runtime-version", required=True)
     parser.add_argument("--container-digest", required=True)
-    parser.add_argument("--model-id", default="amazon.nova-micro-v1:0")
+    parser.add_argument("--model-id", required=True)
     parser.add_argument("--region", default="us-east-1")
     parser.add_argument("--profile")
     parser.add_argument("--trace-timeout-seconds", type=int, default=180)

@@ -23,7 +23,7 @@ flowchart TD
     end
 
     apiLambda --> runtimeEndpoint
-    agent --> bedrock[Amazon Bedrock<br/>Nova Micro]
+    agent --> bedrock[Amazon Bedrock<br/>Nova Lite]
 
     subgraph observability[Agent observability and evaluation]
         xray[AWS X-Ray ingest]

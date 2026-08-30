@@ -42,9 +42,9 @@ preserve unrelated user changes.
 ## Durable architecture constraints
 
 - Python agent: Strands Agents SDK, hosted on Amazon Bedrock AgentCore Runtime.
-- Model: Amazon Nova Micro (`amazon.nova-micro-v1:0`) in `us-east-1`, using
-  on-demand in-region inference. Keep the model ID in configuration. Change the
-  default only when evaluation results justify it.
+- Model: Amazon Nova Lite (`amazon.nova-lite-v1:0`) in `us-east-1`, using
+  on-demand in-region inference. Keep the model ID in configuration and require
+  evaluation evidence for future default-model changes.
 - Tool boundary: AgentCore Gateway with strict MCP schemas and least-privilege
   Lambda targets.
 - Application boundary: API Gateway backed by an API Lambda. AgentCore Runtime
@@ -57,8 +57,8 @@ preserve unrelated user changes.
 ## Data and handoff
 
 The four inputs are `../barrettotte.github.io/data/{books,projects,bytes,museum}.json`.
-Never modify them during ingestion. Expected source totals are 782 books, 162
-projects, 66 bytes, and 20 museum objects.
+Never modify them during ingestion. Derive current totals from the authoritative
+files and verify that deployed ingestion matches them.
 
 At handoff, leave the worktree understandable: report verification performed,
 keep roadmap state accurate, document material tradeoffs in an ADR, and identify
