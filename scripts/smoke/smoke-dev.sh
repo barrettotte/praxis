@@ -13,7 +13,7 @@ Suites:
   config             Fast configuration and rejection checks; no model inference
   access-logs        Eventually consistent API access-log delivery; no model inference
   tools              Catalog Lambda and AgentCore Gateway tools; no model inference
-  api                API Gateway end-to-end request; invokes the configured model
+  api                JWT-authenticated API request; requires PRAXIS_ACCESS_TOKEN
   agent              Local Strands agent through Gateway; invokes the configured model
   runtime            One signed Runtime request; invokes the configured model
   runtime-sessions   Runtime session-isolation check; invokes the configured model twice
@@ -35,7 +35,7 @@ case "${praxis_suite}" in
     run_check "API CORS" "${praxis_script_dir}/smoke-api-cors-dev.sh"
     run_check "API payload limit" "${praxis_script_dir}/smoke-api-payload-dev.sh"
     run_check "API throttling" "${praxis_script_dir}/smoke-api-throttling-dev.sh"
-    run_check "Cognito user pool" "${praxis_script_dir}/smoke-cognito-dev.sh"
+    run_check "Application identity boundary" "${praxis_script_dir}/smoke-cognito-dev.sh"
     run_check "Runtime authorization" "${praxis_script_dir}/smoke-runtime-auth-dev.sh"
     ;;
   access-logs)

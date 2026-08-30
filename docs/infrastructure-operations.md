@@ -91,7 +91,7 @@ and mutating operations visibly separate:
 | `make smoke-dev` | Fast API configuration, Cognito, and Runtime authorization | No |
 | `make smoke-dev SUITE=access-logs` | Eventually consistent API access-log delivery | No |
 | `make smoke-dev SUITE=tools` | Catalog Lambda and AgentCore Gateway tools | No |
-| `make smoke-dev SUITE=api` | API Gateway through AgentCore Runtime | Yes |
+| `PRAXIS_ACCESS_TOKEN=... make smoke-dev SUITE=api` | JWT API through AgentCore Runtime | Yes |
 | `make smoke-dev SUITE=agent` | Local Strands agent through Gateway | Yes |
 | `make smoke-dev SUITE=runtime` | Stable AgentCore Runtime endpoint | Yes |
 | `make smoke-dev SUITE=runtime-sessions` | Runtime session isolation | Yes, twice |
@@ -113,12 +113,13 @@ and unsigned requests are rejected and records only sanitized outcomes in
 JSON request/raw response body sizes for each successful tool call are recorded
 in `docs/evidence/gateway-tool-metrics.json`.
 
-The API Gateway check signs its declared-route requests with the active AWS
-profile, requires an unsigned request to fail before Lambda invocation, and
-validates one complete buffered Runtime response without recording candidate or
-session content. The access-log check verifies the stage's privacy-safe JSON
-schema and seven-day retention, then correlates an unsigned 403 request with its
-delivered CloudWatch record without invoking Lambda. Initial log delivery can
+The API Gateway check reads `PRAXIS_ACCESS_TOKEN`, requires an unauthenticated
+request to fail before Lambda invocation, and validates one complete buffered
+Runtime response without recording candidate or session content. The bearer
+token is kept out of process arguments and evidence. The access-log check
+verifies the stage's privacy-safe JSON schema and seven-day retention, then
+correlates an unauthenticated 401 request with its delivered CloudWatch record
+without invoking Lambda. Initial log delivery can
 take up to two minutes. The CORS check requires an exact frontend origin and
 proves an unrelated origin receives no allow-origin header; API Gateway answers
 both preflights without Lambda. The throttling check reads the deployed stage and requires the
@@ -136,9 +137,11 @@ requires actor-scoped semantic retrieval, exercises the catalog-identifier
 rejection boundary, and writes only sanitized counts and kinds to
 `docs/evidence/agentcore-memory.json`.
 
-The Cognito check reads the deployed user pool without creating a user. It
-requires the reviewed admin-only email identity, recovery, password, cost-tier,
-and teardown settings and writes only sanitized configuration facts to
+The Cognito check reads the deployed user pool, public browser client, and API
+JWT authorizer without creating a user. It requires the reviewed admin-only
+email identity, recovery, password, cost-tier, teardown, secretless-client,
+auth-flow, token-lifetime, issuer, audience, and protected-route settings and
+writes only sanitized configuration facts to
 `docs/evidence/cognito-user-pool.json`.
 
 The `agent` suite uses the same SigV4 Strands MCP transport as the

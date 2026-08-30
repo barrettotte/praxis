@@ -84,7 +84,7 @@ praxis_request_id="$(
     }
   ' "${praxis_work_dir}/response.headers" | tail -n 1
 )"
-if [[ "${praxis_status}" != "403" ]] || [[ -z "${praxis_request_id}" ]]; then
+if [[ "${praxis_status}" != "401" ]] || [[ -z "${praxis_request_id}" ]]; then
   printf 'Unsigned access-log probe returned HTTP %s without a request ID.\n' \
     "${praxis_status}" >&2
   exit 1
@@ -110,7 +110,7 @@ while ((SECONDS < praxis_deadline)); do
         | $entry.request_id == $request_id
         and $entry.http_method == "GET"
         and $entry.route_key == $route
-        and $entry.status == "403"
+        and $entry.status == "401"
         and (($entry | keys | sort) == [
           "http_method",
           "integration_latency_ms",
@@ -152,6 +152,6 @@ jq -n '{
     "status"
   ],
   retention_days: 7,
-  unauthorized_probe_status: 403
+  unauthorized_probe_status: 401
 }' >"${praxis_evidence_dir}/api-access-logs.json"
 jq . "${praxis_evidence_dir}/api-access-logs.json"

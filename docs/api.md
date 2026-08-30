@@ -1,10 +1,10 @@
 # Application API
 
-The API Gateway HTTP API accepts IAM-signed JSON requests through four explicit
-routes. Unknown routes stop at API Gateway, unsigned declared-route requests
-return 403, and the Lambda rejects unknown fields and query parameters without
-reflecting invalid input. Cognito JWT authorization replaces development IAM
-authorization when the frontend authentication boundary is deployed.
+The API Gateway HTTP API accepts Cognito JWT-authenticated JSON requests through
+four explicit routes. Unknown routes stop at API Gateway, unauthenticated
+declared-route requests return 401, and the Lambda rejects unknown fields and
+query parameters without reflecting invalid input. The authorizer accepts only
+tokens issued by the application user pool for its public browser client.
 
 | Method | Path | JSON body |
 | --- | --- | --- |

@@ -26,6 +26,11 @@ output "api_gateway_url" {
   value       = aws_apigatewayv2_api.application.api_endpoint
 }
 
+output "api_gateway_jwt_authorizer_id" {
+  description = "Identifier of the Cognito JWT authorizer protecting application routes."
+  value       = aws_apigatewayv2_authorizer.application.id
+}
+
 output "frontend_origin" {
   description = "Exact browser origin allowed by the development API CORS policy."
   value       = var.frontend_origin
@@ -39,6 +44,11 @@ output "cognito_user_pool_id" {
 output "cognito_user_pool_arn" {
   description = "ARN of the application Cognito user pool."
   value       = aws_cognito_user_pool.application.arn
+}
+
+output "cognito_frontend_client_id" {
+  description = "Public Cognito client identifier used by the browser application."
+  value       = aws_cognito_user_pool_client.frontend.id
 }
 
 output "api_gateway_access_log_group_name" {

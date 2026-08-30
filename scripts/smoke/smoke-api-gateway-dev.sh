@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verify signed Runtime requests and anonymous rejection through the application API.
+# Verify JWT-authenticated Runtime requests and anonymous API rejection.
 set -euo pipefail
 umask 077
 
@@ -11,25 +11,24 @@ praxis_correlation_id="51f4a405-8835-411d-9821-5980d73f51f6"
 praxis_work_dir="$(mktemp -d)"
 trap 'rm -rf "${praxis_work_dir}"' EXIT
 
-praxis_require_commands aws curl jq "${praxis_tofu}"
+praxis_require_commands curl jq "${praxis_tofu}"
 
+praxis_access_token="${PRAXIS_ACCESS_TOKEN:-}"
+if [[ -z "${praxis_access_token}" ]]; then
+  printf 'PRAXIS_ACCESS_TOKEN is required for the JWT-authenticated API suite.\n' >&2
+  exit 2
+fi
 praxis_api_url="$(praxis_tofu_output api_gateway_url)"
 praxis_api_url="${praxis_api_url%/}"
 
-# Keep short-lived credentials out of process arguments and evidence captures.
-aws configure export-credentials --profile "${praxis_profile}" --format process |
-  jq -r --arg signature "aws:amz:${praxis_region}:execute-api" '
-    "--aws-sigv4 " + ($signature | @json),
-    "--user " + ((.AccessKeyId + ":" + .SecretAccessKey) | @json),
-    (if (.SessionToken // "") != ""
-      then "--header " + (("x-amz-security-token: " + .SessionToken) | @json)
-      else empty
-    end)
-  ' >"${praxis_work_dir}/curl-aws.config"
+# Keep the short-lived bearer token out of process arguments and evidence captures.
+jq -nr --arg header "authorization: Bearer ${praxis_access_token}" \
+  '"--header " + ($header | @json)' >"${praxis_work_dir}/curl-jwt.config"
+unset praxis_access_token
 
-# A signed declared route must return three buffered, evidence-backed candidates.
+# An authenticated declared route must return three cited buffered candidates.
 praxis_known_status="$(
-  curl --config "${praxis_work_dir}/curl-aws.config" \
+  curl --config "${praxis_work_dir}/curl-jwt.config" \
     --silent --show-error --max-time 35 \
     --dump-header "${praxis_work_dir}/known-route.headers" \
     --output "${praxis_work_dir}/known-route.json" \
@@ -64,7 +63,7 @@ fi
 
 # A malformed request must fail safely without reflecting its payload.
 praxis_invalid_status="$(
-  curl --config "${praxis_work_dir}/curl-aws.config" \
+  curl --config "${praxis_work_dir}/curl-jwt.config" \
     --silent --show-error --max-time 35 \
     --dump-header "${praxis_work_dir}/invalid-request.headers" \
     --output "${praxis_work_dir}/invalid-request.json" \
@@ -92,7 +91,7 @@ if [[ "${praxis_invalid_status}" != "400" ]] || \
   exit 1
 fi
 
-# IAM authorization must reject the same declared route before Lambda invocation.
+# JWT authorization must reject the same declared route before Lambda invocation.
 praxis_unauthenticated_status="$(
   curl --silent --show-error \
     --output "${praxis_work_dir}/unauthenticated.json" \
@@ -102,8 +101,8 @@ praxis_unauthenticated_status="$(
     --data "{\"goal\":\"${praxis_goal}\"}" \
     "${praxis_api_url}/v1/sessions"
 )"
-if [[ "${praxis_unauthenticated_status}" != "403" ]]; then
-  printf 'Unauthenticated API request returned HTTP %s instead of 403.\n' \
+if [[ "${praxis_unauthenticated_status}" != "401" ]]; then
+  printf 'Unauthenticated API request returned HTTP %s instead of 401.\n' \
     "${praxis_unauthenticated_status}" >&2
   exit 1
 fi
@@ -124,6 +123,6 @@ fi
 
 mkdir -p "${praxis_evidence_dir}"
 jq -n \
-  '{all_candidates_cited: true, api_gateway_reached: true, buffered_response: true, candidate_count: 3, correlation_id_propagated: true, error_schema_valid: true, handler_status: 201, iam_authenticated: true, invalid_request_status: 400, runtime_invoked: true, unauthenticated_status: 403, unknown_route_status: 404}' \
+  '{all_candidates_cited: true, api_gateway_reached: true, buffered_response: true, candidate_count: 3, correlation_id_propagated: true, error_schema_valid: true, handler_status: 201, invalid_request_status: 400, jwt_authenticated: true, runtime_invoked: true, unauthenticated_status: 401, unknown_route_status: 404}' \
   >"${praxis_evidence_dir}/api-gateway.json"
 jq . "${praxis_evidence_dir}/api-gateway.json"

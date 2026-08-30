@@ -1,6 +1,25 @@
 {
   "account_recovery": "verified_email",
   "admin_created_users_only": true,
+  "api_authorization": {
+    "all_declared_routes_protected": true,
+    "audience_bound_to_browser_client": true,
+    "issuer_bound_to_user_pool": true,
+    "type": "JWT",
+    "unauthenticated_status": 401
+  },
+  "browser_client": {
+    "access_token_hours": 1,
+    "auth_flows": [
+      "refresh_token",
+      "user_srp"
+    ],
+    "client_secret": false,
+    "id_token_hours": 1,
+    "refresh_token_days": 7,
+    "token_revocation": true,
+    "user_existence_errors_suppressed": true
+  },
   "case_insensitive_email_sign_in": true,
   "deletion_protection": false,
   "minimum_password_length": 14,

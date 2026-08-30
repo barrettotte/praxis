@@ -11,8 +11,7 @@ flowchart TD
     user[User] --> ui[React + TypeScript application]
     ui -->|Authenticate| cognito[Amazon Cognito]
     cognito -->|JWT| ui
-    ui -.->|JWT request| apiGateway[Amazon API Gateway HTTP API]
-    developer[Authenticated development caller] -->|SigV4 request| apiGateway
+    ui -->|JWT request| apiGateway[Amazon API Gateway HTTP API]
     apiGateway --> apiLambda[API Lambda]
 
     subgraph runtime[Amazon Bedrock AgentCore Runtime]
@@ -56,9 +55,9 @@ flowchart TD
 ```
 
 API Gateway is the application boundary, while AgentCore Gateway is the
-authenticated tool boundary. The deployed backend uses AWS IAM authorization;
-the dashed Cognito path is the frontend authentication boundary. OpenTofu
-manages the AWS infrastructure.
+authenticated tool boundary. Application routes use Cognito JWT authorization;
+AgentCore Runtime and Gateway remain IAM-authenticated internal boundaries.
+OpenTofu manages the AWS infrastructure.
 
 ## Development
 

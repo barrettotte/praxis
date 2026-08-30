@@ -53,11 +53,12 @@ The application API Lambda uses an independent deployment ZIP with locked
 validation dependencies and no function URL. Its execution role can write only
 to its seven-day log group and invoke the configured Runtime plus its stable
 endpoint. A low-cost API Gateway HTTP API invokes it through payload format 2.0
-on four explicit AWS IAM-authorized application routes. The default stage
-deploys OpenTofu-managed route changes automatically; unsigned declared-route
-requests return 403, and undeclared routes return 404 without invoking the
-function. The Lambda validates the route, path identifiers, content type, query
-parameters, and strict JSON body. It rejects decoded bodies over 16 KiB before
+on four explicit Cognito JWT-authorized application routes. The authorizer is
+bound to the application user pool and public browser client. The default stage
+deploys OpenTofu-managed route changes automatically; unauthenticated
+declared-route requests return 401, and undeclared routes return 404 without
+invoking the function. The Lambda validates the route, path identifiers, content
+type, query parameters, and strict JSON body. It rejects decoded bodies over 16 KiB before
 JSON parsing or Runtime invocation and limits goal and message text to 4,000
 characters. Session creation invokes Runtime with a
 deployment-owned single-user actor, a generated UUIDv4 session, a 25-second SDK
@@ -93,7 +94,11 @@ The Cognito Lite user pool is an admin-provisioned, single-user directory with
 case-insensitive email sign-in, verified-email recovery, and no public
 self-registration. OpenTofu manages no user or password, and deletion
 protection remains inactive so guarded development teardown removes the pool.
-The browser app client and API JWT authorizer are separate resources.
+The public browser client has no secret, permits only SRP and refresh-token
+authentication, and uses one-hour access and ID tokens plus a seven-day refresh
+token. Its non-secret identifier is available from the
+`cognito_frontend_client_id` output. The API JWT authorizer is a separate
+resource.
 
 The AgentCore Gateway exposes an MCP endpoint protected by AWS IAM. Its service
 role trust is restricted to AgentCore gateways in this account and region. The

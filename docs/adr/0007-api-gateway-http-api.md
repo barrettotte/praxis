@@ -2,7 +2,8 @@
 
 ## Status
 
-Superseded in part by ADR 0010 for authorization and Runtime invocation.
+Superseded in part by ADR 0010 for Runtime invocation and ADR 0017 for
+authorization.
 
 ## Context
 

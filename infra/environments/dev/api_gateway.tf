@@ -40,13 +40,27 @@ resource "aws_apigatewayv2_integration" "api_lambda" {
   payload_format_version = "2.0"
 }
 
+# Accept tokens only from the application user pool and public browser client.
+resource "aws_apigatewayv2_authorizer" "application" {
+  api_id           = aws_apigatewayv2_api.application.id
+  authorizer_type  = "JWT"
+  identity_sources = ["$request.header.Authorization"]
+  name             = "${local.name_prefix}-cognito"
+
+  jwt_configuration {
+    audience = [aws_cognito_user_pool_client.frontend.id]
+    issuer   = "https://${aws_cognito_user_pool.application.endpoint}"
+  }
+}
+
 resource "aws_apigatewayv2_route" "application" {
   for_each = local.api_routes
 
   api_id             = aws_apigatewayv2_api.application.id
   route_key          = each.value
   target             = "integrations/${aws_apigatewayv2_integration.api_lambda.id}"
-  authorization_type = "AWS_IAM"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.application.id
 }
 
 resource "aws_cloudwatch_log_group" "api_gateway_access" {
