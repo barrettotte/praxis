@@ -15,8 +15,48 @@ export interface ProjectCandidate {
   title: string;
 }
 
+interface EvidenceRecord {
+  evidence_id: string;
+}
+
+export interface BookEvidence extends EvidenceRecord {
+  author: string | null;
+  category: string | null;
+  kind: "book";
+  tags: string[];
+  title: string;
+  year: number;
+}
+
+export interface ProjectEvidence extends EvidenceRecord {
+  date: string | null;
+  description: string;
+  kind: "project";
+  languages: string[];
+  name: string;
+}
+
+export interface ByteEvidence extends EvidenceRecord {
+  category: string;
+  date: string;
+  kind: "byte";
+  name: string;
+}
+
+export interface MuseumEvidence extends EvidenceRecord {
+  category: string;
+  description: string;
+  kind: "museum";
+  manufacturer: string;
+  name: string;
+  year: number | null;
+}
+
+export type SupportingEvidence = BookEvidence | ByteEvidence | MuseumEvidence | ProjectEvidence;
+
 export interface CreateSessionResult {
   candidates: [ProjectCandidate, ProjectCandidate, ProjectCandidate];
+  evidence: SupportingEvidence[];
   sessionId: string;
 }
 
@@ -39,6 +79,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || isNonEmptyString(value);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(isNonEmptyString);
 }
 
 function isEvidenceCitation(value: unknown): value is EvidenceCitation {
@@ -81,22 +129,102 @@ function isCandidateTuple(
   );
 }
 
+function hasEvidenceIdentity(
+  value: Record<string, unknown>,
+  kind: SupportingEvidence["kind"],
+): boolean {
+  return (
+    value.kind === kind &&
+    isNonEmptyString(value.evidence_id) &&
+    EVIDENCE_ID_PATTERN.test(value.evidence_id) &&
+    value.evidence_id.startsWith(`${kind}:`)
+  );
+}
+
+function isSupportingEvidence(value: unknown): value is SupportingEvidence {
+  if (!isRecord(value) || typeof value.kind !== "string") {
+    return false;
+  }
+  switch (value.kind) {
+    case "book":
+      return (
+        hasEvidenceIdentity(value, "book") &&
+        isNonEmptyString(value.title) &&
+        isNullableString(value.author) &&
+        typeof value.year === "number" &&
+        Number.isInteger(value.year) &&
+        value.year >= 0 &&
+        isNullableString(value.category) &&
+        isStringArray(value.tags)
+      );
+    case "project":
+      return (
+        hasEvidenceIdentity(value, "project") &&
+        isNonEmptyString(value.name) &&
+        isNonEmptyString(value.description) &&
+        isNullableString(value.date) &&
+        isStringArray(value.languages)
+      );
+    case "byte":
+      return (
+        hasEvidenceIdentity(value, "byte") &&
+        isNonEmptyString(value.name) &&
+        isNonEmptyString(value.category) &&
+        isNonEmptyString(value.date)
+      );
+    case "museum":
+      return (
+        hasEvidenceIdentity(value, "museum") &&
+        isNonEmptyString(value.name) &&
+        isNonEmptyString(value.manufacturer) &&
+        (value.year === null ||
+          (typeof value.year === "number" && Number.isInteger(value.year) && value.year >= 0)) &&
+        isNonEmptyString(value.category) &&
+        isNonEmptyString(value.description)
+      );
+    default:
+      return false;
+  }
+}
+
+function isSupportingEvidenceList(value: unknown): value is SupportingEvidence[] {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 3) {
+    return false;
+  }
+  if (!value.every(isSupportingEvidence)) {
+    return false;
+  }
+  const evidenceIds = value.map((item) => item.evidence_id);
+  return new Set(evidenceIds).size === evidenceIds.length;
+}
+
 function parseCreateSessionResponse(value: unknown): CreateSessionResult {
   if (!isRecord(value) || !isRecord(value.data)) {
     throw new Error("Invalid API response envelope");
   }
 
-  const { candidates, sessionId } = value.data;
+  const { candidates, evidence, sessionId } = value.data;
   if (
     !isNonEmptyString(sessionId) ||
     !SESSION_ID_PATTERN.test(sessionId) ||
-    !isCandidateTuple(candidates)
+    !isCandidateTuple(candidates) ||
+    !isSupportingEvidenceList(evidence)
+  ) {
+    throw new Error("Invalid create-session response");
+  }
+
+  const evidenceIds = new Set(evidence.map((item) => item.evidence_id));
+  if (
+    candidates.some((candidate) =>
+      candidate.evidence_citations.some((citation) => !evidenceIds.has(citation.evidence_id)),
+    )
   ) {
     throw new Error("Invalid create-session response");
   }
 
   return {
     candidates,
+    evidence,
     sessionId,
   };
 }

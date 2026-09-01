@@ -102,9 +102,10 @@ retrieval limit.
   generation. This makes retrieval a code-enforced prerequisite rather than a
   prompt-only behavior. The model may make additional bounded catalog calls
   when the initial evidence is insufficient.
-- Tool results are retrieved facts and retain stable `evidence_id` values. They
-  remain in the catalog/tool-result boundary instead of being copied into the
-  recommendation contract.
+- Tool results are retrieved facts and retain stable `evidence_id` values. The
+  Runtime returns the bounded initial search records as a separate `evidence`
+  collection, with internal relevance scores removed; they are never copied
+  into generated recommendation fields.
 - Candidate titles, summaries, rationales, scopes, technologies, and milestones
   are generated recommendation content. The `evidence_citations` bridge the
   boundary: `evidence_id` references a retrieved record, while
@@ -182,11 +183,12 @@ container. ADOT launches `praxis.agent.runtime`, which uses the AgentCore SDK
 to serve the required
 `GET /ping` and `POST /invocations` endpoints on `0.0.0.0:8080`. An invocation
 accepts `{"actor_id": "...", "prompt": "..."}` and returns three validated
-candidates, the sanitized Memory retrieval count, and bounded tool-call counts
-as one buffered JSON response. The authenticated API derives `actor_id`; clients
-must not select another user's Memory scope. The single-user deployment reads
-that actor from API Lambda configuration; the Cognito boundary will derive it
-from authenticated claims without changing the Runtime payload contract.
+candidates, their bounded supporting fact records, the sanitized Memory
+retrieval count, and bounded tool-call counts as one buffered JSON response. The
+authenticated API derives `actor_id`; clients must not select another user's
+Memory scope. The single-user deployment reads that actor from API Lambda
+configuration; the Cognito boundary will derive it from authenticated claims
+without changing the Runtime payload contract.
 
 Build and verify the service contract without invoking AWS:
 

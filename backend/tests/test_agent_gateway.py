@@ -202,6 +202,24 @@ def test_gateway_candidate_schema_reports_safe_inner_field_errors() -> None:
     assert "Small" not in str(error.value)
 
 
+def test_gateway_candidate_schema_removes_redundant_closing_braces() -> None:
+    encoded = json.dumps({"candidates": gateway_candidate_records()})
+
+    output = gateway.GatewayCandidateOutput(candidates_json=f"{encoded}}}}}")
+
+    assert output.candidates_json == json.dumps(
+        {"candidates": gateway_candidate_records()},
+        separators=(",", ":"),
+    )
+
+
+def test_gateway_candidate_schema_rejects_other_trailing_content() -> None:
+    encoded = json.dumps({"candidates": gateway_candidate_records()})
+
+    with pytest.raises(ValueError, match="trailing characters"):
+        gateway.GatewayCandidateOutput(candidates_json=f"{encoded} another value")
+
+
 def test_gateway_agent_session_keeps_client_open_while_constructing_agent() -> None:
     fake_client = MagicMock()
     tools = catalog_tools()
@@ -301,6 +319,17 @@ def test_invoke_gateway_agent_keeps_session_open_during_model_invocation() -> No
     assert fake_agent.call_args.kwargs["limits"] == {"turns": 5}
     assert result.candidates == candidate_set()
     assert result.tool_calls == (("search_catalog", 1),)
+    assert [item.model_dump(mode="json") for item in result.evidence] == [
+        {
+            "evidence_id": "book:0f5ba253568e4836",
+            "kind": "book",
+            "title": "Compiler Backend Development",
+            "author": None,
+            "year": 2025,
+            "category": None,
+            "tags": [],
+        }
+    ]
 
 
 def test_validate_gateway_candidate_result_applies_domain_validation() -> None:

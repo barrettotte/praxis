@@ -332,7 +332,7 @@ Definition of done: a client can complete the read-only workflow entirely throug
 - [x] Build the goal-entry screen
 - [x] Display agent progress states
 - [x] Display three comparable candidate cards
-- [ ] Show supporting projects, books, and bytes
+- [x] Show supporting projects, books, and bytes
 - [ ] Clearly label generated claims
 - [ ] Let the user select a candidate
 - [ ] Render the resulting project brief

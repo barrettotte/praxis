@@ -9,6 +9,7 @@ from praxis.agent.gateway import GatewayAgentRun
 from praxis.agent.memory import MemoryRecord
 from praxis.agent.runtime import RuntimeRequestError, app, invoke_runtime
 from praxis.domain import EvidenceCitation, ProjectCandidate, ProjectCandidateSet
+from praxis.tools.contracts import BookEvidence
 
 
 class RuntimeRoute(Protocol):
@@ -39,6 +40,19 @@ def candidate_set() -> ProjectCandidateSet:
             )
             for number in range(1, 4)
         ]
+    )
+
+
+def book_evidence() -> BookEvidence:
+    """Return the catalog fact cited by the candidate fixture."""
+    return BookEvidence(
+        evidence_id="book:0f5ba253568e4836",
+        kind="book",
+        title="Compiler Backend Development",
+        author="Quentin Colombet",
+        year=2025,
+        category="Compilers",
+        tags=[],
     )
 
 
@@ -80,6 +94,7 @@ def test_invoke_runtime_returns_buffered_candidates_and_tool_metrics() -> None:
         return GatewayAgentRun(
             candidates=candidate_set(),
             tool_calls=(("get_catalog_item", 1), ("search_catalog", 2)),
+            evidence=(book_evidence(),),
         )
 
     response = invoke_runtime(
@@ -96,6 +111,7 @@ def test_invoke_runtime_returns_buffered_candidates_and_tool_metrics() -> None:
         {"name": "get_catalog_item", "count": 1},
         {"name": "search_catalog", "count": 2},
     ]
+    assert response["evidence"] == [book_evidence().model_dump(mode="json")]
     assert response["memory"] == {"retrieved_count": 0}
 
 
@@ -110,7 +126,11 @@ def test_invoke_runtime_passes_only_typed_memory_to_the_agent() -> None:
 
     def invoke_agent(_prompt: str, context: Sequence[str]) -> GatewayAgentRun:
         observed_context.append(context)
-        return GatewayAgentRun(candidate_set(), (("search_catalog", 1),))
+        return GatewayAgentRun(
+            candidate_set(),
+            (("search_catalog", 1),),
+            (book_evidence(),),
+        )
 
     response = invoke_runtime(
         {"actor_id": "user-123", "prompt": "compiler"},

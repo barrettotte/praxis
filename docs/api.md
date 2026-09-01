@@ -24,8 +24,10 @@ applied to their decoded bytes.
 
 `POST /v1/sessions` invokes the version-pinned AgentCore Runtime and returns a
 complete buffered response with a generated session ID and exactly three
-validated, evidence-backed candidates. Runtime Memory and tool-call metrics are
-validated internally but are not part of the public response. Other
+validated, evidence-backed candidates. It also returns the one to three cited
+catalog fact records under `evidence`; the adapter removes internal search scores
+and rejects citations that do not resolve to those records. Runtime Memory and
+tool-call metrics are validated internally but are not part of the public response. Other
 structurally valid routes return the non-cacheable unavailable response until
 their handlers are connected. Invalid requests return a fixed 400 response
 without validation internals or submitted values.
@@ -53,10 +55,12 @@ Successful responses place route-specific fields under `data`:
 }
 ```
 
-The session-create response also includes `data.candidates`, an array of three
-objects using the project-candidate contract: `title`, `summary`, `rationale`,
+The session-create response includes `data.candidates`, an array of three objects
+using the project-candidate contract: `title`, `summary`, `rationale`,
 `estimated_scope`, `technologies`, `first_milestone`, and one or more
 `evidence_citations` containing stable evidence IDs and generated connections.
+`data.evidence` contains the separately validated book, project, technical-note,
+or museum records referenced by those citations.
 
 Errors contain a stable machine-readable code and safe display text:
 

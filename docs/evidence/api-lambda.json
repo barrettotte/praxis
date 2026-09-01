@@ -5,5 +5,6 @@
   "candidate_count": 3,
   "correlation_id_propagated": true,
   "handler_status": 201,
-  "runtime_invoked": true
+  "runtime_invoked": true,
+  "supporting_evidence_resolved": true
 }

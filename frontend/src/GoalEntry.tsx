@@ -96,7 +96,9 @@ export function GoalEntry({ api }: GoalEntryProps) {
           {requestState === "working" ? "Finding projects…" : "Find project ideas"}
         </button>
       </form>
-      {result === null ? null : <CandidateCards candidates={result.candidates} />}
+      {result === null ? null : (
+        <CandidateCards candidates={result.candidates} evidence={result.evidence} />
+      )}
     </section>
   );
 }

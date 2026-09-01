@@ -295,7 +295,8 @@ h1 {
 }
 
 .candidate-facts dt,
-.candidate-detail h5 {
+.candidate-detail h5,
+.candidate-evidence h5 {
   color: #607067;
   font-size: 0.7rem;
   font-weight: 750;
@@ -321,6 +322,63 @@ h1 {
   color: #34463c;
   font-size: 0.9rem;
   line-height: 1.5;
+}
+
+.candidate-evidence {
+  margin-top: 1.2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #d6dcd7;
+}
+
+.candidate-evidence h5 {
+  margin: 0 0 0.6rem;
+}
+
+.candidate-evidence ul {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.candidate-evidence li {
+  padding-left: 0.75rem;
+  border-left: 2px solid #9cae9f;
+}
+
+.candidate-evidence p {
+  margin: 0;
+}
+
+.evidence-type {
+  color: #607067;
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.evidence-title {
+  margin-top: 0.2rem !important;
+  color: #263c30;
+  font-size: 0.9rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.evidence-metadata {
+  margin-top: 0.15rem !important;
+  color: #526158;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.candidate-evidence code {
+  display: inline-block;
+  margin-top: 0.3rem;
+  color: #607067;
+  font-size: 0.68rem;
 }
 
 @keyframes progress-spin {

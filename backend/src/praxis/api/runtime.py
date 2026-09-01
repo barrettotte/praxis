@@ -3,15 +3,16 @@
 import json
 import os
 from collections.abc import Mapping
-from typing import Annotated, Protocol, cast
+from typing import Annotated, Protocol, Self, cast
 from urllib.parse import quote
 
 from boto3.session import Session
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from praxis.domain import ProjectCandidate
+from praxis.tools.contracts import Evidence
 
 JSON_CONTENT_TYPE = "application/json"
 
@@ -71,8 +72,24 @@ class _RuntimeOutput(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
     candidates: Annotated[list[ProjectCandidate], Field(min_length=3, max_length=3)]
+    evidence: Annotated[list[Evidence], Field(min_length=1, max_length=3)]
     memory: _RuntimeMemoryUsage
     tool_calls: Annotated[list[_RuntimeToolCall], Field(min_length=1, max_length=4)]
+
+    @model_validator(mode="after")
+    def require_resolved_citations(self) -> Self:
+        """Require unique fact records for every candidate citation."""
+        evidence_ids = [item.evidence_id for item in self.evidence]
+        if len(evidence_ids) != len(set(evidence_ids)):
+            raise ValueError("Runtime evidence IDs must be unique")
+        cited_ids = {
+            citation.evidence_id
+            for candidate in self.candidates
+            for citation in candidate.evidence_citations
+        }
+        if not cited_ids <= set(evidence_ids):
+            raise ValueError("Runtime citations must resolve to returned evidence")
+        return self
 
 
 class CreateSessionData(BaseModel):
@@ -94,6 +111,7 @@ class CreateSessionData(BaseModel):
         ),
     ]
     candidates: Annotated[list[ProjectCandidate], Field(min_length=3, max_length=3)]
+    evidence: Annotated[list[Evidence], Field(min_length=1, max_length=3)]
 
 
 def load_runtime_settings(
@@ -169,6 +187,16 @@ def invoke_runtime(
 
     try:
         output = _RuntimeOutput.model_validate_json(cast("ResponseBody", response_body).read())
-        return CreateSessionData(session_id=session_id, candidates=output.candidates)
+        cited_ids = {
+            citation.evidence_id
+            for candidate in output.candidates
+            for citation in candidate.evidence_citations
+        }
+        public_evidence = [item for item in output.evidence if item.evidence_id in cited_ids]
+        return CreateSessionData(
+            session_id=session_id,
+            candidates=output.candidates,
+            evidence=public_evidence,
+        )
     except (BotoCoreError, ValidationError) as error:
         raise ApiRuntimeError("Runtime returned an invalid response") from error

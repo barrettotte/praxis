@@ -53,14 +53,21 @@ if ! jq -e \
     and .headers["x-correlation-id"] == $correlation_id
     and .isBase64Encoded == false
     and ((.body | fromjson) as $body
+      | ($body.data.evidence | map(.evidence_id)) as $evidence_ids
       | ($body.data.sessionId
           | test("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"))
         and ($body.data.candidates | length == 3)
+        and ($body.data.evidence | length >= 1 and length <= 3)
+        and all($body.data.evidence[];
+          (.evidence_id
+            | test("^(book|byte|museum|project):[0-9a-f]{16}$"))
+          and (.score == null))
         and all($body.data.candidates[];
           (.evidence_citations | length >= 1)
           and all(.evidence_citations[];
-            .evidence_id
-            | test("^(book|byte|museum|project):[0-9a-f]{16}$"))))' \
+            (.evidence_id
+              | test("^(book|byte|museum|project):[0-9a-f]{16}$"))
+            and (.evidence_id as $id | $evidence_ids | index($id) != null))))' \
   "${praxis_build_dir}/api-lambda-smoke-response.json" >/dev/null; then
   printf 'API Lambda returned an unexpected response:\n' >&2
   jq . "${praxis_build_dir}/api-lambda-smoke-response.json" >&2
@@ -68,6 +75,6 @@ if ! jq -e \
 fi
 
 jq -n \
-  '{all_candidates_cited: true, authenticated_direct_invocation: true, buffered_response: true, candidate_count: 3, correlation_id_propagated: true, handler_status: 201, runtime_invoked: true}' \
+  '{all_candidates_cited: true, authenticated_direct_invocation: true, buffered_response: true, candidate_count: 3, correlation_id_propagated: true, handler_status: 201, runtime_invoked: true, supporting_evidence_resolved: true}' \
   >"${praxis_evidence_dir}/api-lambda.json"
 jq . "${praxis_evidence_dir}/api-lambda.json"

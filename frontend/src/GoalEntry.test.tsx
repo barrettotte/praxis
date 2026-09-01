@@ -21,6 +21,17 @@ const candidate: ProjectCandidate = {
 
 const result: CreateSessionResult = {
   candidates: [candidate, candidate, candidate],
+  evidence: [
+    {
+      author: "Quentin Colombet",
+      category: "Compilers",
+      evidence_id: "book:0f5ba253568e4836",
+      kind: "book",
+      tags: [],
+      title: "Compiler Backend Development",
+      year: 2025,
+    },
+  ],
   sessionId: "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4",
 };
 
@@ -48,6 +59,7 @@ describe("GoalEntry", () => {
     );
     expect(screen.getByRole("heading", { name: "Compare project candidates" })).toBeVisible();
     expect(screen.getAllByRole("article")).toHaveLength(3);
+    expect(screen.getAllByText("Compiler Backend Development")).toHaveLength(3);
   });
 
   it("rejects a goal containing only whitespace", () => {

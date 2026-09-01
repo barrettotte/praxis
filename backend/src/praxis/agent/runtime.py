@@ -82,9 +82,11 @@ def invoke_runtime(
         run = invoke_agent(prompt, memory_prompt_context(memories))
 
     candidates = run.candidates.model_dump(mode="json")["candidates"]
+    evidence = [item.model_dump(mode="json") for item in run.evidence]
     tool_calls = [{"name": name, "count": count} for name, count in run.tool_calls]
     return {
         "candidates": candidates,
+        "evidence": evidence,
         "memory": {"retrieved_count": len(memories)},
         "tool_calls": tool_calls,
     }

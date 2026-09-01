@@ -19,6 +19,17 @@ const validResponse = {
       technologies: ["Python"],
       title: `Compiler backend exercise ${number.toString()}`,
     })),
+    evidence: [
+      {
+        author: "Quentin Colombet",
+        category: "Compilers",
+        evidence_id: "book:0f5ba253568e4836",
+        kind: "book",
+        tags: [],
+        title: "Compiler Backend Development",
+        year: 2025,
+      },
+    ],
     sessionId: "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4",
   },
 };
@@ -86,6 +97,27 @@ describe("createApiClient", () => {
         status: 201,
       }),
     );
+    const client = createApiClient(
+      { baseUrl: "https://api.example.com" },
+      createAuthClient(),
+      request,
+    );
+
+    await expect(client.createSession("Learn compiler backends")).rejects.toThrow(
+      "Invalid create-session response",
+    );
+  });
+
+  it("rejects candidate citations that do not resolve to returned evidence", async () => {
+    const malformedResponse = structuredClone(validResponse);
+    const evidence = malformedResponse.data.evidence[0];
+    if (evidence === undefined) {
+      throw new Error("Expected evidence fixture");
+    }
+    evidence.evidence_id = "book:0000000000000001";
+    const request = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(malformedResponse), { status: 201 }));
     const client = createApiClient(
       { baseUrl: "https://api.example.com" },
       createAuthClient(),

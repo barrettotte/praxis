@@ -19,15 +19,21 @@ UV_CACHE_DIR="${praxis_repo_root}/.cache/uv" uv pip install \
   --target "${praxis_package_dir}/package" \
   --requirement "${praxis_repo_root}/backend/lambda/requirements.lock"
 
-# Include only the API import paths so unrelated Lambda code cannot affect its hash.
+# Include the API handler and its shared validation contracts without other Lambda handlers.
 cp "${praxis_repo_root}/backend/src/praxis/__init__.py" "${praxis_package_dir}/package/praxis/"
 cp "${praxis_repo_root}/backend/src/praxis/py.typed" "${praxis_package_dir}/package/praxis/"
 cp -R "${praxis_repo_root}/backend/src/praxis/api" "${praxis_package_dir}/package/praxis/"
+cp -R "${praxis_repo_root}/backend/src/praxis/catalog" "${praxis_package_dir}/package/praxis/"
 cp -R "${praxis_repo_root}/backend/src/praxis/domain" "${praxis_package_dir}/package/praxis/"
+cp -R "${praxis_repo_root}/backend/src/praxis/tools" "${praxis_package_dir}/package/praxis/"
 cp "${praxis_repo_root}/backend/src/praxis/functions/__init__.py" \
   "${praxis_package_dir}/package/praxis/functions/"
 cp "${praxis_repo_root}/backend/src/praxis/functions/api.py" \
   "${praxis_package_dir}/package/praxis/functions/"
+
+# Catch missing transitive application modules before publishing the ZIP.
+PYTHONPATH="${praxis_package_dir}/package" uv run --frozen python -c \
+  'import praxis.functions.api'
 
 # Normalize contents, timestamps, ordering, and ZIP metadata for a stable hash.
 find "${praxis_package_dir}/package" -type d -name __pycache__ -prune -exec rm -rf {} +

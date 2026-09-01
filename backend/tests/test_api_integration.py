@@ -62,6 +62,17 @@ def runtime_response(payload: bytes | None = None) -> dict[str, object]:
         or json.dumps(
             {
                 "candidates": [candidate(number) for number in range(1, 4)],
+                "evidence": [
+                    {
+                        "evidence_id": "book:0f5ba253568e4836",
+                        "kind": "book",
+                        "title": "Compiler Backend Development",
+                        "author": None,
+                        "year": 2025,
+                        "category": "Compilers",
+                        "tags": [],
+                    }
+                ],
                 "memory": {"retrieved_count": 0},
                 "tool_calls": [{"name": "search_catalog", "count": 1}],
             }
@@ -124,6 +135,17 @@ def test_session_request_crosses_handler_and_runtime_boundaries(
         "data": {
             "sessionId": SESSION_ID,
             "candidates": [candidate(number) for number in range(1, 4)],
+            "evidence": [
+                {
+                    "evidence_id": "book:0f5ba253568e4836",
+                    "kind": "book",
+                    "title": "Compiler Backend Development",
+                    "author": None,
+                    "year": 2025,
+                    "category": "Compilers",
+                    "tags": [],
+                }
+            ],
         }
     }
     assert client.requests == [

@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { CandidateCards } from "./CandidateCards";
-import type { ProjectCandidate } from "./api";
+import type { ProjectCandidate, SupportingEvidence } from "./api";
 
 const candidates: [ProjectCandidate, ProjectCandidate, ProjectCandidate] = [
   {
@@ -23,7 +23,7 @@ const candidates: [ProjectCandidate, ProjectCandidate, ProjectCandidate] = [
     estimated_scope: "multi-week",
     evidence_citations: [
       {
-        evidence_id: "book:0000000000000002",
+        evidence_id: "project:0000000000000002",
         generated_connection: "Connects AC theory to motor control.",
       },
     ],
@@ -37,7 +37,7 @@ const candidates: [ProjectCandidate, ProjectCandidate, ProjectCandidate] = [
     estimated_scope: "multi-month",
     evidence_citations: [
       {
-        evidence_id: "book:0000000000000003",
+        evidence_id: "byte:0000000000000003",
         generated_connection: "Connects motor construction to measured behavior.",
       },
     ],
@@ -49,6 +49,33 @@ const candidates: [ProjectCandidate, ProjectCandidate, ProjectCandidate] = [
   },
 ];
 
+const evidence: SupportingEvidence[] = [
+  {
+    author: "James Clerk Maxwell",
+    category: "Physics",
+    evidence_id: "book:0000000000000001",
+    kind: "book",
+    tags: ["Electromagnetism"],
+    title: "A Treatise on Electricity and Magnetism",
+    year: 1873,
+  },
+  {
+    date: "2026-08",
+    description: "Interactive motor-field visualization.",
+    evidence_id: "project:0000000000000002",
+    kind: "project",
+    languages: ["TypeScript"],
+    name: "Motor field explorer",
+  },
+  {
+    category: "Electronics",
+    date: "2026-08-30",
+    evidence_id: "byte:0000000000000003",
+    kind: "byte",
+    name: "Measuring motor current",
+  },
+];
+
 const scopeLabels: Record<ProjectCandidate["estimated_scope"], string> = {
   "multi-month": "Multi-month",
   "multi-week": "Multi-week",
@@ -57,7 +84,7 @@ const scopeLabels: Record<ProjectCandidate["estimated_scope"], string> = {
 
 describe("CandidateCards", () => {
   it("renders the same comparison fields for all three candidates", () => {
-    render(<CandidateCards candidates={candidates} />);
+    render(<CandidateCards candidates={candidates} evidence={evidence} />);
 
     expect(screen.getByRole("heading", { name: "Compare project candidates" })).toBeVisible();
     const cards = screen.getAllByRole("article");
@@ -75,6 +102,14 @@ describe("CandidateCards", () => {
       expect(card.getByText(candidate.first_milestone)).toBeVisible();
       expect(card.getByText(scopeLabels[candidate.estimated_scope])).toBeVisible();
       expect(card.getByText(candidate.technologies.join(", "))).toBeVisible();
+      const supportingRecord = evidence[index];
+      if (supportingRecord === undefined) {
+        throw new Error("Expected one supporting record per candidate");
+      }
+      const title =
+        supportingRecord.kind === "book" ? supportingRecord.title : supportingRecord.name;
+      expect(card.getByText(title)).toBeVisible();
+      expect(card.getByText(supportingRecord.evidence_id)).toBeVisible();
     }
   });
 });

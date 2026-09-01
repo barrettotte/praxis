@@ -18,6 +18,7 @@ from praxis.api.requests import (
 from praxis.api.runtime import ApiRuntimeError, CreateSessionData
 from praxis.domain import EvidenceCitation, ProjectCandidate
 from praxis.functions import api as api_function
+from praxis.tools.contracts import BookEvidence
 
 SESSION_ID = "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4"
 CORRELATION_ID = "51f4a405-8835-411d-9821-5980d73f51f6"
@@ -270,6 +271,17 @@ def test_api_lambda_invokes_runtime_for_valid_create_session(
                 )
                 for number in range(1, 4)
             ],
+            evidence=[
+                BookEvidence(
+                    evidence_id="book:0f5ba253568e4836",
+                    kind="book",
+                    title="Compiler Backend Development",
+                    author=None,
+                    year=2025,
+                    category="Compilers",
+                    tags=[],
+                )
+            ],
         )
 
     monkeypatch.setattr(api_function, "create_session", create_session)
@@ -308,6 +320,17 @@ def test_api_lambda_invokes_runtime_for_valid_create_session(
                     ],
                 }
                 for number in range(1, 4)
+            ],
+            "evidence": [
+                {
+                    "evidence_id": "book:0f5ba253568e4836",
+                    "kind": "book",
+                    "title": "Compiler Backend Development",
+                    "author": None,
+                    "year": 2025,
+                    "category": "Compilers",
+                    "tags": [],
+                }
             ],
         }
     }

@@ -1,6 +1,7 @@
 """Tests for the API Lambda's bounded AgentCore Runtime adapter."""
 
 import json
+from typing import cast
 
 import pytest
 from botocore.exceptions import ClientError
@@ -61,8 +62,19 @@ def candidate(number: int) -> dict[str, object]:
 
 def valid_response() -> dict[str, object]:
     """Return a buffered response matching the deployed Runtime contract."""
-    payload = {
+    payload: dict[str, object] = {
         "candidates": [candidate(number) for number in range(1, 4)],
+        "evidence": [
+            {
+                "evidence_id": "book:0f5ba253568e4836",
+                "kind": "book",
+                "title": "Compiler Backend Development",
+                "author": "Quentin Colombet",
+                "year": 2025,
+                "category": "Compilers",
+                "tags": [],
+            }
+        ],
         "memory": {"retrieved_count": 1},
         "tool_calls": [{"name": "search_catalog", "count": 1}],
     }
@@ -134,7 +146,45 @@ def test_invokes_runtime_and_returns_only_public_session_data() -> None:
     assert result.model_dump(mode="json", by_alias=True) == {
         "sessionId": SESSION_ID,
         "candidates": [candidate(number) for number in range(1, 4)],
+        "evidence": [
+            {
+                "evidence_id": "book:0f5ba253568e4836",
+                "kind": "book",
+                "title": "Compiler Backend Development",
+                "author": "Quentin Colombet",
+                "year": 2025,
+                "category": "Compilers",
+                "tags": [],
+            }
+        ],
     }
+
+
+def test_rejects_citations_without_a_matching_fact_record() -> None:
+    response = valid_response()
+    body = cast("FakeBody", response["response"])
+    payload = cast("dict[str, object]", json.loads(body.read()))
+    payload["evidence"] = [
+        {
+            "evidence_id": "book:0000000000000001",
+            "kind": "book",
+            "title": "Unrelated book",
+            "author": None,
+            "year": 2020,
+            "category": None,
+            "tags": [],
+        }
+    ]
+    response["response"] = FakeBody(json.dumps(payload).encode())
+
+    with pytest.raises(ApiRuntimeError, match="invalid response"):
+        invoke_runtime(
+            FakeRuntimeClient(response),
+            settings(),
+            "compiler",
+            SESSION_ID,
+            CORRELATION_ID,
+        )
 
 
 def test_percent_encodes_gateway_correlation_id_in_tracing_baggage() -> None:

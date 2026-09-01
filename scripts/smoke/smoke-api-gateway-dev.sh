@@ -46,14 +46,21 @@ praxis_known_response_id="$(
 if [[ "${praxis_known_status}" != "201" ]] || \
   [[ "${praxis_known_response_id}" != "${praxis_correlation_id}" ]] || \
   ! jq -e '
-    (.data.sessionId
+    (.data.evidence | map(.evidence_id)) as $evidence_ids
+    | (.data.sessionId
       | test("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"))
     and (.data.candidates | length == 3)
+    and (.data.evidence | length >= 1 and length <= 3)
+    and all(.data.evidence[];
+      (.evidence_id
+        | test("^(book|byte|museum|project):[0-9a-f]{16}$"))
+      and (.score == null))
     and all(.data.candidates[];
       (.evidence_citations | length >= 1)
       and all(.evidence_citations[];
-        .evidence_id
-        | test("^(book|byte|museum|project):[0-9a-f]{16}$")))' \
+        (.evidence_id
+          | test("^(book|byte|museum|project):[0-9a-f]{16}$"))
+        and (.evidence_id as $id | $evidence_ids | index($id) != null)))' \
     "${praxis_work_dir}/known-route.json" >/dev/null; then
   printf 'Declared API route returned an unexpected response (HTTP %s):\n' \
     "${praxis_known_status}" >&2
@@ -123,6 +130,6 @@ fi
 
 mkdir -p "${praxis_evidence_dir}"
 jq -n \
-  '{all_candidates_cited: true, api_gateway_reached: true, buffered_response: true, candidate_count: 3, correlation_id_propagated: true, error_schema_valid: true, handler_status: 201, invalid_request_status: 400, jwt_authenticated: true, runtime_invoked: true, unauthenticated_status: 401, unknown_route_status: 404}' \
+  '{all_candidates_cited: true, api_gateway_reached: true, buffered_response: true, candidate_count: 3, correlation_id_propagated: true, error_schema_valid: true, handler_status: 201, invalid_request_status: 400, jwt_authenticated: true, runtime_invoked: true, supporting_evidence_resolved: true, unauthenticated_status: 401, unknown_route_status: 404}' \
   >"${praxis_evidence_dir}/api-gateway.json"
 jq . "${praxis_evidence_dir}/api-gateway.json"
