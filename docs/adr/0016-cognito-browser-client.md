@@ -18,7 +18,8 @@ through the Cognito identity provider. Do not enable OAuth redirect flows.
 
 Issue access and ID tokens for one hour and refresh tokens for seven days.
 Enable token revocation and suppress user-existence errors. Limit readable user
-attributes to the verified email identity required by the application.
+attributes to the verified email identity required by the application. Store
+tokens in browser session storage so closing the tab ends the local session.
 
 OpenTofu exports the non-secret client identifier for frontend configuration.
 It does not manage users, passwords, tokens, or browser session state.
@@ -27,6 +28,7 @@ It does not manage users, passwords, tokens, or browser session state.
 
 - The frontend can authenticate without embedding a credential or operating a
   client-secret exchange service.
+- Browser sessions survive a reload but do not persist after the tab closes.
 - Login and logout use Cognito's user-pool APIs rather than redirecting through
   a hosted login page.
 - The API Gateway JWT authorizer can restrict accepted tokens to this client.

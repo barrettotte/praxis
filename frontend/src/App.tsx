@@ -1,4 +1,11 @@
-export function App() {
+import { AuthPanel } from "./AuthPanel";
+import type { AuthClient } from "./auth";
+
+interface AppProps {
+  auth: AuthClient;
+}
+
+export function App({ auth }: AppProps) {
   return (
     <main className="shell">
       <header className="hero">
@@ -10,13 +17,7 @@ export function App() {
         </p>
       </header>
 
-      <section className="status" aria-labelledby="status-heading">
-        <div>
-          <p className="status-label">Current milestone</p>
-          <h2 id="status-heading">Local walking skeleton</h2>
-        </div>
-        <span className="status-badge">Ready</span>
-      </section>
+      <AuthPanel auth={auth} />
     </main>
   );
 }

@@ -43,8 +43,7 @@ textarea {
   max-width: 46rem;
 }
 
-.eyebrow,
-.status-label {
+.eyebrow {
   margin: 0 0 0.75rem;
   color: #52655b;
   font-size: 0.75rem;
@@ -77,47 +76,96 @@ h1 {
   line-height: 1.65;
 }
 
-.status {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+.auth-panel {
+  max-width: 34rem;
   margin-top: clamp(4rem, 9vw, 7rem);
-  padding: 1.5rem 0;
+  padding: 2rem 0;
   border-top: 1px solid #aeb9b1;
   border-bottom: 1px solid #aeb9b1;
 }
 
-.status h2 {
-  margin-bottom: 0;
-  font-size: 1.1rem;
-  font-weight: 650;
+.auth-panel h2 {
+  margin-bottom: 0.75rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.8rem, 5vw, 2.5rem);
+  font-weight: 500;
+  letter-spacing: -0.025em;
 }
 
-.status-label {
-  margin-bottom: 0.35rem;
+.auth-panel > p:not(.eyebrow, .form-error) {
+  color: #526158;
 }
 
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  color: #28513b;
+.auth-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.auth-form label {
+  margin-top: 0.35rem;
+  color: #34463c;
   font-size: 0.9rem;
   font-weight: 700;
 }
 
-.status-badge::before {
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 50%;
-  background: #3f8b61;
-  content: "";
+.auth-form input {
+  width: 100%;
+  min-height: 2.9rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #899b90;
+  border-radius: 0.25rem;
+  color: #1f2923;
+  background: #fffdf8;
+}
+
+.auth-form input:focus-visible,
+.button:focus-visible {
+  outline: 3px solid #9dbbaa;
+  outline-offset: 2px;
+}
+
+.form-help,
+.form-error {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.form-help {
+  color: #526158;
+}
+
+.form-error {
+  color: #8a302a;
+  font-weight: 650;
+}
+
+.button {
+  justify-self: start;
+  min-height: 2.75rem;
+  margin-top: 0.6rem;
+  padding: 0.65rem 1.1rem;
+  border: 1px solid #28513b;
+  border-radius: 999px;
+  color: #fff;
+  background: #28513b;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.button-secondary {
+  color: #28513b;
+  background: transparent;
+}
+
+.button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 @media (max-width: 34rem) {
-  .status {
-    align-items: flex-start;
-    flex-direction: column;
+  .shell {
+    padding-top: 3rem;
   }
 }

@@ -328,7 +328,7 @@ Definition of done: a client can complete the read-only workflow entirely throug
 - [x] Create a Cognito user pool
 - [x] Create an application client
 - [x] Add API Gateway JWT authorization
-- [ ] Build login and logout
+- [x] Build login and logout
 - [ ] Build the goal-entry screen
 - [ ] Display agent progress states
 - [ ] Display three comparable candidate cards
