@@ -33,6 +33,7 @@ from praxis.catalog import (
 from praxis.catalog.search import MAX_SEARCH_EVALUATED_ITEMS
 from praxis.domain import Book, Byte, MuseumObject, Project
 from praxis.tools import (
+    MAX_CANDIDATE_SCORE_EVIDENCE_IDS,
     ScoreProjectCandidatesInput,
     SummarizeExperienceInput,
     validate_tool_input,
@@ -382,7 +383,7 @@ def _candidate_history_scores(
             CompareProjectHistoryRequest(
                 description=candidate.description,
                 languages=frozenset(candidate.languages),
-                limit=10,
+                limit=MAX_CANDIDATE_SCORE_EVIDENCE_IDS,
             ),
         )
         scores.append(

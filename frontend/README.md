@@ -41,17 +41,20 @@ also removes this application user.
 
 ## Local authentication configuration
 
-Copy `.env.example` to `.env` and populate its public Cognito identifiers from
-the development OpenTofu outputs:
+Copy `.env.example` to `.env` and populate its public Cognito and API values
+from the development OpenTofu outputs:
 
 ```bash
 cp frontend/.env.example frontend/.env
 AWS_PROFILE=praxis-dev tofu -chdir=infra/environments/dev output -raw cognito_user_pool_id
 AWS_PROFILE=praxis-dev tofu -chdir=infra/environments/dev output -raw cognito_frontend_client_id
+AWS_PROFILE=praxis-dev tofu -chdir=infra/environments/dev output -raw api_gateway_url
 ```
 
 Set those values as `VITE_COGNITO_USER_POOL_ID` and
-`VITE_COGNITO_CLIENT_ID`, respectively. Start the application with
-`make dev-frontend`, sign in with the emailed temporary password, and choose a
-permanent password that satisfies the displayed policy. Auth tokens use browser
-session storage and are cleared when the tab closes or the user signs out.
+`VITE_COGNITO_CLIENT_ID`, and `VITE_API_URL`, respectively. Start the application with
+`make dev-frontend` and open exactly `http://localhost:5173`; the deployed CORS
+policy intentionally rejects other hosts and ports. Sign in with the emailed
+temporary password and choose a permanent password that satisfies the displayed
+policy. Auth tokens use browser session storage and are cleared when the tab
+closes or the user signs out.

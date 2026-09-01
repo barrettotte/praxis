@@ -1,4 +1,4 @@
-import { useEffect, useState, type SyntheticEvent } from "react";
+import { useEffect, useState, type ReactNode, type SyntheticEvent } from "react";
 
 import type { AuthClient } from "./auth";
 
@@ -6,9 +6,10 @@ type AuthView = "checking" | "new_password" | "signed_in" | "signed_out";
 
 interface AuthPanelProps {
   auth: AuthClient;
+  children: ReactNode;
 }
 
-export function AuthPanel({ auth }: AuthPanelProps) {
+export function AuthPanel({ auth, children }: AuthPanelProps) {
   const [view, setView] = useState<AuthView>("checking");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +102,7 @@ export function AuthPanel({ auth }: AuthPanelProps) {
 
   if (view === "signed_in") {
     return (
-      <section className="auth-panel" aria-labelledby="auth-heading">
+      <section className="auth-panel auth-panel-workspace" aria-labelledby="auth-heading">
         <p className="eyebrow">Private workspace</p>
         <h2 id="auth-heading">You’re signed in.</h2>
         <p>Your session is limited to this browser tab.</p>
@@ -120,6 +121,7 @@ export function AuthPanel({ auth }: AuthPanelProps) {
         >
           {busy ? "Signing out…" : "Sign out"}
         </button>
+        {children}
       </section>
     );
   }

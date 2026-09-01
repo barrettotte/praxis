@@ -7,12 +7,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from mcp.types import Tool as MCPTool
+from strands import Agent
 from strands.agent.agent_result import AgentResult
+from strands.hooks import BeforeToolCallEvent
 from strands.tools.mcp import MCPAgentTool, MCPClient, MCPTransport
 from strands.types.exceptions import EventLoopException
 
 from praxis.agent import gateway
-from praxis.agent.budget import ToolCallBudgetError
+from praxis.agent.budget import ToolCallBudget, ToolCallBudgetError
 from praxis.agent.evidence import EvidenceState
 from praxis.config import AgentSettings, GatewaySettings
 from praxis.domain import EvidenceCitation, ProjectCandidate, ProjectCandidateSet
@@ -63,23 +65,32 @@ def candidate_set() -> ProjectCandidateSet:
     )
 
 
-def gateway_candidate_output() -> gateway.GatewayCandidateOutput:
+def gateway_candidate_records() -> list[dict[str, object]]:
     candidates = candidate_set().candidates
+    return [
+        {
+            "title": candidate.title,
+            "summary": candidate.summary,
+            "rationale": candidate.rationale,
+            "estimated_scope": candidate.estimated_scope,
+            "primary_technology": candidate.technologies[0],
+            "first_milestone": candidate.first_milestone,
+            "evidence_index": 1,
+            "generated_connection": candidate.evidence_citations[0].generated_connection,
+        }
+        for candidate in candidates
+    ]
+
+
+def gateway_candidate_output(
+    records: list[dict[str, object]] | None = None,
+) -> gateway.GatewayCandidateOutput:
     return gateway.GatewayCandidateOutput.model_validate(
         {
-            f"candidate_{number}_{field}": value
-            for number, candidate in enumerate(candidates, start=1)
-            for field, value in {
-                "title": candidate.title,
-                "summary": candidate.summary,
-                "rationale": candidate.rationale,
-                "estimated_scope": candidate.estimated_scope,
-                "primary_technology": candidate.technologies[0],
-                "first_milestone": candidate.first_milestone,
-                "evidence_index": 1,
-                "generated_connection": candidate.evidence_citations[0].generated_connection,
-            }.items()
-        },
+            "candidates_json": json.dumps(
+                {"candidates": records if records is not None else gateway_candidate_records()}
+            )
+        }
     )
 
 
@@ -159,14 +170,36 @@ def test_validate_gateway_tools_requires_exact_catalog_boundary() -> None:
         gateway.validate_gateway_tools(catalog_tools()[:-1])
 
 
-def test_gateway_candidate_schema_uses_only_flat_scalar_fields() -> None:
+def test_gateway_candidate_schema_uses_one_atomic_string_field() -> None:
     schema = gateway.GatewayCandidateOutput.model_json_schema()
 
     assert "$defs" not in schema
-    assert len(schema["properties"]) == 24
-    assert all(
-        property_schema.get("type") != "object" for property_schema in schema["properties"].values()
-    )
+    assert set(schema["properties"]) == {"candidates_json"}
+    assert schema["properties"]["candidates_json"]["type"] == "string"
+
+
+def test_gateway_candidate_schema_rejects_incomplete_inner_candidate_sets() -> None:
+    records = gateway_candidate_records()
+    records.pop()
+
+    with pytest.raises(ValueError, match=r"candidates: List should have at least 3 items"):
+        gateway_candidate_output(records)
+
+
+def test_gateway_candidate_schema_reports_safe_inner_field_errors() -> None:
+    records = gateway_candidate_records()
+    records[0]["estimated_scope"] = "Small"
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"candidates -> 0 -> estimated_scope: Input should be "
+            r"'weekend', 'multi-week' or 'multi-month'"
+        ),
+    ) as error:
+        gateway_candidate_output(records)
+
+    assert "Small" not in str(error.value)
 
 
 def test_gateway_agent_session_keeps_client_open_while_constructing_agent() -> None:
@@ -218,7 +251,20 @@ def test_invoke_gateway_agent_keeps_session_open_during_model_invocation() -> No
             )
 
     def invoke_stub(_prompt: str, **kwargs: object) -> StubAgentResult:
-        cast("dict[str, object]", kwargs["invocation_state"]).clear()
+        invocation_state = cast("dict[str, object]", kwargs["invocation_state"])
+        budget = ToolCallBudget(
+            maximum_calls=agent_settings.max_tool_calls,
+            tool_names=frozenset(gateway.EXPECTED_CATALOG_TOOLS),
+        )
+        for tool_name in gateway.EXPECTED_CATALOG_TOOLS:
+            budget.before_tool_call(
+                BeforeToolCallEvent(
+                    agent=cast("Agent", fake_agent),
+                    selected_tool=None,
+                    tool_use={"name": tool_name, "input": {}, "toolUseId": tool_name},
+                    invocation_state=invocation_state,
+                )
+            )
         return StubAgentResult()
 
     fake_agent = MagicMock(side_effect=invoke_stub)
@@ -258,8 +304,9 @@ def test_invoke_gateway_agent_keeps_session_open_during_model_invocation() -> No
 
 
 def test_validate_gateway_candidate_result_applies_domain_validation() -> None:
-    output = gateway_candidate_output()
-    duplicate = output.model_copy(update={"candidate_2_title": output.candidate_1_title})
+    records = gateway_candidate_records()
+    records[1]["title"] = records[0]["title"]
+    duplicate = gateway_candidate_output(records)
     result = cast("AgentResult", SimpleNamespace(structured_output=duplicate))
 
     with pytest.raises(gateway.GatewayAgentError, match="invalid structured"):
@@ -288,12 +335,10 @@ def test_validate_gateway_candidate_result_rejects_conflicting_evidence() -> Non
 
 
 def test_validate_gateway_candidate_result_maps_evidence_positions_to_exact_ids() -> None:
-    output = gateway_candidate_output().model_copy(
-        update={
-            "candidate_2_evidence_index": 2,
-            "candidate_3_evidence_index": 3,
-        }
-    )
+    records = gateway_candidate_records()
+    records[1]["evidence_index"] = 2
+    records[2]["evidence_index"] = 3
+    output = gateway_candidate_output(records)
     result = cast("AgentResult", SimpleNamespace(structured_output=output))
     evidence_ids = (
         "book:0000000000000001",
@@ -310,13 +355,11 @@ def test_validate_gateway_candidate_result_maps_evidence_positions_to_exact_ids(
 
 
 def test_validate_gateway_candidate_result_rejects_unavailable_evidence_position() -> None:
+    records = gateway_candidate_records()
+    records[0]["evidence_index"] = 2
     result = cast(
         "AgentResult",
-        SimpleNamespace(
-            structured_output=gateway_candidate_output().model_copy(
-                update={"candidate_1_evidence_index": 2}
-            )
-        ),
+        SimpleNamespace(structured_output=gateway_candidate_output(records)),
     )
 
     with pytest.raises(gateway.GatewayAgentError, match="unavailable evidence position 2"):

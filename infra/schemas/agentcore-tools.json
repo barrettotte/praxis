@@ -262,7 +262,7 @@
   },
   {
     "name": "score_project_candidates",
-    "description": "Measure term and programming-language overlap for one to three proposals and return supporting evidence IDs.",
+    "description": "Score term and language overlap for up to three proposals; return three supporting evidence IDs each.",
     "inputSchema": {
       "type": "object",
       "description": "One to three proposals to compare with historical project evidence.",

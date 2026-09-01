@@ -27,6 +27,7 @@ type ToolName = Literal[
     "score_project_candidates",
 ]
 type SchemaType = Literal["string", "number", "object", "array", "boolean", "integer"]
+MAX_CANDIDATE_SCORE_EVIDENCE_IDS = 3
 
 
 class ToolModel(BaseModel):
@@ -183,7 +184,7 @@ class CandidateHistoryScore(ToolModel):
 
     candidate_id: Annotated[str, Field(min_length=1, max_length=64)]
     history_overlap_score: Annotated[int, Field(ge=0)]
-    evidence_ids: Annotated[list[EvidenceId], Field(max_length=10)]
+    evidence_ids: Annotated[list[EvidenceId], Field(max_length=MAX_CANDIDATE_SCORE_EVIDENCE_IDS)]
 
 
 class ScoreProjectCandidatesOutput(ToolModel):
@@ -269,8 +270,8 @@ TOOL_CONTRACTS = (
     ToolContract(
         name="score_project_candidates",
         description=(
-            "Measure term and programming-language overlap for one to three proposals and "
-            "return supporting evidence IDs."
+            "Score term and language overlap for up to three proposals; return three supporting "
+            "evidence IDs each."
         ),
         input_model=ScoreProjectCandidatesInput,
         output_model=ScoreProjectCandidatesOutput,

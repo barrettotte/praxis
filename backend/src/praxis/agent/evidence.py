@@ -1,5 +1,7 @@
 """Invocation-scoped evidence collection and conflict detection."""
 
+import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import cast
 
@@ -47,7 +49,7 @@ class CatalogEvidenceLedger:
         try:
             observations = _evidence_observations(
                 cast("ToolName", tool_name),
-                raw_result.get("structuredContent"),
+                catalog_result_payload(raw_result),
             )
         except (TypeError, ValueError):
             event.result = _error_result(event, "Catalog tool returned invalid evidence")
@@ -56,6 +58,29 @@ class CatalogEvidenceLedger:
         conflict_message = _record_observations(observations, event.invocation_state)
         if conflict_message is not None:
             event.result = _error_result(event, conflict_message)
+
+
+def catalog_result_payload(result: Mapping[str, object]) -> dict[str, object]:
+    """Extract a catalog payload from either MCP SDK result representation."""
+    structured = result.get("structuredContent")
+    if isinstance(structured, dict):
+        return cast("dict[str, object]", structured)
+
+    content = result.get("content")
+    if isinstance(content, list):
+        for value in cast("list[object]", content):
+            if not isinstance(value, dict):
+                continue
+            item = cast("dict[str, object]", value)
+            json_value = item.get("json")
+            if isinstance(json_value, dict):
+                return cast("dict[str, object]", json_value)
+            text = item.get("text")
+            if isinstance(text, str):
+                decoded = json.loads(text)
+                if isinstance(decoded, dict):
+                    return cast("dict[str, object]", decoded)
+    raise ValueError("Gateway tool response contains no structured catalog payload")
 
 
 def record_catalog_evidence(

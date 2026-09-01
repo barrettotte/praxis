@@ -6,6 +6,7 @@ from typing import cast
 from strands.hooks import AfterToolCallEvent, BeforeToolCallEvent, HookRegistry
 from strands.types.tools import ToolResult
 
+from praxis.agent.evidence import catalog_result_payload
 from praxis.tools.contracts import (
     CONTRACTS_BY_NAME,
     GetCatalogItemOutput,
@@ -89,11 +90,10 @@ class CatalogResultBudget:
             return
 
         raw_result = cast("dict[str, object]", event.result)
-        structured_content = raw_result.get("structuredContent")
         try:
             result_count = _catalog_result_count(
                 cast("ToolName", tool_name),
-                structured_content,
+                catalog_result_payload(raw_result),
             )
         except (TypeError, ValueError):
             event.result = _error_result(

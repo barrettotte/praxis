@@ -76,7 +76,7 @@ Run all local quality checks with `make check`. Deployed smoke checks use one
 suite command; `make smoke-dev` runs the non-inference configuration suite, and
 `./scripts/smoke/smoke-dev.sh --help` lists the explicitly metered suites.
 
-The frontend requires the public Cognito identifiers shown in
+The frontend requires the public Cognito and API values shown in
 `frontend/.env.example`; `frontend/README.md` describes the local setup.
 
 Copy `.env.example` to `.env`, refresh the `praxis-dev` AWS session, and run the

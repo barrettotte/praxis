@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
+import { createApiClient, readApiConfiguration } from "./api";
 import { createCognitoAuthClient, readAuthConfiguration } from "./auth";
 import "./index.css";
 
@@ -12,9 +13,10 @@ if (rootElement === null) {
 }
 
 const auth = createCognitoAuthClient(readAuthConfiguration(import.meta.env));
+const api = createApiClient(readApiConfiguration(import.meta.env), auth);
 
 createRoot(rootElement).render(
   <StrictMode>
-    <App auth={auth} />
+    <App api={api} auth={auth} />
   </StrictMode>,
 );

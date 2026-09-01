@@ -94,8 +94,8 @@ def test_tool_descriptions_are_compact_and_distinguish_usage() -> None:
             "project."
         ),
         "score_project_candidates": (
-            "Measure term and programming-language overlap for one to three proposals and "
-            "return supporting evidence IDs."
+            "Score term and language overlap for up to three proposals; return three supporting "
+            "evidence IDs each."
         ),
     }
     assert all(len(description) <= 120 for description in descriptions.values())

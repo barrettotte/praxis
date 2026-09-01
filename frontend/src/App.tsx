@@ -1,11 +1,14 @@
 import { AuthPanel } from "./AuthPanel";
+import { GoalEntry } from "./GoalEntry";
+import type { ApiClient } from "./api";
 import type { AuthClient } from "./auth";
 
 interface AppProps {
+  api: ApiClient;
   auth: AuthClient;
 }
 
-export function App({ auth }: AppProps) {
+export function App({ api, auth }: AppProps) {
   return (
     <main className="shell">
       <header className="hero">
@@ -17,7 +20,9 @@ export function App({ auth }: AppProps) {
         </p>
       </header>
 
-      <AuthPanel auth={auth} />
+      <AuthPanel auth={auth}>
+        <GoalEntry api={api} />
+      </AuthPanel>
     </main>
   );
 }

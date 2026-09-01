@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from pydantic import ValidationError
@@ -14,6 +14,7 @@ from praxis.catalog import (
     get_catalog_item,
     search_catalog,
 )
+from praxis.domain import Project
 from praxis.functions.catalog import (
     CatalogRepository,
     CatalogToolError,
@@ -196,6 +197,44 @@ def test_catalog_lambda_scores_candidates_against_project_history(
         "history_overlap_score": 0,
         "evidence_ids": [],
     }
+
+
+def test_catalog_lambda_bounds_candidate_score_evidence() -> None:
+    projects = tuple(
+        Project(
+            name=f"Motor Project {number}",
+            desc="An electric motor electromagnetism project",
+            languages=["Python"],
+        )
+        for number in range(5)
+    )
+    repository = LocalCatalogRepository(
+        InMemoryCatalog(books=(), projects=projects, bytes=(), museum_objects=())
+    )
+
+    response = handle_catalog_invocation(
+        {
+            "candidates": [
+                {
+                    "candidate_id": "motor",
+                    "description": "An electric motor electromagnetism project",
+                    "languages": ["Python"],
+                }
+            ]
+        },
+        gateway_context("praxis-dev-catalog___score_project_candidates"),
+        repository,
+    )
+
+    scores_value = response["scores"]
+    assert isinstance(scores_value, list)
+    scores = cast("list[object]", scores_value)
+    score = scores[0]
+    assert isinstance(score, dict)
+    evidence_value = cast("dict[str, object]", score)["evidence_ids"]
+    assert isinstance(evidence_value, list)
+    evidence_ids = cast("list[object]", evidence_value)
+    assert len(evidence_ids) == 3
 
 
 @pytest.mark.parametrize(

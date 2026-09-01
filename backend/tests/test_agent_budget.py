@@ -1,3 +1,4 @@
+import json
 from typing import cast
 from unittest.mock import MagicMock
 
@@ -33,8 +34,7 @@ def result_event(
         {
             "toolUseId": f"{name}-call",
             "status": "success",
-            "content": [{"json": payload}],
-            "structuredContent": payload,
+            "content": [{"text": json.dumps(payload)}],
         },
     )
     return AfterToolCallEvent(

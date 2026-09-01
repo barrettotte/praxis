@@ -329,9 +329,9 @@ Definition of done: a client can complete the read-only workflow entirely throug
 - [x] Create an application client
 - [x] Add API Gateway JWT authorization
 - [x] Build login and logout
-- [ ] Build the goal-entry screen
-- [ ] Display agent progress states
-- [ ] Display three comparable candidate cards
+- [x] Build the goal-entry screen
+- [x] Display agent progress states
+- [x] Display three comparable candidate cards
 - [ ] Show supporting projects, books, and bytes
 - [ ] Clearly label generated claims
 - [ ] Let the user select a candidate

@@ -2,7 +2,14 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
+import type { ApiClient } from "./api";
 import type { AuthClient } from "./auth";
+
+function createApiClient(): ApiClient {
+  return {
+    createSession: vi.fn(),
+  };
+}
 
 function createAuthClient(overrides: Partial<AuthClient> = {}): AuthClient {
   return {
@@ -27,7 +34,7 @@ async function enterCredentials() {
 
 describe("App", () => {
   it("introduces the workflow and presents an accessible sign-in form", async () => {
-    render(<App auth={createAuthClient()} />);
+    render(<App api={createApiClient()} auth={createAuthClient()} />);
 
     expect(
       screen.getByRole("heading", { level: 1, name: "Choose what to build next." }),
@@ -36,16 +43,20 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Sign in to Praxis." })).toBeVisible();
     expect(screen.getByLabelText("Email")).toHaveAttribute("autocomplete", "username");
     expect(screen.getByLabelText("Password")).toHaveAttribute("autocomplete", "current-password");
+    expect(
+      screen.queryByRole("heading", { name: "What would you like to explore?" }),
+    ).not.toBeInTheDocument();
   });
 
   it("signs in with email and password", async () => {
     const signIn = vi.fn().mockResolvedValue("signed_in");
     const auth = createAuthClient({ signIn });
-    render(<App auth={auth} />);
+    render(<App api={createApiClient()} auth={auth} />);
 
     await enterCredentials();
 
     expect(await screen.findByRole("heading", { name: "You’re signed in." })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "What would you like to explore?" })).toBeVisible();
     expect(signIn).toHaveBeenCalledWith("person@example.com", "TemporaryPassword1!");
   });
 
@@ -55,7 +66,7 @@ describe("App", () => {
       confirmNewPassword,
       signIn: vi.fn().mockResolvedValue("new_password_required"),
     });
-    render(<App auth={auth} />);
+    render(<App api={createApiClient()} auth={auth} />);
     await enterCredentials();
 
     expect(
@@ -79,7 +90,7 @@ describe("App", () => {
       restoreSession: vi.fn().mockResolvedValue(true),
       signOut,
     });
-    render(<App auth={auth} />);
+    render(<App api={createApiClient()} auth={auth} />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
 
@@ -91,7 +102,7 @@ describe("App", () => {
     const auth = createAuthClient({
       signIn: vi.fn().mockRejectedValue(new Error("User does not exist")),
     });
-    render(<App auth={auth} />);
+    render(<App api={createApiClient()} auth={auth} />);
     await enterCredentials();
 
     expect(await screen.findByRole("alert")).toHaveTextContent(

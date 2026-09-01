@@ -84,6 +84,10 @@ h1 {
   border-bottom: 1px solid #aeb9b1;
 }
 
+.auth-panel-workspace {
+  max-width: none;
+}
+
 .auth-panel h2 {
   margin-bottom: 0.75rem;
   font-family: Georgia, "Times New Roman", serif;
@@ -96,13 +100,15 @@ h1 {
   color: #526158;
 }
 
-.auth-form {
+.auth-form,
+.goal-form {
   display: grid;
   gap: 0.75rem;
   margin-top: 1.5rem;
 }
 
-.auth-form label {
+.auth-form label,
+.goal-form label {
   margin-top: 0.35rem;
   color: #34463c;
   font-size: 0.9rem;
@@ -119,14 +125,43 @@ h1 {
   background: #fffdf8;
 }
 
+.goal-entry {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #c4ccc6;
+}
+
+.goal-entry-heading,
+.goal-form {
+  max-width: 34rem;
+}
+
+.goal-introduction {
+  line-height: 1.6;
+}
+
+.goal-form textarea {
+  width: 100%;
+  padding: 0.8rem;
+  resize: vertical;
+  border: 1px solid #899b90;
+  border-radius: 0.25rem;
+  color: #1f2923;
+  background: #fffdf8;
+  line-height: 1.5;
+}
+
 .auth-form input:focus-visible,
+.goal-form textarea:focus-visible,
 .button:focus-visible {
   outline: 3px solid #9dbbaa;
   outline-offset: 2px;
 }
 
 .form-help,
-.form-error {
+.form-error,
+.form-success,
+.agent-progress {
   margin: 0.35rem 0 0;
   font-size: 0.88rem;
   line-height: 1.5;
@@ -136,9 +171,33 @@ h1 {
   color: #526158;
 }
 
-.form-error {
+.form-error,
+.form-success {
   color: #8a302a;
   font-weight: 650;
+}
+
+.form-success {
+  color: #28513b;
+}
+
+.agent-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #28513b;
+  font-weight: 650;
+}
+
+.agent-progress::before {
+  width: 0.8rem;
+  height: 0.8rem;
+  flex: 0 0 auto;
+  border: 2px solid #9dbbaa;
+  border-top-color: #28513b;
+  border-radius: 50%;
+  animation: progress-spin 0.8s linear infinite;
+  content: "";
 }
 
 .button {
@@ -164,8 +223,130 @@ h1 {
   opacity: 0.65;
 }
 
+.candidate-results {
+  margin-top: 3.5rem;
+}
+
+.candidate-results-heading {
+  max-width: 34rem;
+  margin-bottom: 1.5rem;
+}
+
+.candidate-results-heading h3 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.75rem, 4vw, 2.4rem);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+
+.candidate-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.candidate-card {
+  height: 100%;
+  padding: 1.35rem;
+  border: 1px solid #aeb9b1;
+  border-radius: 0.5rem;
+  background: #fffdf8;
+}
+
+.candidate-number {
+  margin-bottom: 0.6rem;
+  color: #607067;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.candidate-card h4 {
+  margin: 0 0 0.8rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.35rem;
+  font-weight: 500;
+  line-height: 1.15;
+}
+
+.candidate-summary {
+  min-height: 4.5em;
+  color: #435148;
+  line-height: 1.5;
+}
+
+.candidate-facts {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+  padding: 1rem 0;
+  border-top: 1px solid #d6dcd7;
+  border-bottom: 1px solid #d6dcd7;
+}
+
+.candidate-facts div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.candidate-facts dt,
+.candidate-detail h5 {
+  color: #607067;
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.candidate-facts dd {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.candidate-detail + .candidate-detail {
+  margin-top: 1rem;
+}
+
+.candidate-detail h5 {
+  margin: 0 0 0.35rem;
+}
+
+.candidate-detail p {
+  margin: 0;
+  color: #34463c;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+@keyframes progress-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-progress::before {
+    animation: none;
+  }
+}
+
 @media (max-width: 34rem) {
   .shell {
     padding-top: 3rem;
+  }
+}
+
+@media (max-width: 52rem) {
+  .candidate-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .candidate-summary {
+    min-height: 0;
   }
 }

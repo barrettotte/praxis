@@ -2,13 +2,13 @@
 
 import json
 import re
-from collections.abc import Generator, Mapping, Sequence
+from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Annotated, Literal, cast
+from typing import Annotated, Literal, Self, cast
 
 from mcp_proxy_for_aws.client import aws_iam_streamablehttp_client
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from strands import Agent
 from strands.agent.agent_result import AgentResult
 from strands.tools.mcp import MCPAgentTool, MCPClient, MCPTransport
@@ -16,7 +16,12 @@ from strands.types.content import Message
 from strands.types.exceptions import EventLoopException, StructuredOutputException
 
 from praxis.agent.budget import ToolCallBudgetError, seed_catalog_budgets
-from praxis.agent.evidence import EvidenceState, read_evidence_state, record_catalog_evidence
+from praxis.agent.evidence import (
+    EvidenceState,
+    catalog_result_payload,
+    read_evidence_state,
+    record_catalog_evidence,
+)
 from praxis.agent.factory import create_agent
 from praxis.catalog.search import MAX_SEARCH_TOKENS
 from praxis.catalog.text import STOP_WORDS, TOKEN_PATTERN, normalize_text
@@ -85,37 +90,64 @@ class GatewayAgentSession:
     tools: tuple[MCPAgentTool, ...]
 
 
-class GatewayCandidateOutput(BaseModel):
-    """Flat Nova-facing fields normalized into the nested domain contract."""
+class GatewayCandidateDraft(BaseModel):
+    """One Nova-facing candidate that references evidence by position."""
 
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True, str_strip_whitespace=True)
 
-    candidate_1_title: Annotated[str, Field(min_length=1, max_length=100)]
-    candidate_1_summary: Annotated[str, Field(min_length=1, max_length=400)]
-    candidate_1_rationale: Annotated[str, Field(min_length=1, max_length=500)]
-    candidate_1_estimated_scope: Literal["weekend", "multi-week", "multi-month"]
-    candidate_1_primary_technology: Annotated[str, Field(min_length=1, max_length=40)]
-    candidate_1_first_milestone: Annotated[str, Field(min_length=1, max_length=300)]
-    candidate_1_evidence_index: EvidenceIndex
-    candidate_1_generated_connection: Annotated[str, Field(min_length=1, max_length=240)]
+    title: Annotated[str, Field(min_length=1, max_length=100)]
+    summary: Annotated[str, Field(min_length=1, max_length=400)]
+    rationale: Annotated[str, Field(min_length=1, max_length=500)]
+    estimated_scope: Literal["weekend", "multi-week", "multi-month"]
+    primary_technology: Annotated[str, Field(min_length=1, max_length=40)]
+    first_milestone: Annotated[str, Field(min_length=1, max_length=300)]
+    evidence_index: EvidenceIndex
+    generated_connection: Annotated[str, Field(min_length=1, max_length=240)]
 
-    candidate_2_title: Annotated[str, Field(min_length=1, max_length=100)]
-    candidate_2_summary: Annotated[str, Field(min_length=1, max_length=400)]
-    candidate_2_rationale: Annotated[str, Field(min_length=1, max_length=500)]
-    candidate_2_estimated_scope: Literal["weekend", "multi-week", "multi-month"]
-    candidate_2_primary_technology: Annotated[str, Field(min_length=1, max_length=40)]
-    candidate_2_first_milestone: Annotated[str, Field(min_length=1, max_length=300)]
-    candidate_2_evidence_index: EvidenceIndex
-    candidate_2_generated_connection: Annotated[str, Field(min_length=1, max_length=240)]
 
-    candidate_3_title: Annotated[str, Field(min_length=1, max_length=100)]
-    candidate_3_summary: Annotated[str, Field(min_length=1, max_length=400)]
-    candidate_3_rationale: Annotated[str, Field(min_length=1, max_length=500)]
-    candidate_3_estimated_scope: Literal["weekend", "multi-week", "multi-month"]
-    candidate_3_primary_technology: Annotated[str, Field(min_length=1, max_length=40)]
-    candidate_3_first_milestone: Annotated[str, Field(min_length=1, max_length=300)]
-    candidate_3_evidence_index: EvidenceIndex
-    candidate_3_generated_connection: Annotated[str, Field(min_length=1, max_length=240)]
+class GatewayCandidateDraftSet(BaseModel):
+    """Exactly three complete Nova-facing candidates."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    candidates: Annotated[list[GatewayCandidateDraft], Field(min_length=3, max_length=3)]
+
+
+class GatewayCandidateOutput(BaseModel):
+    """Atomic Nova-facing payload normalized into the nested domain contract."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True, str_strip_whitespace=True)
+
+    candidates_json: Annotated[
+        str,
+        Field(
+            min_length=2,
+            max_length=6_000,
+            description=(
+                "JSON object with a candidates array of exactly three objects. Each candidate "
+                "must contain title, summary, rationale, estimated_scope, primary_technology, "
+                "first_milestone, evidence_index, and generated_connection. estimated_scope "
+                "must be exactly weekend, multi-week, or multi-month."
+            ),
+        ),
+    ]
+
+    @model_validator(mode="after")
+    def require_complete_candidate_set(self) -> Self:
+        """Reject malformed inner JSON while keeping the model-facing schema atomic."""
+        try:
+            self._drafts()
+        except ValidationError as error:
+            details = "; ".join(
+                f"{' -> '.join(str(part) for part in item['loc']) or 'root'}: {item['msg']}"
+                for item in error.errors()
+            )
+            raise ValueError(f"candidates_json is invalid: {details}") from error
+        return self
+
+    def _drafts(self) -> GatewayCandidateDraftSet:
+        """Parse the validated candidate JSON."""
+        return GatewayCandidateDraftSet.model_validate_json(self.candidates_json)
 
     def as_payload(self, evidence_ids: Sequence[str]) -> JsonValue:
         """Return the list-based public candidate payload."""
@@ -123,39 +155,35 @@ class GatewayCandidateOutput(BaseModel):
             "JsonValue",
             {
                 "candidates": [
-                    self._candidate_payload(1, evidence_ids),
-                    self._candidate_payload(2, evidence_ids),
-                    self._candidate_payload(3, evidence_ids),
+                    self._candidate_payload(candidate, evidence_ids)
+                    for candidate in self._drafts().candidates
                 ]
             },
         )
 
     def _candidate_payload(
         self,
-        number: Literal[1, 2, 3],
+        candidate: GatewayCandidateDraft,
         evidence_ids: Sequence[str],
     ) -> dict[str, object]:
-        """Normalize one numbered field group into the public candidate shape."""
-        evidence_index = cast("EvidenceIndex", getattr(self, f"candidate_{number}_evidence_index"))
+        """Normalize one candidate into the public candidate shape."""
         try:
-            evidence_id = evidence_ids[evidence_index - 1]
+            evidence_id = evidence_ids[candidate.evidence_index - 1]
         except IndexError as error:
             raise GatewayAgentError(
-                f"Candidate selected unavailable evidence position {evidence_index}"
+                f"Candidate selected unavailable evidence position {candidate.evidence_index}"
             ) from error
         return {
-            "title": getattr(self, f"candidate_{number}_title"),
-            "summary": getattr(self, f"candidate_{number}_summary"),
-            "rationale": getattr(self, f"candidate_{number}_rationale"),
-            "estimated_scope": getattr(self, f"candidate_{number}_estimated_scope"),
-            "technologies": [getattr(self, f"candidate_{number}_primary_technology")],
-            "first_milestone": getattr(self, f"candidate_{number}_first_milestone"),
+            "title": candidate.title,
+            "summary": candidate.summary,
+            "rationale": candidate.rationale,
+            "estimated_scope": candidate.estimated_scope,
+            "technologies": [candidate.primary_technology],
+            "first_milestone": candidate.first_milestone,
             "evidence_citations": [
                 {
                     "evidence_id": evidence_id,
-                    "generated_connection": getattr(
-                        self, f"candidate_{number}_generated_connection"
-                    ),
+                    "generated_connection": candidate.generated_connection,
                 }
             ],
         }
@@ -248,29 +276,6 @@ def catalog_query(prompt: str) -> str:
     return " ".join(terms) or normalize_text(prompt)
 
 
-def catalog_payload(result: Mapping[str, object]) -> dict[str, object]:
-    """Extract structured MCP output from either supported SDK representation."""
-    structured = result.get("structuredContent")
-    if isinstance(structured, dict):
-        return cast("dict[str, object]", structured)
-
-    content = result.get("content")
-    if isinstance(content, list):
-        for value in cast("list[object]", content):
-            if not isinstance(value, dict):
-                continue
-            item = cast("dict[str, object]", value)
-            json_value = item.get("json")
-            if isinstance(json_value, dict):
-                return cast("dict[str, object]", json_value)
-            text = item.get("text")
-            if isinstance(text, str):
-                decoded = json.loads(text)
-                if isinstance(decoded, dict):
-                    return cast("dict[str, object]", decoded)
-    raise ValueError("Gateway tool response contains no structured catalog payload")
-
-
 def prefetch_catalog_evidence(
     session: GatewayAgentSession,
     prompt: str,
@@ -292,7 +297,7 @@ def prefetch_catalog_evidence(
     if result["status"] != "success":
         raise GatewayAgentError("Initial Gateway catalog search failed")
     try:
-        payload = catalog_payload(cast("Mapping[str, object]", result))
+        payload = catalog_result_payload(cast("dict[str, object]", result))
         validated = validate_tool_output("search_catalog", payload)
         if not isinstance(validated, SearchCatalogOutput):
             raise TypeError("Unexpected catalog result type")
@@ -314,7 +319,7 @@ def prefetch_catalog_evidence(
         )
     seed_catalog_budgets(
         invocation_state,
-        tool_calls=1,
+        tool_calls=0,
         result_count=len(validated.results),
     )
     evidence_json = json.dumps(validated.model_dump(mode="json"), separators=(",", ":"))

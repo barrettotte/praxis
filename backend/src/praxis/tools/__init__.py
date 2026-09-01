@@ -1,6 +1,7 @@
 """Strict contracts for tools exposed through AgentCore Gateway."""
 
 from praxis.tools.contracts import (
+    MAX_CANDIDATE_SCORE_EVIDENCE_IDS,
     GatewayToolDefinition,
     ScoreProjectCandidatesInput,
     ScoreProjectCandidatesOutput,
@@ -15,6 +16,7 @@ from praxis.tools.contracts import (
 )
 
 __all__ = [
+    "MAX_CANDIDATE_SCORE_EVIDENCE_IDS",
     "GatewayToolDefinition",
     "ScoreProjectCandidatesInput",
     "ScoreProjectCandidatesOutput",

@@ -79,7 +79,8 @@ tool budgets remain independent enforcement boundaries.
 Each invocation may execute at most four model-selected catalog tool calls by
 default. A Strands pre-tool hook raises a domain error before a fifth call can
 reach Gateway. The internal `GatewayCandidateOutput` structured-output tool does
-not consume this budget. `PRAXIS_MAX_TOOL_CALLS` can lower or raise the positive
+not consume this budget, nor does the deterministic initial Gateway search that
+precedes model execution. `PRAXIS_MAX_TOOL_CALLS` can lower or raise the positive
 integer limit when an evaluation demonstrates a different need.
 Strands model turns are capped at the catalog tool-call budget plus one final
 response turn so structured-output retries cannot create an unbounded loop.
@@ -89,6 +90,8 @@ invocation by default. Search results, item lookups, experience matches, and
 supporting evidence IDs from candidate scores count cumulatively. A Strands
 post-tool hook validates each response against its strict contract and replaces
 malformed or over-budget content with a tool error before the model receives it.
+Candidate scoring returns at most three supporting historical records per
+proposal so a valid three-candidate call fits within the invocation budget.
 The local planner applies the same `PRAXIS_MAX_CATALOG_RESULTS` setting to its
 retrieval limit.
 
@@ -110,10 +113,11 @@ retrieval limit.
 - Gateway and local generation both use the `ProjectCandidateSet` structured
   output contract. It requires exactly three candidates and at least one
   well-formed citation per candidate. The Nova-facing Gateway adapter presents
-  flat required scalar fields for three candidates, avoiding nested collection
-  constraints at the model boundary. The application maps each constrained
+  one atomic JSON-string field containing three candidates, preventing the model
+  from splitting numbered candidates across parallel structured-output calls.
+  The adapter validates the inner candidate contract, maps each constrained
   evidence position to the exact ID retained by the invocation-scoped evidence
-  ledger, then normalizes the fields into the nested domain contract. Domain
+  ledger, and normalizes the fields into the nested domain contract. Domain
   validation remains authoritative after normalization.
 - JSON Schema and Pydantic validation reject uncited, malformed, or incorrectly
   sized candidate output before it reaches an application client.
