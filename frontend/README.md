@@ -70,3 +70,19 @@ technical approach, explicit assumptions and exclusions, deliverables,
 self-service milestone verification, risks, and measurable acceptance checks.
 The API derives the original goal, candidate, and evidence from the expiring
 server session; the browser sends only the session and candidate identifiers.
+
+## Deployed application
+
+OpenTofu creates a private S3 origin and CloudFront distribution. After applying
+the reviewed infrastructure plan, publish a production bundle explicitly:
+
+```bash
+make deploy-frontend-dev CONFIRM=deploy-frontend-dev
+make smoke-dev SUITE=frontend
+```
+
+The deployment reads the non-secret API URL, Cognito pool ID, and Cognito client
+ID from OpenTofu outputs, embeds them with Vite, synchronizes `frontend/dist/`,
+and invalidates the distribution. It prints the deployed HTTPS URL. No `.env`
+file is required for this production build, and no AWS credential is placed in
+the browser bundle.

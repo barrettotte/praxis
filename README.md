@@ -8,7 +8,9 @@ Praxis follows this serverless target architecture:
 
 ```mermaid
 flowchart TD
-    user[User] --> ui[React + TypeScript application]
+    user[User] -->|HTTPS| edge[Amazon CloudFront]
+    edge -->|Signed OAC reads| frontendAssets[(Private S3 frontend assets)]
+    edge -->|Serve application| ui[React + TypeScript in browser]
     ui -->|Authenticate| cognito[Amazon Cognito]
     cognito -->|JWT| ui
     ui -->|JWT request| apiGateway[Amazon API Gateway HTTP API]

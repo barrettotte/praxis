@@ -33,7 +33,7 @@ variable "environment" {
 }
 
 variable "frontend_origin" {
-  description = "Exact browser origin allowed to call the development HTTP API."
+  description = "Exact local browser origin allowed to call the development HTTP API."
   type        = string
   default     = "http://localhost:5173"
 

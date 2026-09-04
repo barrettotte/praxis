@@ -91,6 +91,7 @@ and mutating operations visibly separate:
 | Command | Coverage | Model inference |
 | --- | --- | --- |
 | `make smoke-dev` | Fast API configuration, Cognito, and Runtime authorization | No |
+| `make smoke-dev SUITE=frontend` | Private S3 origin and CloudFront application delivery | No |
 | `make smoke-dev SUITE=access-logs` | Eventually consistent API access-log delivery | No |
 | `make smoke-dev SUITE=tools` | Catalog Lambda and AgentCore Gateway tools | No |
 | `make smoke-dev SUITE=api` | JWT API through AgentCore Runtime; requires an exported access token | Yes |
@@ -137,6 +138,31 @@ longer accepted. Do not store a token in `.env` or commit it.
 Run `./scripts/smoke/smoke-dev.sh --help` for the same suite list. Narrow
 scripts in `scripts/smoke/` remain available for diagnosing one failed check,
 but they are not separate Make targets.
+
+## Frontend deployment
+
+OpenTofu creates the private frontend bucket, CloudFront origin access control,
+distribution, and exact API CORS origins. Static files remain a separate,
+explicit release operation. After applying the reviewed infrastructure plan,
+build with the deployed public identifiers and publish the bundle:
+
+```shell
+make deploy-frontend-dev CONFIRM=deploy-frontend-dev
+make smoke-dev SUITE=frontend
+```
+
+The deployment target synchronizes `frontend/dist/` into the private bucket and
+invalidates the CloudFront distribution. It never embeds AWS credentials,
+passwords, tokens, or other secrets. Retrieve the browser URL at any time with:
+
+```shell
+AWS_PROFILE=praxis-dev tofu -chdir=infra/environments/dev output -raw frontend_url
+```
+
+The frontend smoke suite verifies blocked S3 public access, bucket-owner
+enforcement, S3-managed encryption, a non-public bucket policy, CloudFront OAC,
+HTTPS redirection, bounded edge locations, managed cache and security headers,
+and SPA fallback delivery.
 
 The Gateway tools check signs standard MCP `tools/list` and `tools/call`
 requests with the active profile, verifies all four catalog tools are

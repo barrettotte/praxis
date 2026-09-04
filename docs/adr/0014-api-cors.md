@@ -14,9 +14,9 @@ and is not an authorization control.
 
 ## Decision
 
-Configure CORS on the API Gateway HTTP API with one exact frontend origin. Use
-`http://localhost:5173` for development and expose it as a validated OpenTofu
-input so the reviewed frontend deployment can replace it with an HTTPS origin.
+Configure CORS on the API Gateway HTTP API with two exact frontend origins: the
+CloudFront HTTPS origin and `http://localhost:5173` for local development. The
+local origin remains a validated OpenTofu input.
 
 Allow GET, POST, and OPTIONS; allow only `authorization`, `content-type`, and
 `x-correlation-id`; expose only `x-correlation-id`; and cache preflight results
@@ -31,9 +31,9 @@ AWS documents the managed preflight and response behavior in its
 
 ## Consequences
 
-- Browser requests are limited to the reviewed frontend origin and public API
+- Browser requests are limited to the reviewed frontend origins and public API
   surface.
 - Direct HTTP clients remain governed by API authorization rather than CORS.
-- Frontend hosting changes require a reviewed plan with the new exact origin.
+- Frontend hosting changes update the CloudFront origin through a reviewed plan.
 - Adding a method or public request header requires updating the CORS contract
   and its deployment smoke check.

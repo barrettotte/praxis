@@ -11,6 +11,7 @@ Usage: make smoke-dev [SUITE=name]
 
 Suites:
   config             Fast configuration and rejection checks; no model inference
+  frontend           Private S3 and CloudFront browser delivery; no model inference
   access-logs        Eventually consistent API access-log delivery; no model inference
   tools              Catalog Lambda and AgentCore Gateway tools; no model inference
   api                JWT-authenticated API request; requires PRAXIS_ACCESS_TOKEN
@@ -37,6 +38,9 @@ case "${praxis_suite}" in
     run_check "API throttling" "${praxis_script_dir}/smoke-api-throttling-dev.sh"
     run_check "Application identity boundary" "${praxis_script_dir}/smoke-cognito-dev.sh"
     run_check "Runtime authorization" "${praxis_script_dir}/smoke-runtime-auth-dev.sh"
+    ;;
+  frontend)
+    run_check "Frontend hosting" "${praxis_script_dir}/smoke-frontend-dev.sh"
     ;;
   access-logs)
     run_check "API access logs" "${praxis_script_dir}/smoke-api-access-logs-dev.sh"

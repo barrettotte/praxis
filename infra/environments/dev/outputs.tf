@@ -32,8 +32,28 @@ output "api_gateway_jwt_authorizer_id" {
 }
 
 output "frontend_origin" {
-  description = "Exact browser origin allowed by the development API CORS policy."
+  description = "Local browser origin allowed by the development API CORS policy."
   value       = var.frontend_origin
+}
+
+output "frontend_origins" {
+  description = "Exact browser origins allowed by the development API CORS policy."
+  value       = local.frontend_origins
+}
+
+output "frontend_url" {
+  description = "HTTPS URL of the deployed browser application."
+  value       = local.frontend_url
+}
+
+output "frontend_bucket_name" {
+  description = "Private S3 bucket containing the browser application assets."
+  value       = aws_s3_bucket.frontend.id
+}
+
+output "frontend_distribution_id" {
+  description = "CloudFront distribution serving the browser application."
+  value       = aws_cloudfront_distribution.frontend.id
 }
 
 output "cognito_user_pool_id" {

@@ -13,7 +13,11 @@ praxis_require_commands aws curl jq "${praxis_tofu}"
 
 praxis_api_id="$(praxis_tofu_output api_gateway_id)"
 praxis_api_url="$(praxis_tofu_output api_gateway_url)"
-praxis_frontend_origin="$(praxis_tofu_output frontend_origin)"
+praxis_frontend_origin="$(praxis_tofu_output frontend_url)"
+praxis_frontend_origins="$(
+  AWS_PROFILE="${praxis_profile}" "${praxis_tofu}" \
+    -chdir="${praxis_infra_dir}" output -json frontend_origins
+)"
 praxis_api_url="${praxis_api_url%/}"
 praxis_cors="$(
   aws --profile "${praxis_profile}" --region "${praxis_region}" \
@@ -24,8 +28,8 @@ praxis_cors="$(
 )"
 
 # Match exact sets so wildcard origins, methods, or headers cannot slip in.
-if ! jq -e --arg origin "${praxis_frontend_origin}" '
-  (.AllowOrigins | sort) == [$origin]
+if ! jq -e --argjson origins "${praxis_frontend_origins}" '
+  (.AllowOrigins | sort) == ($origins | sort)
   and (.AllowMethods | sort) == ["GET", "OPTIONS", "POST"]
   and (.AllowHeaders | sort) == ["authorization", "content-type", "x-correlation-id"]
   and (.ExposeHeaders | sort) == ["x-correlation-id"]
@@ -92,8 +96,8 @@ if [[ -n "${praxis_denied_allow_origin}" ]]; then
 fi
 
 mkdir -p "${praxis_evidence_dir}"
-jq -n --arg origin "${praxis_frontend_origin}" '{
-  allowed_origin: $origin,
+jq -n --argjson origins "${praxis_frontend_origins}" '{
+  allowed_origins: $origins,
   allowed_preflight: true,
   denied_origin_omitted: true,
   lambda_invoked: false,

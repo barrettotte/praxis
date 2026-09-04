@@ -79,12 +79,20 @@ requests per second. API Gateway rejects excess requests before Lambda
 invocation, limiting accidental concurrent model work while leaving other
 routes available for their own handler-specific limits.
 
-API Gateway handles browser preflight requests and permits only the configured
-frontend origin. Development defaults to `http://localhost:5173`; set
-`TF_VAR_frontend_origin` while creating the reviewed plan when the frontend is
-deployed behind an HTTPS origin. Only GET, POST, and OPTIONS plus the
+API Gateway handles browser preflight requests and permits only the deployed
+CloudFront HTTPS origin and the configured local development origin, which
+defaults to `http://localhost:5173`. Only GET, POST, and OPTIONS plus the
 authorization, content-type, and correlation headers are allowed. CORS is a
 browser boundary and does not replace API authorization.
+
+The production Vite bundle is stored in a disposable, encrypted S3 bucket with
+all public access blocked. A CloudFront distribution reads it with signed origin
+access control requests, redirects viewers to HTTPS, applies managed caching and
+security-header policies, and returns `index.html` for unknown SPA routes. The
+distribution uses its default certificate and domain rather than adding DNS or
+certificate resources. OpenTofu manages hosting infrastructure but not asset
+objects; `make deploy-frontend-dev CONFIRM=deploy-frontend-dev` performs the
+explicit build, upload, and cache invalidation.
 
 The default API stage writes structured access records to a dedicated
 CloudWatch log group with seven-day retention. Records contain request IDs,

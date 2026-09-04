@@ -340,8 +340,8 @@ Definition of done: a client can complete the read-only workflow entirely throug
 - [x] Let the user select a candidate
 - [x] Render the resulting project brief
 - [x] Add accessible loading and error states
-- [ ] Deploy the frontend to S3 and CloudFront
-- [ ] Prevent unauthenticated access to protected APIs
+- [x] Deploy the frontend to S3 and CloudFront
+- [x] Prevent unauthenticated access to protected APIs
 
 Definition of done: the complete application is usable from a browser.
 

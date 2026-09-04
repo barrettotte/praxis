@@ -1,5 +1,8 @@
 {
-  "allowed_origin": "http://localhost:5173",
+  "allowed_origins": [
+    "http://localhost:5173",
+    "https://d21398zwvi9r7a.cloudfront.net"
+  ],
   "allowed_preflight": true,
   "denied_origin_omitted": true,
   "lambda_invoked": false,

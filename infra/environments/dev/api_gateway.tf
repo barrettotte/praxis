@@ -6,6 +6,7 @@ locals {
     "POST /v1/sessions",
     "POST /v1/sessions/{sessionId}/messages",
   ])
+  frontend_origins = [var.frontend_origin, local.frontend_url]
 }
 
 resource "aws_apigatewayv2_api" "application" {
@@ -21,7 +22,7 @@ resource "aws_apigatewayv2_api" "application" {
       "x-correlation-id",
     ]
     allow_methods  = ["GET", "OPTIONS", "POST"]
-    allow_origins  = [var.frontend_origin]
+    allow_origins  = local.frontend_origins
     expose_headers = ["x-correlation-id"]
     max_age        = 300
   }
