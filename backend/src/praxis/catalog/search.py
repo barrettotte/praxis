@@ -7,11 +7,10 @@ from typing import Annotated, Self
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from praxis.catalog.memory import CatalogEntry, CatalogItem, CatalogKind, InMemoryCatalog
-from praxis.catalog.text import normalize_text, tokenize
+from praxis.catalog.text import MAX_SEARCH_TOKENS, normalize_text, tokenize
 from praxis.domain import Book, Byte, MuseumObject, Project
 
 MAX_SEARCH_RESULTS = 20
-MAX_SEARCH_TOKENS = 8
 MAX_SEARCH_EVALUATED_ITEMS = 1_500
 type CatalogDate = Annotated[
     str, Field(pattern=r"^\d{4}(?:-(?:0[1-9]|1[0-2])(?:-(?:0[1-9]|[12]\d|3[01]))?)?$")

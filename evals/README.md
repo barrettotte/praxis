@@ -3,6 +3,22 @@
 Evaluation prompts, expected evidence, expected tool trajectories, and measured
 results belong here.
 
+`catalog-projections/results/` contains content-addressed measurements comparing
+the authoritative source records with the exact evidence objects exposed to the
+agent. Run `make eval-projections` to reproduce the compact-JSON UTF-8 byte and
+field comparison. This isolates context payload reduction without claiming that
+bytes are model tokens; deployed evaluation artifacts record actual token use.
+
+`retrieval-limits/results/` compares the production lexical query and ranking at
+result limits 3, 5, 10, and 20 over the canonical prompts and curated evidence.
+Run `make eval-retrieval-limits` to reproduce evidence pass counts, precision,
+coverage, reciprocal rank, and exact projected response bytes. On the 1,034-item
+catalog snapshot, increasing the production prefetch limit from 3 to 5 added 64%
+more response bytes without improving the 9-of-30 evidence pass count. Limits 10
+and 20 reached 10 and 12 passes but used about 3.2 and 6.3 times the bytes. The
+prefetch limit therefore remains 3; retrieval ranking and query quality offer a
+better improvement target than increasing context indiscriminately.
+
 `project-recommendations/prompts.json` is the canonical 30-prompt evaluation
 input. Case IDs are stable references for expectations and baseline results; do
 not renumber them when prompts are retired or the suite expands. This file

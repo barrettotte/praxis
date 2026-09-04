@@ -31,8 +31,7 @@ from praxis.agent.evidence import (
     record_catalog_evidence,
 )
 from praxis.agent.factory import create_agent
-from praxis.catalog.search import MAX_SEARCH_TOKENS
-from praxis.catalog.text import STOP_WORDS, TOKEN_PATTERN, normalize_text
+from praxis.catalog.text import catalog_query as catalog_query
 from praxis.config import AgentSettings, GatewaySettings
 from praxis.domain import (
     CandidateOutputValidationError,
@@ -302,18 +301,6 @@ def gateway_agent_session(
             client=client,
             tools=tools,
         )
-
-
-def catalog_query(prompt: str) -> str:
-    """Derive a deterministic bounded lexical query from a user prompt."""
-    terms: list[str] = []
-    for term in TOKEN_PATTERN.findall(normalize_text(prompt)):
-        if term in STOP_WORDS or len(term) <= 1 or term in terms:
-            continue
-        terms.append(term)
-        if len(terms) == MAX_SEARCH_TOKENS:
-            break
-    return " ".join(terms) or normalize_text(prompt)
 
 
 def prefetch_catalog_evidence(

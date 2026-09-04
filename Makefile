@@ -25,7 +25,7 @@ FRONTEND_NPM := $(NPM) --prefix frontend
 
 export UV_CACHE_DIR
 
-.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-api-lambda package-functions agent agent-image smoke-agent-container preview-agent-image-dev push-agent-image-dev deploy-frontend-dev eval-baseline eval-runtime-dev inspect-runtime-versions-dev tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-dev smoke-memory-dev dev-frontend
+.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-api-lambda package-functions agent agent-image smoke-agent-container preview-agent-image-dev push-agent-image-dev deploy-frontend-dev eval-baseline eval-projections eval-retrieval-limits eval-runtime-dev inspect-runtime-versions-dev tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-dev smoke-memory-dev dev-frontend
 
 help: ## Show the available Make targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-30s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -99,6 +99,12 @@ deploy-frontend-dev: ## Build and publish the frontend; requires CONFIRM=deploy-
 
 eval-baseline: ## Run the project-recommendation model baseline and save versioned results
 	@set -a; if [ -f .env ]; then . ./.env; fi; set +a; $(UV) run python -m praxis.evaluation
+
+eval-projections: ## Compare full catalog records with agent-facing projections
+	$(UV) run python -m praxis.evaluation.projections --data-dir "$(SOURCE_DATA_DIR)"
+
+eval-retrieval-limits: ## Compare catalog retrieval quality and payload size by result limit
+	$(UV) run python -m praxis.evaluation.retrieval_limits --data-dir "$(SOURCE_DATA_DIR)"
 
 eval-runtime-dev: ## Measure all evaluation cases against the deployed stable Runtime
 	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) SOURCE_DATA_DIR=$(SOURCE_DATA_DIR) ./scripts/eval-runtime-dev.sh

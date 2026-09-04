@@ -85,8 +85,8 @@ turns a goal into several differentiated, buildable project candidates.
 
 ### Source datasets
 
-- 782 books
-- 162 projects
+- 785 books
+- 163 projects
 - 66 technical notes, CTFs, electronics builds, and other bytes
 - 20 computing-museum objects
 
@@ -237,7 +237,7 @@ Definition of done: OpenTofu can reproducibly create and destroy the empty devel
 - [x] Return only fields needed by the agent
 - [x] Deploy the catalog Lambda
 - [x] Seed the development environment from the four JSON files
-- [x] Verify totals: 782 books, 162 projects, 66 bytes, and 20 museum objects
+- [x] Verify totals: 785 books, 163 projects, 66 bytes, and 20 museum objects
 
 Definition of done: a deployed Lambda can answer structured catalog queries without invoking an LLM.
 
@@ -357,8 +357,8 @@ Definition of done: the complete application is usable from a browser.
 - [x] Measure tool-selection accuracy
 - [x] Measure end-to-end latency
 - [x] Record input and output tokens
-- [ ] Compare full records with projected tool responses
-- [ ] Compare different retrieval limits
+- [x] Compare full records with projected tool responses
+- [x] Compare different retrieval limits
 - [ ] Test conversation summarization
 - [ ] Add prompt caching where repeated context qualifies
 - [ ] Compare DSPy-optimized instructions with the maintained baseline on a held-out evaluation set
