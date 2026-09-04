@@ -22,6 +22,8 @@ from praxis.domain import EvidenceCitation
 from praxis.tools.contracts import BookEvidence
 
 SESSION_ID = "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4"
+ACTOR_ID = "51f4a405-8835-411d-9821-5980d73f51f6"
+OTHER_ACTOR_ID = "7b9db85b-9448-4a41-9bb7-235a461429ae"
 GOAL = "Learn compiler backends over a weekend"
 NOW = datetime(2026, 8, 31, 12, tzinfo=UTC)
 
@@ -93,12 +95,13 @@ def session_data() -> CreateSessionData:
 
 def test_starts_one_hour_session_without_overwrite() -> None:
     table = FakeTable()
-    pending = SessionStore(table, now=lambda: NOW).start(SESSION_ID, GOAL)
+    pending = SessionStore(table, now=lambda: NOW).start(SESSION_ID, ACTOR_ID, GOAL)
 
     assert pending == PendingSession(
         session_id=SESSION_ID,
         expires_at=int(NOW.timestamp()) + SESSION_TTL_SECONDS,
         goal=GOAL,
+        actor_id=ACTOR_ID,
     )
     assert table.put_request == {
         "Item": pending.model_dump(mode="python"),
@@ -108,29 +111,33 @@ def test_starts_one_hour_session_without_overwrite() -> None:
 
 def test_completes_only_a_pending_session() -> None:
     table = FakeTable()
-    stored = SessionStore(table, now=lambda: NOW).complete(session_data(), GOAL)
+    stored = SessionStore(table, now=lambda: NOW).complete(session_data(), ACTOR_ID, GOAL)
 
     assert stored.expires_at == int(NOW.timestamp()) + SESSION_TTL_SECONDS
     assert stored.status == SessionStatus.READY
     assert table.put_request == {
         "Item": stored.model_dump(mode="python"),
-        "ConditionExpression": "#status = :pending",
+        "ConditionExpression": "#status = :pending AND actor_id = :actor_id",
         "ExpressionAttributeNames": {"#status": "status"},
-        "ExpressionAttributeValues": {":pending": SessionStatus.PENDING},
+        "ExpressionAttributeValues": {
+            ":actor_id": ACTOR_ID,
+            ":pending": SessionStatus.PENDING,
+        },
     }
 
 
 def test_marks_only_a_pending_session_failed() -> None:
     table = FakeTable()
 
-    SessionStore(table, now=lambda: NOW).fail(SESSION_ID)
+    SessionStore(table, now=lambda: NOW).fail(SESSION_ID, ACTOR_ID)
 
     assert table.update_request == {
         "Key": {"session_id": SESSION_ID},
-        "ConditionExpression": "#status = :pending",
+        "ConditionExpression": "#status = :pending AND actor_id = :actor_id",
         "UpdateExpression": "SET #status = :failed",
         "ExpressionAttributeNames": {"#status": "status"},
         "ExpressionAttributeValues": {
+            ":actor_id": ACTOR_ID,
             ":failed": SessionStatus.FAILED,
             ":pending": SessionStatus.PENDING,
         },
@@ -142,6 +149,7 @@ def test_loads_unexpired_session_and_resolves_selected_evidence() -> None:
         **session_data().model_dump(mode="python"),
         expires_at=int((NOW + timedelta(minutes=5)).timestamp()),
         goal=GOAL,
+        actor_id=ACTOR_ID,
     )
     table_item = stored.model_dump(mode="python")
     table_item["expires_at"] = Decimal(stored.expires_at)
@@ -149,7 +157,7 @@ def test_loads_unexpired_session_and_resolves_selected_evidence() -> None:
     evidence[0]["year"] = Decimal(2025)
     table = FakeTable(table_item)
 
-    result = SessionStore(table, now=lambda: NOW).get(SESSION_ID)
+    result = SessionStore(table, now=lambda: NOW).get(SESSION_ID, ACTOR_ID)
 
     assert result == stored
     assert table.get_request == {"Key": {"session_id": SESSION_ID}, "ConsistentRead": True}
@@ -165,11 +173,14 @@ def test_treats_expired_or_missing_session_as_absent() -> None:
         **session_data().model_dump(mode="python"),
         expires_at=int(NOW.timestamp()),
         goal=GOAL,
+        actor_id=ACTOR_ID,
     )
 
-    assert SessionStore(FakeTable(), now=lambda: NOW).get(SESSION_ID) is None
+    assert SessionStore(FakeTable(), now=lambda: NOW).get(SESSION_ID, ACTOR_ID) is None
     assert (
-        SessionStore(FakeTable(expired.model_dump(mode="python")), now=lambda: NOW).get(SESSION_ID)
+        SessionStore(FakeTable(expired.model_dump(mode="python")), now=lambda: NOW).get(
+            SESSION_ID, ACTOR_ID
+        )
         is None
     )
 
@@ -181,11 +192,13 @@ def test_treats_expired_or_missing_session_as_absent() -> None:
             session_id=SESSION_ID,
             expires_at=int((NOW + timedelta(minutes=5)).timestamp()),
             goal=GOAL,
+            actor_id=ACTOR_ID,
         ),
         FailedSession(
             session_id=SESSION_ID,
             expires_at=int((NOW + timedelta(minutes=5)).timestamp()),
             goal=GOAL,
+            actor_id=ACTOR_ID,
         ),
     ],
 )
@@ -194,8 +207,21 @@ def test_loads_non_ready_session_state_without_exposing_candidates(
 ) -> None:
     store = SessionStore(FakeTable(record.model_dump(mode="python")), now=lambda: NOW)
 
-    assert store.get_record(SESSION_ID) == record
-    assert store.get(SESSION_ID) is None
+    assert store.get_record(SESSION_ID, ACTOR_ID) == record
+    assert store.get(SESSION_ID, ACTOR_ID) is None
+
+
+def test_treats_another_actors_session_as_absent() -> None:
+    stored = StoredSession(
+        **session_data().model_dump(mode="python"),
+        expires_at=int((NOW + timedelta(minutes=5)).timestamp()),
+        goal=GOAL,
+        actor_id=ACTOR_ID,
+    )
+    store = SessionStore(FakeTable(stored.model_dump(mode="python")), now=lambda: NOW)
+
+    assert store.get_record(SESSION_ID, OTHER_ACTOR_ID) is None
+    assert store.get(SESSION_ID, OTHER_ACTOR_ID) is None
 
 
 def test_normalizes_dynamodb_failures() -> None:
@@ -206,7 +232,7 @@ def test_normalizes_dynamodb_failures() -> None:
     )
 
     with pytest.raises(ApiSessionError, match="could not be loaded") as captured:
-        SessionStore(table, now=lambda: NOW).get(SESSION_ID)
+        SessionStore(table, now=lambda: NOW).get(SESSION_ID, ACTOR_ID)
 
     assert "sensitive detail" not in str(captured.value)
 

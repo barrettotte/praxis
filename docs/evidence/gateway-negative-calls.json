@@ -14,6 +14,24 @@
       "rejected": true
     },
     {
+      "authentication": "AWS_IAM",
+      "name": "oversized_candidate_batch",
+      "observation": "MCP error",
+      "rejected": true
+    },
+    {
+      "authentication": "AWS_IAM",
+      "name": "oversized_search_query",
+      "observation": "MCP error",
+      "rejected": true
+    },
+    {
+      "authentication": "AWS_IAM",
+      "name": "unregistered_tool",
+      "observation": "MCP error",
+      "rejected": true
+    },
+    {
       "authentication": "none",
       "http_status": 401,
       "name": "unsigned_tools_list",

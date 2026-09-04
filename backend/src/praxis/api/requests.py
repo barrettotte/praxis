@@ -26,6 +26,14 @@ type CandidateId = Annotated[
     str,
     Field(pattern=r"^candidate_[1-3]$"),
 ]
+type ActorId = Annotated[
+    str,
+    Field(
+        min_length=1,
+        max_length=128,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$",
+    ),
+]
 
 
 class ApiRequestError(ValueError):
@@ -78,6 +86,39 @@ class _HttpApiEvent(BaseModel):
         default=None,
         alias="queryStringParameters",
     )
+    request_context: "_RequestContext" = Field(alias="requestContext")
+
+
+class _JwtClaims(BaseModel):
+    """Validated identity claims supplied by the API Gateway JWT authorizer."""
+
+    model_config = ConfigDict(extra="ignore", strict=True)
+
+    sub: ActorId
+
+
+class _JwtAuthorizer(BaseModel):
+    """JWT authorizer context forwarded to the Lambda integration."""
+
+    model_config = ConfigDict(extra="ignore", strict=True)
+
+    claims: _JwtClaims
+
+
+class _AuthorizerContext(BaseModel):
+    """Supported API Gateway authorizer result shape."""
+
+    model_config = ConfigDict(extra="ignore", strict=True)
+
+    jwt: _JwtAuthorizer
+
+
+class _RequestContext(BaseModel):
+    """Authenticated API Gateway request context used by the application."""
+
+    model_config = ConfigDict(extra="ignore", strict=True)
+
+    authorizer: _AuthorizerContext
 
 
 @dataclass(frozen=True)
@@ -88,6 +129,7 @@ class ValidatedApiRequest:
     path_parameters: dict[str, str]
     body: ApiRequestBody | None
     correlation_id: str
+    actor_id: str
 
 
 _SESSION_ID_ADAPTER: TypeAdapter[str] = TypeAdapter(SessionId)
@@ -160,13 +202,25 @@ def _validate_event(event: _HttpApiEvent, correlation_id: str) -> ValidatedApiRe
     if event.route_key == "GET /v1/sessions/{sessionId}":
         if event.body is not None or event.is_base64_encoded:
             raise ValueError("route does not accept a request body")
-        return ValidatedApiRequest(event.route_key, path_parameters, None, correlation_id)
+        return ValidatedApiRequest(
+            event.route_key,
+            path_parameters,
+            None,
+            correlation_id,
+            event.request_context.authorizer.jwt.claims.sub,
+        )
     if not _has_json_content_type(event.headers):
         raise ValueError("content-type must be application/json")
     body = cast(
         "ApiRequestBody", _BODY_MODELS[event.route_key].model_validate_json(_decode_body(event))
     )
-    return ValidatedApiRequest(event.route_key, path_parameters, body, correlation_id)
+    return ValidatedApiRequest(
+        event.route_key,
+        path_parameters,
+        body,
+        correlation_id,
+        event.request_context.authorizer.jwt.claims.sub,
+    )
 
 
 def validate_api_request(event: object) -> ValidatedApiRequest:

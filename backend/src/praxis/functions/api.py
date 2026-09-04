@@ -52,11 +52,11 @@ def queue_client() -> QueueClient:
     return create_queue_client()
 
 
-def start_session(goal: str, correlation_id: str) -> PendingSession:
+def start_session(actor_id: str, goal: str, correlation_id: str) -> PendingSession:
     """Persist and queue one asynchronous recommendation session."""
     session_id = str(uuid4())
     store = create_session_store()
-    pending = store.start(session_id, goal)
+    pending = store.start(session_id, actor_id, goal)
     try:
         enqueue_job(
             queue_client(),
@@ -65,17 +65,18 @@ def start_session(goal: str, correlation_id: str) -> PendingSession:
                 session_id=session_id,
                 goal=goal,
                 correlation_id=correlation_id,
+                actor_id=actor_id,
             ),
         )
     except ApiJobError:
-        store.fail(session_id)
+        store.fail(session_id, actor_id)
         raise
     return pending
 
 
-def get_session(session_id: str) -> AnySession:
+def get_session(session_id: str, actor_id: str) -> AnySession:
     """Return one unexpired asynchronous session state."""
-    session = create_session_store().get_record(session_id)
+    session = create_session_store().get_record(session_id, actor_id)
     if session is None:
         raise ApiSessionNotFoundError("recommendation session was not found")
     return session
@@ -85,7 +86,11 @@ def _public_session_data(session: AnySession) -> dict[str, JsonValue]:
     """Remove persistence metadata from one public session status response."""
     return cast(
         "dict[str, JsonValue]",
-        session.model_dump(mode="json", by_alias=True, exclude={"expires_at", "goal"}),
+        session.model_dump(
+            mode="json",
+            by_alias=True,
+            exclude={"actor_id", "expires_at", "goal"},
+        ),
     )
 
 
@@ -93,9 +98,10 @@ def select_candidate(
     session_id: str,
     candidate_id: str,
     correlation_id: str,
+    actor_id: str,
 ) -> SelectCandidateData:
     """Resolve one session-owned candidate and generate its project brief."""
-    session = create_session_store().get(session_id)
+    session = create_session_store().get(session_id, actor_id)
     if session is None:
         raise ApiSessionNotFoundError("recommendation session was not found")
     candidate = session.selected_candidate(candidate_id)
@@ -127,7 +133,7 @@ def lambda_handler(event: object, context: object) -> dict[str, object]:
     if request.route_key == "POST /v1/sessions":
         body = cast("CreateSessionRequest", request.body)
         try:
-            session = start_session(body.goal, request.correlation_id)
+            session = start_session(request.actor_id, body.goal, request.correlation_id)
         except (ApiJobError, ApiSessionError):
             return error_response(ApiErrorCode.SERVICE_UNAVAILABLE, request.correlation_id)
         return success_response(
@@ -137,7 +143,7 @@ def lambda_handler(event: object, context: object) -> dict[str, object]:
         )
     if request.route_key == "GET /v1/sessions/{sessionId}":
         try:
-            session = get_session(request.path_parameters["sessionId"])
+            session = get_session(request.path_parameters["sessionId"], request.actor_id)
         except ApiSessionNotFoundError:
             return error_response(ApiErrorCode.NOT_FOUND, request.correlation_id)
         except ApiSessionError:
@@ -150,6 +156,7 @@ def lambda_handler(event: object, context: object) -> dict[str, object]:
                 body.session_id,
                 request.path_parameters["candidateId"],
                 request.correlation_id,
+                request.actor_id,
             )
         except ApiSessionNotFoundError:
             return error_response(ApiErrorCode.NOT_FOUND, request.correlation_id)

@@ -15,15 +15,16 @@ the impact of accidental or hostile requests.
 ## Decision
 
 Limit every decoded application JSON body to 16 KiB and limit the public `goal`
-and `message` fields to 4,000 characters. Measure raw request bodies as UTF-8
-bytes and base64-encoded bodies after decoding. Reject bodies over the byte
-limit before JSON parsing and before route handlers with a fixed
+field to 4,000 characters. Measure raw request bodies as UTF-8 bytes and
+base64-encoded bodies after decoding. Reject bodies over the byte limit before
+JSON parsing and before route handlers with a fixed
 `payload_too_large` response and HTTP status 413. Continue to return the fixed
 400 response for smaller requests that violate the JSON contract.
 
-Verify deployment through authenticated direct Lambda invocation with an
-oversized event. The smoke check requires the fixed 413 envelope and records
-that the Runtime-backed handler was not reached.
+Verify deployment through direct Lambda invocation with synthetic trusted JWT
+context. The smoke check sends both a body above 16 KiB and a goal of 4,001
+characters, requires the fixed 413 and 400 envelopes, and records that the
+Runtime-backed handler was not reached.
 
 The transport ceilings are documented in the AWS
 [HTTP API quotas](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-quotas.html)

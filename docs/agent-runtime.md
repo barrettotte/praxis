@@ -101,11 +101,27 @@ guardrail ID and version supplied through `PRAXIS_GUARDRAIL_ID` and
 `PRAXIS_GUARDRAIL_VERSION`. Both variables must be set together. Local workflows
 may omit both to remain independent of deployed AWS resources.
 
-The guardrail evaluates the latest user message, which contains the goal and any
-explicitly labeled untrusted catalog or memory context. It blocks prompt attacks
-at high strength and does not apply broad topic, harmful-content, or output
-filters. Strict structured-output validation, evidence ledgers, catalog budgets,
-and the Gateway tool allowlist remain separate controls.
+The guardrail evaluates only the raw user goal, which Strands sends in an
+explicit `guardContent` block. Server-added framing, catalog records, and memory
+records remain regular model context so their defensive labels do not create
+prompt-attack false positives. It blocks direct prompt attacks at high strength
+and does not apply broad topic, harmful-content, or output filters. System
+instructions, strict structured-output validation, evidence ledgers, catalog
+budgets, and the Gateway tool allowlist remain the controls for untrusted
+retrieved content.
+
+The catalog injection smoke uses valid, synthetic in-memory projections with an
+instruction embedded in a record field. It performs one model inference and
+requires three cited candidates without the attack marker in generated output:
+
+```sh
+make smoke-dev SUITE=security
+```
+
+The check never writes DynamoDB or the authoritative sibling-repository files.
+Its sanitized result is stored in
+`docs/evidence/catalog-prompt-injection.json`; rerun it after changing the model,
+system instructions, prompt construction, or candidate contract.
 
 ## Invocation budgets
 
@@ -162,6 +178,9 @@ retrieval limit.
 - The local planner rejects an empty retrieval, conflicting facts under one
   stable ID, and citations that were not returned by its retrieval step.
 - Catalog records are untrusted data and cannot override system instructions.
+- The Gateway client exposes only the four expected read-only tool names and
+  refuses discovery results that omit or add a tool. A signed negative-call
+  smoke verifies the deployed Gateway also rejects an undeclared tool name.
 
 Empty or contradictory evidence produces an explicit planning error rather
 than an ungrounded recommendation. A conflicting Gateway tool response is also

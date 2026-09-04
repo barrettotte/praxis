@@ -5,6 +5,9 @@ three explicit routes. Unknown routes stop at API Gateway, unauthenticated
 declared-route requests return 401, and the Lambda rejects unknown fields and
 query parameters without reflecting invalid input. The authorizer accepts only
 tokens issued by the application user pool for its public browser client.
+The Lambda binds every short-lived session to the validated token subject.
+Requests made by another subject receive the same `not_found` response as an
+absent or expired session, including candidate-selection requests.
 
 | Method | Path | JSON body |
 | --- | --- | --- |
@@ -94,6 +97,7 @@ Errors contain a stable machine-readable code and safe display text:
 | --- | --- | --- |
 | `400` | `invalid_request` | The request violates the public contract. |
 | `413` | `payload_too_large` | The decoded JSON request body exceeds 16 KiB. |
+| `404` | `not_found` | The session is absent, expired, or owned by another subject. |
 | `503` | `service_unavailable` | Recommendation generation or its dependencies are temporarily unavailable. |
 
 All Lambda responses are UTF-8 JSON, explicitly mark `isBase64Encoded` false,
@@ -118,3 +122,8 @@ strict downstream response validation, and public response envelope in one
 process without AWS credentials or model calls. The deployed
 `make smoke-dev SUITE=api` check separately verifies API authorization and the
 complete API Gateway-to-Runtime success path.
+The non-inference `make smoke-dev` configuration suite verifies that both a
+body above 16 KiB and a 4,001-character goal stop before queued Runtime work.
+The targeted `scripts/smoke/smoke-api-lambda-dev.sh` diagnostic additionally
+uses two synthetic authorizer subjects to prove that status and selection data
+cannot cross the session-owner boundary.

@@ -109,8 +109,10 @@ def test_tool_descriptions_are_compact_and_distinguish_usage() -> None:
     ("tool_name", "payload"),
     [
         ("search_catalog", {"query": "compiler", "limit": 21}),
+        ("search_catalog", {"query": "x" * 501, "limit": 1}),
         ("get_catalog_item", {"id": "not-an-evidence-id"}),
         ("summarize_experience", {"description": "compiler", "extra": True}),
+        ("summarize_experience", {"description": "x" * 2_001}),
         (
             "score_project_candidates",
             {
@@ -119,6 +121,19 @@ def test_tool_descriptions_are_compact_and_distinguish_usage() -> None:
                     {"candidate_id": "same", "description": "second"},
                 ]
             },
+        ),
+        (
+            "score_project_candidates",
+            {
+                "candidates": [
+                    {"candidate_id": f"candidate_{index}", "description": "compiler"}
+                    for index in range(1, 5)
+                ]
+            },
+        ),
+        (
+            "score_project_candidates",
+            {"candidates": [{"candidate_id": "candidate", "description": "x" * 2_001}]},
         ),
     ],
 )

@@ -20,6 +20,7 @@ Suites:
   runtime-cache      Warm and verify the Runtime prompt cache; invokes the model twice
   runtime-sessions   Runtime session-isolation check; invokes the configured model twice
   runtime-traces     Runtime request plus CloudWatch trace verification
+  security           Synthetic catalog prompt-injection check; invokes the model
 
 Memory is intentionally separate: make smoke-memory-dev CONFIRM=smoke-memory-dev
 EOF
@@ -78,6 +79,10 @@ case "${praxis_suite}" in
   runtime-traces)
     run_check "Runtime trace delivery" \
       env VERIFY_RUNTIME_TRACES=true "${praxis_script_dir}/smoke-runtime-dev.sh"
+    ;;
+  security)
+    run_check "Catalog prompt-injection resistance" \
+      "${praxis_script_dir}/smoke-catalog-injection-dev.sh"
     ;;
   help | --help | -h)
     show_usage

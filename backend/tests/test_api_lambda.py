@@ -40,6 +40,7 @@ from praxis.tools.contracts import BookEvidence
 SESSION_ID = "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4"
 CORRELATION_ID = "51f4a405-8835-411d-9821-5980d73f51f6"
 GATEWAY_REQUEST_ID = "MqgCjHCKoAMEPLw="
+ACTOR_ID = "7b9db85b-9448-4a41-9bb7-235a461429ae"
 GOAL = "Learn compiler backends over a weekend"
 
 
@@ -52,6 +53,7 @@ def http_event(
     is_base64_encoded: bool = False,
     content_type: str = "application/json",
     correlation_id: str | None = None,
+    actor_id: str = ACTOR_ID,
 ) -> dict[str, object]:
     """Build the API Gateway v2 fields consumed by the request validator."""
     event: dict[str, object] = {
@@ -59,7 +61,10 @@ def http_event(
         "routeKey": route_key,
         "headers": {"content-type": content_type},
         "isBase64Encoded": is_base64_encoded,
-        "requestContext": {"requestId": GATEWAY_REQUEST_ID},
+        "requestContext": {
+            "requestId": GATEWAY_REQUEST_ID,
+            "authorizer": {"jwt": {"claims": {"sub": actor_id}}},
+        },
     }
     if correlation_id is not None:
         headers = event["headers"]
@@ -119,6 +124,7 @@ def test_validates_create_session_request() -> None:
     assert request.correlation_id == GATEWAY_REQUEST_ID
     assert request.path_parameters == {}
     assert request.body == CreateSessionRequest(goal="Learn Rust")
+    assert request.actor_id == ACTOR_ID
 
 
 def test_validates_base64_encoded_create_session_request() -> None:
@@ -269,6 +275,11 @@ def test_rejects_goal_above_character_limit() -> None:
             body=json.dumps({"goal": "valid"}),
             correlation_id="not-a-uuid",
         ),
+        http_event(
+            "POST /v1/sessions",
+            body=json.dumps({"goal": "valid"}),
+            actor_id="invalid actor",
+        ),
     ],
     ids=[
         "unknown-route",
@@ -285,6 +296,7 @@ def test_rejects_goal_above_character_limit() -> None:
         "unknown-candidate-id",
         "invalid-base64",
         "invalid-correlation-id",
+        "invalid-actor-id",
     ],
 )
 def test_rejects_invalid_requests(event: object) -> None:
@@ -296,14 +308,15 @@ def test_api_lambda_accepts_and_queues_valid_create_session(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     marker = "do-not-reflect"
-    observed: list[tuple[str, str]] = []
+    observed: list[tuple[str, str, str]] = []
 
-    def start_session(goal: str, correlation_id: str) -> PendingSession:
-        observed.append((goal, correlation_id))
+    def start_session(actor_id: str, goal: str, correlation_id: str) -> PendingSession:
+        observed.append((actor_id, goal, correlation_id))
         return PendingSession(
             session_id=SESSION_ID,
             expires_at=1_788_235_600,
             goal=marker,
+            actor_id=actor_id,
         )
 
     monkeypatch.setattr(api_function, "start_session", start_session)
@@ -330,21 +343,31 @@ def test_api_lambda_accepts_and_queues_valid_create_session(
         }
     }
     assert response["isBase64Encoded"] is False
-    assert observed == [(marker, CORRELATION_ID)]
+    assert observed == [(ACTOR_ID, marker, CORRELATION_ID)]
 
 
 @pytest.mark.parametrize(
     "session",
     [
-        PendingSession(session_id=SESSION_ID, expires_at=1_788_235_600, goal=GOAL),
-        FailedSession(session_id=SESSION_ID, expires_at=1_788_235_600, goal=GOAL),
+        PendingSession(
+            session_id=SESSION_ID,
+            expires_at=1_788_235_600,
+            goal=GOAL,
+            actor_id=ACTOR_ID,
+        ),
+        FailedSession(
+            session_id=SESSION_ID,
+            expires_at=1_788_235_600,
+            goal=GOAL,
+            actor_id=ACTOR_ID,
+        ),
     ],
 )
 def test_api_lambda_returns_non_ready_session_status(
     monkeypatch: pytest.MonkeyPatch,
     session: PendingSession | FailedSession,
 ) -> None:
-    def get_session(_session_id: str) -> PendingSession | FailedSession:
+    def get_session(_session_id: str, _actor_id: str) -> PendingSession | FailedSession:
         return session
 
     monkeypatch.setattr(api_function, "get_session", get_session)
@@ -369,9 +392,10 @@ def test_api_lambda_returns_ready_session_candidates(monkeypatch: pytest.MonkeyP
         **create_session_data().model_dump(mode="python"),
         expires_at=1_788_235_600,
         goal=GOAL,
+        actor_id=ACTOR_ID,
     )
 
-    def get_session(_session_id: str) -> StoredSession:
+    def get_session(_session_id: str, _actor_id: str) -> StoredSession:
         return session
 
     monkeypatch.setattr(api_function, "get_session", get_session)
@@ -460,14 +484,15 @@ def test_api_lambda_returns_generated_brief_for_session_candidate(
             for number in range(1, 4)
         ],
     )
-    observed: list[tuple[str, str, str]] = []
+    observed: list[tuple[str, str, str, str]] = []
 
     def select_candidate(
         session_id: str,
         candidate_id: str,
         correlation_id: str,
+        actor_id: str,
     ) -> SelectCandidateData:
-        observed.append((session_id, candidate_id, correlation_id))
+        observed.append((session_id, candidate_id, correlation_id, actor_id))
         return SelectCandidateData(
             session_id=session_id,
             candidate_id=candidate_id,
@@ -496,13 +521,18 @@ def test_api_lambda_returns_generated_brief_for_session_candidate(
         "criterion": "Criterion 1 has a measurable result.",
         "verification": "An automated test records the expected result.",
     }
-    assert observed == [(SESSION_ID, "candidate_2", CORRELATION_ID)]
+    assert observed == [(SESSION_ID, "candidate_2", CORRELATION_ID, ACTOR_ID)]
 
 
 def test_api_lambda_returns_not_found_for_expired_selection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def select_candidate(_session_id: str, _candidate_id: str, _correlation_id: str) -> None:
+    def select_candidate(
+        _session_id: str,
+        _candidate_id: str,
+        _correlation_id: str,
+        _actor_id: str,
+    ) -> None:
         raise ApiSessionNotFoundError("sensitive session detail")
 
     monkeypatch.setattr(api_function, "select_candidate", select_candidate)
@@ -530,7 +560,7 @@ def test_api_lambda_returns_safe_unavailable_when_job_cannot_be_queued(
 ) -> None:
     sensitive_detail = "sensitive queue detail"
 
-    def fail_start_session(_goal: str, _correlation_id: str) -> PendingSession:
+    def fail_start_session(_actor_id: str, _goal: str, _correlation_id: str) -> PendingSession:
         raise ApiJobError(sensitive_detail)
 
     monkeypatch.setattr(api_function, "start_session", fail_start_session)
@@ -564,7 +594,7 @@ def test_api_lambda_returns_safe_unavailable_when_job_cannot_be_queued(
 def test_api_lambda_returns_safe_unavailable_when_session_cannot_be_started(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def fail_start_session(_goal: str, _correlation_id: str) -> PendingSession:
+    def fail_start_session(_actor_id: str, _goal: str, _correlation_id: str) -> PendingSession:
         raise ApiSessionError("sensitive DynamoDB detail")
 
     monkeypatch.setattr(api_function, "start_session", fail_start_session)
@@ -608,7 +638,9 @@ def test_api_lambda_rejects_oversized_payload_before_runtime(
 ) -> None:
     marker = "do-not-reflect"
 
-    def unexpected_start_session(_goal: str, _correlation_id: str) -> PendingSession:
+    def unexpected_start_session(
+        _actor_id: str, _goal: str, _correlation_id: str
+    ) -> PendingSession:
         pytest.fail("oversized request queued work")
 
     monkeypatch.setattr(api_function, "start_session", unexpected_start_session)
@@ -633,6 +665,31 @@ def test_api_lambda_rejects_oversized_payload_before_runtime(
         ),
         "isBase64Encoded": False,
     }
+    assert marker not in json.dumps(response)
+
+
+def test_api_lambda_rejects_oversized_prompt_before_queue(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    marker = "oversized-prompt-must-not-be-reflected"
+
+    def unexpected_start_session(
+        _actor_id: str, _goal: str, _correlation_id: str
+    ) -> PendingSession:
+        pytest.fail("oversized prompt queued work")
+
+    monkeypatch.setattr(api_function, "start_session", unexpected_start_session)
+    response = api_function.lambda_handler(
+        http_event(
+            "POST /v1/sessions",
+            body=json.dumps({"goal": marker + ("x" * MAX_API_TEXT_CHARACTERS)}),
+            correlation_id=CORRELATION_ID,
+        ),
+        object(),
+    )
+
+    assert response["statusCode"] == 400
+    assert response["body"] == ('{"error":{"code":"invalid_request","message":"Invalid request."}}')
     assert marker not in json.dumps(response)
 
 

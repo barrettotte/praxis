@@ -100,6 +100,7 @@ and mutating operations visibly separate:
 | `make smoke-dev SUITE=runtime-cache` | Explicit prompt-cache write/read behavior | Yes, twice |
 | `make smoke-dev SUITE=runtime-sessions` | Runtime session isolation | Yes, twice |
 | `make smoke-dev SUITE=runtime-traces` | Runtime response and trace delivery | Yes |
+| `make smoke-dev SUITE=security` | Synthetic catalog prompt-injection resistance | Yes, once |
 | `make smoke-memory-dev CONFIRM=smoke-memory-dev` | Typed Memory records | May write records |
 
 To obtain the short-lived Cognito access token, sign in through the Praxis
@@ -171,7 +172,8 @@ discoverable, and confirms that every catalog tool returns evidence. It writes
 credential-free, deterministic captures to
 `docs/evidence/gateway-tools-list.json` and
 `docs/evidence/gateway-tool-calls.json`. It also verifies excessive, malformed,
-and unsigned requests are rejected and records only sanitized outcomes in
+unregistered-tool, oversized-string, oversized-collection, and unsigned
+requests are rejected and records only sanitized outcomes in
 `docs/evidence/gateway-negative-calls.json`. Client-observed HTTPS latency and
 JSON request/raw response body sizes for each successful tool call are recorded
 in `docs/evidence/gateway-tool-metrics.json`.
@@ -189,10 +191,14 @@ proves an unrelated origin receives no allow-origin header; API Gateway answers
 both preflights without Lambda. The throttling check reads the deployed stage and requires the
 session route to match the reviewed rate and burst values without invoking the
 API. The payload check invokes the private API Lambda with a body over 16 KiB
-and requires a fixed 413 response, proving validation stopped before Runtime.
+and a separate 4,001-character goal. It requires fixed 413 and 400 responses,
+respectively, proving validation stopped before Runtime.
 The `api` suite exercises the Runtime-backed success path through API Gateway.
 The direct Lambda script remains available only for targeted diagnosis. Every
-successful Runtime call is metered.
+successful Runtime call is metered. That diagnostic supplies trusted-context
+fixtures for two JWT subjects and requires the second subject to receive the
+same fixed 404 for both session status and candidate selection; its sanitized
+result is recorded in `docs/evidence/api-lambda.json`.
 
 The Memory check has a distinct confirmation because its first run creates one
 typed preference and one typed decision for a dedicated smoke actor. A

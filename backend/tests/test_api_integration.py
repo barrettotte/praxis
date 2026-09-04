@@ -18,6 +18,8 @@ RUNTIME_ARN = "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/example-
 QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/123456789012/praxis-dev-recommendations"
 EXPIRES_AT = 1_788_235_600
 GOAL = "compiler"
+ACTOR_ID = "7b9db85b-9448-4a41-9bb7-235a461429ae"
+OTHER_ACTOR_ID = "945e3fcc-6522-4e07-920d-115a097df1c8"
 
 
 class FakeBody:
@@ -62,30 +64,48 @@ class FakeSessionStore:
     def __init__(self) -> None:
         self.record: PendingSession | FailedSession | StoredSession | None = None
 
-    def start(self, session_id: str, goal: str) -> PendingSession:
-        self.record = PendingSession(session_id=session_id, expires_at=EXPIRES_AT, goal=goal)
+    def start(self, session_id: str, actor_id: str, goal: str) -> PendingSession:
+        self.record = PendingSession(
+            session_id=session_id,
+            expires_at=EXPIRES_AT,
+            goal=goal,
+            actor_id=actor_id,
+        )
         return self.record
 
-    def complete(self, session: CreateSessionData, goal: str) -> StoredSession:
+    def complete(self, session: CreateSessionData, actor_id: str, goal: str) -> StoredSession:
         self.record = StoredSession(
             **session.model_dump(mode="python"),
             expires_at=EXPIRES_AT,
             goal=goal,
+            actor_id=actor_id,
         )
         return self.record
 
-    def fail(self, session_id: str) -> None:
+    def fail(self, session_id: str, actor_id: str) -> None:
         assert self.record is not None
+        assert self.record.actor_id == actor_id
         self.record = FailedSession(
             session_id=session_id,
             expires_at=EXPIRES_AT,
             goal=self.record.goal,
+            actor_id=actor_id,
         )
 
-    def get_record(self, session_id: str) -> PendingSession | FailedSession | StoredSession | None:
-        if self.record is not None and self.record.session_id == session_id:
+    def get_record(
+        self, session_id: str, actor_id: str
+    ) -> PendingSession | FailedSession | StoredSession | None:
+        if (
+            self.record is not None
+            and self.record.session_id == session_id
+            and self.record.actor_id == actor_id
+        ):
             return self.record
         return None
+
+    def get(self, session_id: str, actor_id: str) -> StoredSession | None:
+        record = self.get_record(session_id, actor_id)
+        return record if isinstance(record, StoredSession) else None
 
 
 def candidate(number: int) -> dict[str, object]:
@@ -137,7 +157,12 @@ def runtime_response(payload: bytes | None = None) -> dict[str, object]:
     }
 
 
-def api_event(route_key: str, *, body: str | None = None) -> dict[str, object]:
+def api_event(
+    route_key: str,
+    *,
+    body: str | None = None,
+    actor_id: str = ACTOR_ID,
+) -> dict[str, object]:
     """Return an authenticated API Gateway v2 event."""
     event: dict[str, object] = {
         "version": "2.0",
@@ -147,12 +172,17 @@ def api_event(route_key: str, *, body: str | None = None) -> dict[str, object]:
             "x-correlation-id": CORRELATION_ID,
         },
         "isBase64Encoded": False,
-        "requestContext": {"requestId": "MqgCjHCKoAMEPLw="},
+        "requestContext": {
+            "requestId": "MqgCjHCKoAMEPLw=",
+            "authorizer": {"jwt": {"claims": {"sub": actor_id}}},
+        },
     }
     if body is not None:
         event["body"] = body
     if "{sessionId}" in route_key:
         event["pathParameters"] = {"sessionId": SESSION_ID}
+    if "{candidateId}" in route_key:
+        event["pathParameters"] = {"candidateId": "candidate_1"}
     return event
 
 
@@ -194,7 +224,9 @@ def test_session_crosses_api_queue_worker_runtime_and_status_boundaries(
     assert json.loads(str(accepted["body"])) == {
         "data": {"sessionId": SESSION_ID, "status": "pending"}
     }
-    assert RecommendationJob.model_validate_json(queue.message_body or "").goal == "compiler"
+    queued_job = RecommendationJob.model_validate_json(queue.message_body or "")
+    assert queued_job.goal == "compiler"
+    assert queued_job.actor_id == ACTOR_ID
 
     assert recommendation_worker.lambda_handler(sqs_event(queue), object()) == {"processed": 1}
     ready = api_function.lambda_handler(
@@ -224,6 +256,37 @@ def test_invalid_request_stops_before_queue_and_runtime(monkeypatch: pytest.Monk
     assert queue.message_body is None
     assert client.requests == []
     assert "do-not-reflect" not in json.dumps(response)
+
+
+def test_foreign_actor_cannot_read_or_select_from_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = FakeRuntimeClient(runtime_response())
+    _, queue = configure_pipeline(monkeypatch, client)
+    api_function.lambda_handler(
+        api_event("POST /v1/sessions", body=json.dumps({"goal": "compiler"})),
+        object(),
+    )
+    recommendation_worker.lambda_handler(sqs_event(queue), object())
+
+    status = api_function.lambda_handler(
+        api_event("GET /v1/sessions/{sessionId}", actor_id=OTHER_ACTOR_ID),
+        object(),
+    )
+    selection = api_function.lambda_handler(
+        api_event(
+            "POST /v1/projects/{candidateId}/select",
+            body=json.dumps({"sessionId": SESSION_ID}),
+            actor_id=OTHER_ACTOR_ID,
+        ),
+        object(),
+    )
+
+    assert status["statusCode"] == 404
+    assert selection["statusCode"] == 404
+    assert status["body"] == selection["body"]
+    assert "compiler" not in json.dumps([status, selection])
+    assert len(client.requests) == 1
 
 
 @pytest.mark.parametrize(

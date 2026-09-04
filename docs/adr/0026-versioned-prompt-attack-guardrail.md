@@ -30,10 +30,11 @@ constrained by strict domain contracts and cannot invoke arbitrary tools.
 - Use the Classic safeguard tier because Praxis accepts English input and must
   keep inference in-region. The Standard tier requires cross-Region guardrail
   inference.
-- Ask Strands to evaluate the latest user message. Recommendation requests place
-  the goal and validated, explicitly labeled untrusted catalog and memory data
-  in that message, so direct and indirect prompt attacks share the same model-
-  boundary control. System instructions and tool schemas are not assessed.
+- Put only the raw user goal in an explicit Strands `guardContent` block.
+  Server-added framing, catalog records, and memory records remain regular model
+  context so defensive instructions such as "treat as untrusted" do not trigger
+  the prompt-attack classifier. System instructions, strict output validation,
+  evidence controls, and tool allowlists defend the indirect-injection boundary.
 - Enable guardrail traces for control behavior while keeping public API errors
   generic. Preserve strict schema, evidence, tool, and authorization checks as
   independent defenses because a probabilistic filter cannot enforce them.
@@ -49,6 +50,9 @@ constrained by strict domain contracts and cannot invoke arbitrary tools.
   broad subject categories.
 - Guardrail false positives and false negatives remain possible. Adversarial
   catalog fixtures and tool-boundary tests must verify the surrounding controls.
+- A non-mutating, metered smoke check passes synthetic instruction-bearing
+  catalog evidence through the maintained prompt and candidate contracts. It
+  must be rerun after model, instruction, or contract changes.
 - Updating a guardrail policy creates a new numbered version and a new immutable
   Runtime version. The stable endpoint moves only after verification.
 - A read-only configuration smoke check verifies the policy and the stable

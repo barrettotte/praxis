@@ -15,6 +15,7 @@ from praxis.api.jobs import (
 
 SESSION_ID = "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4"
 CORRELATION_ID = "51f4a405-8835-411d-9821-5980d73f51f6"
+ACTOR_ID = "7b9db85b-9448-4a41-9bb7-235a461429ae"
 QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/123456789012/praxis-dev-recommendations"
 
 
@@ -37,6 +38,7 @@ def job() -> RecommendationJob:
         session_id=SESSION_ID,
         goal="Learn compiler backends",
         correlation_id=CORRELATION_ID,
+        actor_id=ACTOR_ID,
     )
 
 

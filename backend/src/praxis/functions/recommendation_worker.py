@@ -31,9 +31,9 @@ def process_job(job: RecommendationJob) -> None:
             job.correlation_id,
         )
     except ApiRuntimeError:
-        store.fail(job.session_id)
+        store.fail(job.session_id, job.actor_id)
         return
-    store.complete(session, job.goal)
+    store.complete(session, job.actor_id, job.goal)
 
 
 def lambda_handler(event: object, context: object) -> dict[str, int]:

@@ -10,6 +10,7 @@ from praxis.functions import recommendation_worker
 
 SESSION_ID = "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4"
 CORRELATION_ID = "51f4a405-8835-411d-9821-5980d73f51f6"
+ACTOR_ID = "7b9db85b-9448-4a41-9bb7-235a461429ae"
 
 
 def job() -> RecommendationJob:
@@ -17,6 +18,7 @@ def job() -> RecommendationJob:
         session_id=SESSION_ID,
         goal="Learn compiler backends",
         correlation_id=CORRELATION_ID,
+        actor_id=ACTOR_ID,
     )
 
 
@@ -60,7 +62,7 @@ def test_worker_completes_successful_runtime_session(monkeypatch: pytest.MonkeyP
         SESSION_ID,
         CORRELATION_ID,
     )
-    store.complete.assert_called_once_with(session, "Learn compiler backends")
+    store.complete.assert_called_once_with(session, ACTOR_ID, "Learn compiler backends")
     store.fail.assert_not_called()
 
 
@@ -76,5 +78,5 @@ def test_worker_records_safe_failed_state_for_runtime_failure(
 
     recommendation_worker.process_job(job())
 
-    store.fail.assert_called_once_with(SESSION_ID)
+    store.fail.assert_called_once_with(SESSION_ID, ACTOR_ID)
     store.complete.assert_not_called()

@@ -10,7 +10,7 @@ from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from praxis.api.requests import MAX_API_TEXT_CHARACTERS, SessionId
+from praxis.api.requests import MAX_API_TEXT_CHARACTERS, ActorId, SessionId
 
 
 class ApiJobError(RuntimeError):
@@ -31,6 +31,7 @@ class RecommendationJob(BaseModel):
     session_id: SessionId
     goal: Annotated[str, Field(min_length=1, max_length=MAX_API_TEXT_CHARACTERS)]
     correlation_id: Annotated[str, Field(min_length=1, max_length=128)]
+    actor_id: ActorId
 
 
 class _SqsRecord(BaseModel):

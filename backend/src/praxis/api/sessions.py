@@ -13,7 +13,7 @@ from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, model_validator
 
-from praxis.api.requests import MAX_API_TEXT_CHARACTERS
+from praxis.api.requests import MAX_API_TEXT_CHARACTERS, ActorId
 from praxis.api.runtime import CreateSessionData, SessionCandidate
 from praxis.tools.contracts import Evidence
 
@@ -66,6 +66,7 @@ class SessionRecord(BaseModel):
     ]
     expires_at: int = Field(gt=0)
     goal: Annotated[str, Field(min_length=1, max_length=MAX_API_TEXT_CHARACTERS)]
+    actor_id: ActorId
 
 
 class PendingSession(SessionRecord):
@@ -93,6 +94,7 @@ class StoredSession(CreateSessionData):
 
     expires_at: int = Field(gt=0)
     goal: Annotated[str, Field(min_length=1, max_length=MAX_API_TEXT_CHARACTERS)]
+    actor_id: ActorId
     status: Literal[SessionStatus.READY] = SessionStatus.READY
 
     @model_validator(mode="after")
@@ -151,12 +153,13 @@ class SessionStore:
         self._table = table
         self._now = now or (lambda: datetime.now(UTC))
 
-    def start(self, session_id: str, goal: str) -> PendingSession:
+    def start(self, session_id: str, actor_id: str, goal: str) -> PendingSession:
         """Create one pending session without replacing an existing identifier."""
         pending = PendingSession(
             session_id=session_id,
             expires_at=int(self._now().timestamp()) + SESSION_TTL_SECONDS,
             goal=goal,
+            actor_id=actor_id,
         )
         try:
             self._table.put_item(
@@ -167,7 +170,7 @@ class SessionStore:
             raise ApiSessionError("recommendation session could not be started") from error
         return pending
 
-    def complete(self, session: CreateSessionData, goal: str) -> StoredSession:
+    def complete(self, session: CreateSessionData, actor_id: str, goal: str) -> StoredSession:
         """Replace one pending session with its validated recommendation set."""
         stored = StoredSession(
             session_id=session.session_id,
@@ -175,27 +178,32 @@ class SessionStore:
             evidence=session.evidence,
             expires_at=int(self._now().timestamp()) + SESSION_TTL_SECONDS,
             goal=goal,
+            actor_id=actor_id,
         )
         try:
             self._table.put_item(
                 Item=stored.model_dump(mode="python"),
-                ConditionExpression="#status = :pending",
+                ConditionExpression="#status = :pending AND actor_id = :actor_id",
                 ExpressionAttributeNames={"#status": "status"},
-                ExpressionAttributeValues={":pending": SessionStatus.PENDING},
+                ExpressionAttributeValues={
+                    ":actor_id": actor_id,
+                    ":pending": SessionStatus.PENDING,
+                },
             )
         except (BotoCoreError, ClientError) as error:
             raise ApiSessionError("recommendation session could not be completed") from error
         return stored
 
-    def fail(self, session_id: str) -> None:
+    def fail(self, session_id: str, actor_id: str) -> None:
         """Mark one pending session failed without retaining dependency details."""
         try:
             self._table.update_item(
                 Key={"session_id": session_id},
-                ConditionExpression="#status = :pending",
+                ConditionExpression="#status = :pending AND actor_id = :actor_id",
                 UpdateExpression="SET #status = :failed",
                 ExpressionAttributeNames={"#status": "status"},
                 ExpressionAttributeValues={
+                    ":actor_id": actor_id,
                     ":failed": SessionStatus.FAILED,
                     ":pending": SessionStatus.PENDING,
                 },
@@ -203,7 +211,7 @@ class SessionStore:
         except (BotoCoreError, ClientError) as error:
             raise ApiSessionError("recommendation session could not be failed") from error
 
-    def get_record(self, session_id: str) -> AnySession | None:
+    def get_record(self, session_id: str, actor_id: str) -> AnySession | None:
         """Read one unexpired session state using a strongly consistent lookup."""
         try:
             response = self._table.get_item(
@@ -218,13 +226,13 @@ class SessionStore:
             )
         except (BotoCoreError, ClientError, ValidationError) as error:
             raise ApiSessionError("recommendation session could not be loaded") from error
-        if stored.expires_at <= int(self._now().timestamp()):
+        if stored.actor_id != actor_id or stored.expires_at <= int(self._now().timestamp()):
             return None
         return stored
 
-    def get(self, session_id: str) -> StoredSession | None:
+    def get(self, session_id: str, actor_id: str) -> StoredSession | None:
         """Return one ready session for candidate selection."""
-        record = self.get_record(session_id)
+        record = self.get_record(session_id, actor_id)
         return record if isinstance(record, StoredSession) else None
 
 

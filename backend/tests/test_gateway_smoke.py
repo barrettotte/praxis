@@ -128,6 +128,9 @@ def test_write_negative_call_evidence_without_response_details(tmp_path: Path) -
         tmp_path,
         excessive_limit_observation="MCP error",
         malformed_arguments_observation="HTTP 400",
+        oversized_candidate_batch_observation="MCP error",
+        oversized_query_observation="MCP error",
+        unregistered_tool_observation="MCP error",
         unsigned_status=403,
     )
 
@@ -144,6 +147,24 @@ def test_write_negative_call_evidence_without_response_details(tmp_path: Path) -
                 "authentication": "AWS_IAM",
                 "name": "malformed_tool_arguments",
                 "observation": "HTTP 400",
+                "rejected": True,
+            },
+            {
+                "authentication": "AWS_IAM",
+                "name": "oversized_candidate_batch",
+                "observation": "MCP error",
+                "rejected": True,
+            },
+            {
+                "authentication": "AWS_IAM",
+                "name": "oversized_search_query",
+                "observation": "MCP error",
+                "rejected": True,
+            },
+            {
+                "authentication": "AWS_IAM",
+                "name": "unregistered_tool",
+                "observation": "MCP error",
                 "rejected": True,
             },
             {

@@ -373,10 +373,10 @@ Definition of done: measurements show that cost or latency improved without a ma
 - [x] Separate API, runtime, gateway, and tool roles
 - [x] Enable encryption and set log-retention periods
 - [x] Configure Bedrock Guardrails where appropriate
-- [ ] Test prompt injection inside catalog records
-- [ ] Test attempts to invoke unregistered tools
-- [ ] Test cross-session data access
-- [ ] Test oversized prompts and tool arguments
+- [x] Test prompt injection inside catalog records
+- [x] Test attempts to invoke unregistered tools
+- [x] Test cross-session data access
+- [x] Test oversized prompts and tool arguments
 - [ ] Test Lambda timeout and throttling behavior
 - [ ] Confirm secrets never enter prompts or logs
 - [ ] Add dependency and container scanning

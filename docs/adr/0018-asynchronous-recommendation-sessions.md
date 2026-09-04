@@ -19,10 +19,12 @@ durable history, or a general workflow engine.
 
 - `POST /v1/sessions` creates a pending session, submits one job to an encrypted
   SQS queue, and returns `202 Accepted` with the session ID and `pending` status.
-- The queue message contains only the validated goal, session ID, and
-  correlation ID. It is retained for at most one day. The normalized goal is
-  retained in the one-hour application session solely to preserve selection
-  context; it is not copied into logs, AgentCore Memory, or public responses.
+- The API binds each session to the validated Cognito JWT subject. The queue
+  message contains only that subject, the validated goal, session ID, and
+  correlation ID, and is retained for at most one day. The normalized goal and
+  subject remain in the one-hour application session solely to preserve
+  selection context and authorize access; neither is copied into logs,
+  AgentCore Memory, or public responses.
 - A dedicated Python 3.13 worker Lambda consumes one job at a time, invokes the
   version-pinned AgentCore Runtime with one 90-second SDK attempt, and completes
   within a 120-second Lambda deadline.
@@ -30,7 +32,9 @@ durable history, or a general workflow engine.
   candidate set or marks it `failed` without dependency details. Session TTL
   remains one hour.
 - `GET /v1/sessions/{sessionId}` returns `pending`, `ready`, or `failed`. Only a
-  ready response includes candidates and resolved catalog evidence.
+  ready response includes candidates and resolved catalog evidence. Status and
+  candidate-selection lookups require the caller's JWT subject to match the
+  stored owner and otherwise return the same 404 response as an absent record.
 - The browser polls the authenticated status route at a bounded interval while
   retaining its accessible progress state.
 - The API role can send jobs and manage session state. A separate worker role

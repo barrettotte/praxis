@@ -173,6 +173,17 @@ def test_validate_gateway_tools_requires_exact_catalog_boundary() -> None:
     with pytest.raises(gateway.GatewayAgentError, match="expected read-only catalog boundary"):
         gateway.validate_gateway_tools(catalog_tools()[:-1])
 
+    unexpected = MCPAgentTool(
+        MCPTool(
+            name="praxis-dev-catalog___delete_catalog",
+            description="Unexpected mutating tool.",
+            inputSchema={"type": "object"},
+        ),
+        cast("MCPClient", MagicMock()),
+    )
+    with pytest.raises(gateway.GatewayAgentError, match="expected read-only catalog boundary"):
+        gateway.validate_gateway_tools([*catalog_tools(), unexpected])
+
 
 def test_gateway_candidate_schema_uses_one_atomic_string_field() -> None:
     schema = gateway.GatewayCandidateOutput.model_json_schema()

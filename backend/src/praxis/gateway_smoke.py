@@ -212,6 +212,9 @@ def write_negative_calls_evidence(
     *,
     excessive_limit_observation: str,
     malformed_arguments_observation: str,
+    oversized_candidate_batch_observation: str,
+    oversized_query_observation: str,
+    unregistered_tool_observation: str,
     unsigned_status: int,
 ) -> Path:
     """Write deterministic negative-call results without response internals."""
@@ -230,6 +233,24 @@ def write_negative_calls_evidence(
                 "authentication": "AWS_IAM",
                 "name": "malformed_tool_arguments",
                 "observation": malformed_arguments_observation,
+                "rejected": True,
+            },
+            {
+                "authentication": "AWS_IAM",
+                "name": "oversized_candidate_batch",
+                "observation": oversized_candidate_batch_observation,
+                "rejected": True,
+            },
+            {
+                "authentication": "AWS_IAM",
+                "name": "oversized_search_query",
+                "observation": oversized_query_observation,
+                "rejected": True,
+            },
+            {
+                "authentication": "AWS_IAM",
+                "name": "unregistered_tool",
+                "observation": unregistered_tool_observation,
                 "rejected": True,
             },
             {
@@ -506,6 +527,54 @@ def run_smoke(
         profile=profile,
         region=region,
     )
+    oversized_query_observation = _signed_rejection_observation(
+        url,
+        {
+            "jsonrpc": "2.0",
+            "id": "reject-oversized-query",
+            "method": "tools/call",
+            "params": {
+                "name": expected_names["search_catalog"],
+                "arguments": {"query": "x" * 501, "limit": 1},
+            },
+        },
+        profile=profile,
+        region=region,
+    )
+    oversized_candidate_batch_observation = _signed_rejection_observation(
+        url,
+        {
+            "jsonrpc": "2.0",
+            "id": "reject-oversized-candidate-batch",
+            "method": "tools/call",
+            "params": {
+                "name": expected_names["score_project_candidates"],
+                "arguments": {
+                    "candidates": [
+                        {"candidate_id": f"candidate_{index}", "description": "compiler"}
+                        for index in range(1, 5)
+                    ]
+                },
+            },
+        },
+        profile=profile,
+        region=region,
+    )
+    gateway_name = expected_names["search_catalog"].rpartition("___")[0]
+    unregistered_tool_observation = _signed_rejection_observation(
+        url,
+        {
+            "jsonrpc": "2.0",
+            "id": "reject-unregistered-tool",
+            "method": "tools/call",
+            "params": {
+                "name": f"{gateway_name}___delete_catalog",
+                "arguments": {},
+            },
+        },
+        profile=profile,
+        region=region,
+    )
     unsigned_status, _, _, _ = _request_mcp(
         url,
         {"jsonrpc": "2.0", "id": "reject-unsigned", "method": "tools/list"},
@@ -521,6 +590,9 @@ def run_smoke(
             evidence_directory,
             excessive_limit_observation=excessive_limit_observation,
             malformed_arguments_observation=malformed_arguments_observation,
+            oversized_candidate_batch_observation=oversized_candidate_batch_observation,
+            oversized_query_observation=oversized_query_observation,
+            unregistered_tool_observation=unregistered_tool_observation,
             unsigned_status=unsigned_status,
         )
         if evidence_directory is not None
@@ -531,6 +603,9 @@ def run_smoke(
         "iam_authenticated": True,
         "excessive_limit_rejected": True,
         "malformed_arguments_rejected": True,
+        "oversized_candidate_batch_rejected": True,
+        "oversized_query_rejected": True,
+        "unregistered_tool_rejected": True,
         "unsigned_request_rejected": True,
         "tools": sorted(expected_names),
         "search_result": first,

@@ -1,6 +1,8 @@
 {
-  "authenticated_direct_invocation": true,
   "body_limit_bytes": 16384,
-  "oversized_status": 413,
-  "runtime_invoked": false
+  "oversized_body_status": 413,
+  "oversized_prompt_status": 400,
+  "prompt_limit_characters": 4000,
+  "runtime_invoked": false,
+  "simulated_authorizer_context": true
 }
