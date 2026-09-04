@@ -18,6 +18,7 @@ from praxis.api.jobs import (
 from praxis.api.requests import (
     ApiPayloadTooLargeError,
     ApiRequestError,
+    ApiSensitiveInputError,
     CreateSessionRequest,
     SelectCandidateRequest,
     validate_api_request,
@@ -128,6 +129,8 @@ def lambda_handler(event: object, context: object) -> dict[str, object]:
         request = validate_api_request(event)
     except ApiPayloadTooLargeError:
         return error_response(ApiErrorCode.PAYLOAD_TOO_LARGE, fallback_correlation_id)
+    except ApiSensitiveInputError:
+        return error_response(ApiErrorCode.SENSITIVE_INPUT, fallback_correlation_id)
     except ApiRequestError:
         return error_response(ApiErrorCode.INVALID_REQUEST, fallback_correlation_id)
     if request.route_key == "POST /v1/sessions":

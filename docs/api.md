@@ -45,10 +45,10 @@ diagnostics, tool output, prompts, exception text, or stack traces. Clients may
 submit a new goal after a failed state and use correlation headers for
 investigation.
 
-Session creation allows a burst of one request and refills at 0.1 requests per
-second. Requests above that route limit receive API Gateway's 429 response
-before Lambda or Runtime invocation. Clients should wait before retrying and
-must not treat throttling as a completed session.
+Session creation and candidate selection each target a burst of one request
+and a rate of 0.1 requests per second. API Gateway applies these limits on a
+best-effort basis and can return 429 before invoking Lambda. The browser does
+not automatically resubmit failed POST requests; users can retry afterward.
 
 ## Response envelopes
 
@@ -96,6 +96,7 @@ Errors contain a stable machine-readable code and safe display text:
 | HTTP status | Error code | Meaning |
 | --- | --- | --- |
 | `400` | `invalid_request` | The request violates the public contract. |
+| `400` | `sensitive_input` | Remove recognizable credentials from the goal before resubmitting. |
 | `413` | `payload_too_large` | The decoded JSON request body exceeds 16 KiB. |
 | `404` | `not_found` | The session is absent, expired, or owned by another subject. |
 | `503` | `service_unavailable` | Recommendation generation or its dependencies are temporarily unavailable. |

@@ -138,7 +138,14 @@ def test_invoke_runtime_rejects_invalid_actor_ids(actor_id: object) -> None:
         )
 
 
-def test_invoke_runtime_returns_buffered_candidates_and_tool_metrics() -> None:
+def test_invoke_runtime_returns_buffered_candidates_and_tool_metrics(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    marker = "synthetic-credential-not-model-context"
+    for name in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"):
+        monkeypatch.setenv(name, marker)
     observed_prompts: list[str] = []
     observed_memory: list[tuple[str, ...]] = []
 
@@ -167,6 +174,8 @@ def test_invoke_runtime_returns_buffered_candidates_and_tool_metrics() -> None:
     ]
     assert response["evidence"] == [book_evidence().model_dump(mode="json")]
     assert response["memory"] == {"retrieved_count": 0}
+    captured = capsys.readouterr()
+    assert marker not in repr(response) + captured.out + captured.err + caplog.text
 
 
 def test_invoke_runtime_passes_only_typed_memory_to_the_agent() -> None:

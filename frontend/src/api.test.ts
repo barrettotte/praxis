@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createApiClient, readApiConfiguration } from "./api";
+import { createApiClient, readApiConfiguration, SensitiveInputError } from "./api";
 import type { AuthClient } from "./auth";
 
 const validResponse = {
@@ -111,6 +111,81 @@ describe("readApiConfiguration", () => {
 });
 
 describe("createApiClient", () => {
+  it("maps credential rejection to a fixed message without polling or reflecting server text", async () => {
+    const request = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ error: { code: "sensitive_input", message: "do-not-reflect" } }),
+        {
+          status: 400,
+        },
+      ),
+    );
+    const wait = vi.fn();
+    const client = createApiClient(
+      { baseUrl: "https://example.com" },
+      createAuthClient(),
+      request,
+      wait,
+    );
+
+    await expect(client.createSession("synthetic goal")).rejects.toEqual(new SensitiveInputError());
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(wait).not.toHaveBeenCalled();
+  });
+
+  it.each(["not json", JSON.stringify({ error: { code: "unknown", message: "do-not-reflect" } })])(
+    "keeps other 400 responses generic: %s",
+    async (body) => {
+      const request = vi.fn().mockResolvedValue(new Response(body, { status: 400 }));
+      const client = createApiClient(
+        { baseUrl: "https://example.com" },
+        createAuthClient(),
+        request,
+      );
+      await expect(client.createSession("compiler")).rejects.toThrow(
+        "API request failed with status 400",
+      );
+    },
+  );
+
+  it("stops polling a session that stays pending", async () => {
+    const request = vi
+      .fn()
+      .mockImplementation(() =>
+        Promise.resolve(new Response(JSON.stringify(pendingResponse), { status: 202 })),
+      );
+    const wait = vi.fn().mockResolvedValue(undefined);
+    const client = createApiClient(
+      { baseUrl: "https://api.example.com" },
+      createAuthClient(),
+      request,
+      wait,
+    );
+
+    await expect(client.createSession("compiler")).rejects.toThrow("session timed out");
+    expect(request).toHaveBeenCalledTimes(61);
+    expect(wait).toHaveBeenCalledTimes(60);
+  });
+
+  it.each(["create", "select"])(
+    "does not automatically retry a throttled %s request",
+    async (operation) => {
+      const request = vi.fn().mockResolvedValue(new Response("sensitive detail", { status: 429 }));
+      const client = createApiClient(
+        { baseUrl: "https://api.example.com" },
+        createAuthClient(),
+        request,
+      );
+
+      const result =
+        operation === "create"
+          ? client.createSession("compiler")
+          : client.selectCandidate(validResponse.data.sessionId, "candidate_1");
+      await expect(result).rejects.toThrow("API request failed with status 429");
+      expect(request).toHaveBeenCalledOnce();
+    },
+  );
+
   it("starts and polls an authenticated session until candidates are ready", async () => {
     const getAccessToken = vi.fn().mockResolvedValue("access-token");
     const request = vi

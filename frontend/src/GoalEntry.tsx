@@ -2,7 +2,12 @@ import { useState, type SyntheticEvent } from "react";
 
 import { CandidateCards } from "./CandidateCards";
 import { ProjectBriefView } from "./ProjectBriefView";
-import type { ApiClient, CreateSessionResult, SelectCandidateResult } from "./api";
+import {
+  SensitiveInputError,
+  type ApiClient,
+  type CreateSessionResult,
+  type SelectCandidateResult,
+} from "./api";
 
 const GOAL_MAX_LENGTH = 4_000;
 const GOAL_REQUIRED_ERROR = "Describe what you want to learn or build.";
@@ -45,9 +50,13 @@ export function GoalEntry({ api }: GoalEntryProps) {
     try {
       setResult(await api.createSession(normalizedGoal));
       setRequestState("complete");
-    } catch {
+    } catch (cause) {
       setResult(null);
-      setError("Recommendations could not be created. Try again.");
+      setError(
+        cause instanceof SensitiveInputError
+          ? cause.message
+          : "Recommendations could not be created. Try again.",
+      );
       setRequestState("failed");
     }
   }
@@ -101,7 +110,7 @@ export function GoalEntry({ api }: GoalEntryProps) {
           required
           value={goal}
           aria-describedby={error === null ? "goal-help" : "goal-help goal-error"}
-          aria-invalid={error === GOAL_REQUIRED_ERROR}
+          aria-invalid={error !== null}
           onChange={(event) => {
             setGoal(event.target.value);
             setError(null);
@@ -114,7 +123,9 @@ export function GoalEntry({ api }: GoalEntryProps) {
           }}
         />
         <p id="goal-help" className="form-help">
-          {goal.length.toLocaleString()} of {GOAL_MAX_LENGTH.toLocaleString()} characters
+          Do not include passwords, API keys, or tokens. Goals and responses may appear in
+          evaluation traces. {goal.length.toLocaleString()} of {GOAL_MAX_LENGTH.toLocaleString()}{" "}
+          characters
         </p>
         {error === null ? null : (
           <p id="goal-error" className="form-error" role="alert">

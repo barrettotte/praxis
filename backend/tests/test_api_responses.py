@@ -30,6 +30,11 @@ def test_builds_success_response_envelope() -> None:
     [
         (ApiErrorCode.INVALID_REQUEST, 400, "Invalid request."),
         (
+            ApiErrorCode.SENSITIVE_INPUT,
+            400,
+            "Remove passwords, API keys, or tokens from your goal.",
+        ),
+        (
             ApiErrorCode.NOT_FOUND,
             404,
             "Requested recommendation session was not found.",

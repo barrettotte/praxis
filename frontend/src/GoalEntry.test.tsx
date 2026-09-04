@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { GoalEntry } from "./GoalEntry";
+import { SensitiveInputError } from "./api";
 import type {
   ApiClient,
   CreateSessionResult,
@@ -176,6 +177,22 @@ describe("GoalEntry", () => {
       "role",
       "status",
     );
+  });
+
+  it("asks users to remove credentials before resubmitting", async () => {
+    render(
+      <GoalEntry api={createApiClient(vi.fn().mockRejectedValue(new SensitiveInputError()))} />,
+    );
+    fireEvent.change(screen.getByLabelText("Goal or interest"), {
+      target: { value: "api_key=synthetic-credential" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Find project ideas" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Remove passwords, API keys, or tokens from your goal.",
+    );
+    expect(screen.getByLabelText("Goal or interest")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("button", { name: "Find project ideas" })).toBeEnabled();
   });
 
   it("shows a retryable error without exposing dependency details", async () => {

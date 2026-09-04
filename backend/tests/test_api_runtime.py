@@ -5,7 +5,7 @@ from typing import Protocol, cast
 
 import pytest
 from botocore.config import Config
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, ReadTimeoutError
 
 from praxis.api import runtime as api_runtime
 from praxis.api.runtime import (
@@ -421,3 +421,15 @@ def test_hides_invalid_runtime_response_content() -> None:
         )
 
     assert marker not in str(captured.value)
+
+
+def test_timeout_while_reading_runtime_body_returns_safe_error() -> None:
+    class TimedOutBody:
+        def read(self) -> bytes:
+            raise ReadTimeoutError(endpoint_url="https://sensitive.example.com")
+
+    client = FakeRuntimeClient({**valid_response(), "response": TimedOutBody()})
+    with pytest.raises(ApiRuntimeError, match="invalid response") as captured:
+        invoke_runtime(client, settings(), "compiler", SESSION_ID, CORRELATION_ID)
+
+    assert "sensitive" not in str(captured.value)

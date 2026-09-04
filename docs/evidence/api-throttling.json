@@ -1,6 +1,15 @@
 {
   "configured": true,
-  "route": "POST /v1/sessions",
+  "verification": "read_only_configuration",
+  "routes": [
+    "POST /v1/sessions",
+    "POST /v1/projects/{candidateId}/select"
+  ],
+  "lambda_timeouts_seconds": {
+    "api": 29,
+    "catalog": 15,
+    "recommendation_worker": 120
+  },
   "throttling_burst_limit": 1,
   "throttling_rate_limit_rps": 0.1
 }

@@ -80,3 +80,22 @@ def test_worker_records_safe_failed_state_for_runtime_failure(
 
     store.fail.assert_called_once_with(SESSION_ID, ACTOR_ID)
     store.complete.assert_not_called()
+
+
+def test_worker_does_not_acknowledge_unexpected_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    store = Mock()
+    monkeypatch.setattr(recommendation_worker, "create_session_store", lambda: store)
+    monkeypatch.setattr(recommendation_worker, "runtime_client", Mock(return_value=Mock()))
+    monkeypatch.setattr(recommendation_worker, "load_runtime_settings", Mock(return_value=Mock()))
+    monkeypatch.setattr(
+        recommendation_worker, "invoke_runtime", Mock(side_effect=RuntimeError("unexpected"))
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected"):
+        recommendation_worker.lambda_handler(
+            {"Records": [{"body": job().model_dump_json(), "eventSource": "aws:sqs"}]},
+            object(),
+        )
+
+    store.complete.assert_not_called()
+    store.fail.assert_not_called()

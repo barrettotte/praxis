@@ -377,11 +377,34 @@ Definition of done: measurements show that cost or latency improved without a ma
 - [x] Test attempts to invoke unregistered tools
 - [x] Test cross-session data access
 - [x] Test oversized prompts and tool arguments
-- [ ] Test Lambda timeout and throttling behavior
-- [ ] Confirm secrets never enter prompts or logs
+- [x] Test Lambda timeout and throttling behavior
+- [ ] Screen pasted secrets before persistence/model calls and verify credential isolation from prompts/logs
 - [ ] Add dependency and container scanning
 - [ ] Produce a lightweight threat model
 - [ ] Document residual risks
+
+Timeout and throttling verification uses local injected SDK failures, catalog
+remaining-time checks, and browser 429/polling tests, plus read-only verification
+of deployed route limits and Lambda timeouts. Live concurrency saturation and
+forced Lambda termination have not been tested; the hard-timeout limitation is
+documented in `docs/infrastructure-operations.md`.
+
+Public goal screening is implemented and verified locally for recognizable
+credential formats and assignments before session persistence, queueing, or
+Runtime invocation. JSON/base64 rejection and browser correction tests pass.
+Deployment and the extended API smoke remain pending; direct Runtime/CLI and
+retrieved-content coverage is not implemented. Keep the broader secret-screening
+item open. See `docs/adr/0027-goal-credential-screening.md` for scope and limits.
+
+Credential verification uses synthetic markers in API headers, unused JWT
+claims, dependency errors, and Runtime environment credentials. Local tests
+check model-input boundaries, queued jobs, stored state, responses, and captured
+application logs. An offline API smoke probe verifies bearer tokens stay out of
+`jq`/`curl` arguments and child environments while producing a mode-600 curl
+configuration. `make check` passes. This replaces the unprovable blanket claim
+that secrets can never appear in logs: user-supplied text is intentionally
+captured in evaluation traces, and arbitrary SDK diagnostics are not proven
+secret-free. Limits and handling guidance are in `docs/agent-runtime.md`.
 
 Definition of done: the project demonstrates working controls instead of only listing security claims.
 

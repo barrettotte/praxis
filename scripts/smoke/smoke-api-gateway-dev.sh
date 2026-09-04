@@ -14,6 +14,7 @@ trap 'rm -rf "${praxis_work_dir}"' EXIT
 praxis_require_commands curl jq "${praxis_tofu}"
 
 praxis_access_token="${PRAXIS_ACCESS_TOKEN:-}"
+unset PRAXIS_ACCESS_TOKEN
 if [[ -z "${praxis_access_token}" ]]; then
   printf 'PRAXIS_ACCESS_TOKEN is required for the JWT-authenticated API suite.\n' >&2
   exit 2
@@ -22,8 +23,9 @@ praxis_api_url="$(praxis_tofu_output api_gateway_url)"
 praxis_api_url="${praxis_api_url%/}"
 
 # Keep the short-lived bearer token out of process arguments and evidence captures.
-jq -nr --arg header "authorization: Bearer ${praxis_access_token}" \
-  '"--header " + ($header | @json)' >"${praxis_work_dir}/curl-jwt.config"
+printf '%s' "${praxis_access_token}" | \
+  jq -Rrs '"--header " + ("authorization: Bearer " + . | @json)' \
+    >"${praxis_work_dir}/curl-jwt.config"
 unset praxis_access_token
 
 # An authenticated declared route must accept one pending recommendation session.
@@ -170,6 +172,28 @@ if [[ "${praxis_invalid_status}" != "400" ]] || \
   exit 1
 fi
 
+# Allow the development route's 0.1-request/second token bucket to refill.
+sleep 11
+# Use only a synthetic value; rejection must not echo the submitted goal.
+praxis_sensitive_status="$(
+  curl --config "${praxis_work_dir}/curl-jwt.config" \
+    --silent --show-error --max-time 35 \
+    --output "${praxis_work_dir}/sensitive-request.json" \
+    --write-out '%{http_code}' \
+    --request POST \
+    --header 'content-type: application/json' \
+    --data '{"goal":"Build a project using api_key=synthetic-smoke-credential"}' \
+    "${praxis_api_url}/v1/sessions"
+)"
+if [[ "${praxis_sensitive_status}" != "400" ]] || \
+  ! jq -e '. == {error: {code: "sensitive_input",
+      message: "Remove passwords, API keys, or tokens from your goal."}}' \
+    "${praxis_work_dir}/sensitive-request.json" >/dev/null; then
+  printf 'Credential screening returned an unexpected response (HTTP %s).\n' \
+    "${praxis_sensitive_status}" >&2
+  exit 1
+fi
+
 # JWT authorization must reject the same declared route before Lambda invocation.
 praxis_unauthenticated_status="$(
   curl --silent --show-error \
@@ -202,6 +226,6 @@ fi
 
 mkdir -p "${praxis_evidence_dir}"
 jq -n \
-  '{all_candidates_cited: true, api_gateway_reached: true, asynchronous_session: true, brief_generated: true, buffered_response: true, candidate_count: 3, correlation_id_propagated: true, error_schema_valid: true, handler_status: 202, invalid_request_status: 400, jwt_authenticated: true, runtime_invoked: true, selection_status: 200, server_authoritative_selection: true, status_polling: true, supporting_evidence_resolved: true, unauthenticated_status: 401, unknown_route_status: 404}' \
+  '{all_candidates_cited: true, api_gateway_reached: true, asynchronous_session: true, brief_generated: true, buffered_response: true, candidate_count: 3, correlation_id_propagated: true, error_schema_valid: true, handler_status: 202, invalid_request_status: 400, jwt_authenticated: true, runtime_invoked: true, selection_status: 200, sensitive_input_rejected: true, server_authoritative_selection: true, status_polling: true, supporting_evidence_resolved: true, unauthenticated_status: 401, unknown_route_status: 404}' \
   >"${praxis_evidence_dir}/api-gateway.json"
 jq . "${praxis_evidence_dir}/api-gateway.json"

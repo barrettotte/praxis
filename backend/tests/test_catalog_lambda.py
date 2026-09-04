@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
+from unittest.mock import Mock
 
 import pytest
+from botocore.exceptions import ClientError, ReadTimeoutError
 from pydantic import ValidationError
 
 from praxis.catalog import (
@@ -258,9 +260,8 @@ def test_catalog_lambda_rejects_unsupported_gateway_tool_context(
     }
 
 
-def test_catalog_lambda_returns_a_safe_timeout_before_hard_termination(
-    repository: LocalCatalogRepository,
-) -> None:
+def test_catalog_lambda_returns_a_safe_timeout_before_hard_termination() -> None:
+    repository = Mock(spec=CatalogRepository)
     with pytest.raises(CatalogToolError) as raised:
         handle_catalog_invocation(
             {"query": "compiler"},
@@ -273,6 +274,36 @@ def test_catalog_lambda_returns_a_safe_timeout_before_hard_termination(
         "message": "Catalog tool did not have enough time to complete.",
         "retryable": True,
     }
+    assert repository.mock_calls == []
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        ReadTimeoutError(endpoint_url="https://sensitive.example.com"),
+        ClientError(
+            {"Error": {"Code": "ProvisionedThroughputExceededException", "Message": "sensitive"}},
+            "Query",
+        ),
+    ],
+    ids=["timeout", "throttled"],
+)
+def test_catalog_dependency_failures_are_safe_and_recoverable(
+    failure: Exception, repository: LocalCatalogRepository
+) -> None:
+    failing_repository = Mock(spec=CatalogRepository)
+    failing_repository.search.side_effect = failure
+    context = gateway_context("praxis-dev-catalog___search_catalog")
+    with pytest.raises(CatalogToolError) as raised:
+        handle_catalog_invocation({"query": "compiler"}, context, failing_repository)
+
+    assert raised.value.as_dict() == {
+        "code": "DEPENDENCY_FAILURE",
+        "message": "Catalog storage is temporarily unavailable.",
+        "retryable": True,
+    }
+    failing_repository.search.assert_called_once()
+    assert "results" in handle_catalog_invocation({"query": "compiler"}, context, repository)
 
 
 def test_catalog_lambda_does_not_leak_invalid_argument_details(

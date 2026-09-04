@@ -1,10 +1,12 @@
 """Integration tests across the asynchronous API and Runtime worker boundaries."""
 
 import json
+from base64 import b64encode
+from typing import cast
 from uuid import UUID
 
 import pytest
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, ReadTimeoutError
 
 from praxis.api.jobs import RecommendationJob
 from praxis.api.runtime import CreateSessionData
@@ -258,6 +260,99 @@ def test_invalid_request_stops_before_queue_and_runtime(monkeypatch: pytest.Monk
     assert "do-not-reflect" not in json.dumps(response)
 
 
+@pytest.mark.parametrize("encoded", [False, True], ids=["json", "base64-json"])
+@pytest.mark.parametrize(
+    "secret",
+    [
+        "AKIA" + "A" * 16,
+        "ASIA" + "B" * 16,
+        "ghp_" + "c" * 36,
+        "github_pat_" + "d" * 60,
+        "sk-proj-" + "e" * 40,
+        "-----BEGIN RSA PRIVATE KEY-----\nsynthetic\n-----END RSA PRIVATE KEY-----",
+        "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzeW50aGV0aWMifQ.c3ludGhldGlj",
+        "Authorization: Bearer synthetic-credential",
+        '"password": "synthetic-credential"',
+        "AWS_SECRET_ACCESS_KEY=synthetic-credential",
+        "api_key = synthetic-credential",
+    ],
+)
+def test_pasted_credentials_stop_before_storage_queue_and_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    capsys: pytest.CaptureFixture[str],
+    secret: str,
+    encoded: bool,
+) -> None:
+    client = FakeRuntimeClient(runtime_response())
+    store, queue = configure_pipeline(monkeypatch, client)
+    body = json.dumps({"goal": f"Help me build a project with {secret}"})
+    event = api_event(
+        "POST /v1/sessions", body=b64encode(body.encode()).decode() if encoded else body
+    )
+    event["isBase64Encoded"] = encoded
+
+    response = api_function.lambda_handler(event, object())
+
+    assert response["statusCode"] == 400
+    assert json.loads(str(response["body"])) == {
+        "error": {
+            "code": "sensitive_input",
+            "message": "Remove passwords, API keys, or tokens from your goal.",
+        }
+    }
+    assert store.record is None
+    assert queue.message_body is None
+    assert client.requests == []
+    captured = capsys.readouterr()
+    assert secret not in json.dumps(response) + captured.out + captured.err + caplog.text
+
+
+@pytest.mark.parametrize("fail_runtime", [False, True], ids=["success", "dependency-error"])
+def test_authentication_material_stays_out_of_jobs_runtime_state_and_logs(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    capsys: pytest.CaptureFixture[str],
+    fail_runtime: bool,
+) -> None:
+    marker = "synthetic-credential-do-not-propagate"
+    failure = ClientError(
+        {"Error": {"Code": "RuntimeClientError", "Message": marker}}, "InvokeAgentRuntime"
+    )
+    client = FakeRuntimeClient(failure if fail_runtime else runtime_response())
+    store, queue = configure_pipeline(monkeypatch, client)
+    event = api_event("POST /v1/sessions", body=json.dumps({"goal": GOAL}))
+    headers = cast("dict[str, str]", event["headers"])
+    headers.update({"authorization": f"Bearer {marker}", "cookie": f"session={marker}"})
+    event["requestContext"] = {
+        "requestId": "MqgCjHCKoAMEPLw=",
+        "authorizer": {"jwt": {"claims": {"sub": ACTOR_ID, "unused_claim": marker}}},
+    }
+
+    accepted = api_function.lambda_handler(event, object())
+    assert accepted["statusCode"] == 202
+    assert recommendation_worker.lambda_handler(sqs_event(queue), object()) == {"processed": 1}
+    status = api_function.lambda_handler(api_event("GET /v1/sessions/{sessionId}"), object())
+
+    assert len(client.requests) == 1
+    assert json.loads(cast("bytes", client.requests[0]["payload"])) == {
+        "actor_id": "praxis-single-user",
+        "prompt": GOAL,
+    }
+    assert store.record is not None
+    captured = capsys.readouterr()
+    surfaces = (
+        queue.message_body or "",
+        repr(client.requests),
+        store.record.model_dump_json(),
+        json.dumps([accepted, status]),
+        captured.out,
+        captured.err,
+        caplog.text,
+    )
+    assert all(marker not in surface for surface in surfaces)
+
+
 def test_foreign_actor_cannot_read_or_select_from_session(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -302,8 +397,13 @@ def test_foreign_actor_cannot_read_or_select_from_session(
             "InvokeAgentRuntime",
         ),
         runtime_response(b"sensitive malformed Runtime content"),
+        ReadTimeoutError(endpoint_url="https://sensitive.example.com"),
+        ClientError(
+            {"Error": {"Code": "ThrottlingException", "Message": "sensitive throttle detail"}},
+            "InvokeAgentRuntime",
+        ),
     ],
-    ids=["dependency-error", "invalid-output"],
+    ids=["dependency-error", "invalid-output", "timeout", "throttled"],
 )
 def test_runtime_failures_become_safe_failed_session_state(
     monkeypatch: pytest.MonkeyPatch,
@@ -316,7 +416,7 @@ def test_runtime_failures_become_safe_failed_session_state(
         object(),
     )
 
-    recommendation_worker.lambda_handler(sqs_event(queue), object())
+    assert recommendation_worker.lambda_handler(sqs_event(queue), object()) == {"processed": 1}
     response = api_function.lambda_handler(
         api_event("GET /v1/sessions/{sessionId}"),
         object(),
@@ -327,3 +427,48 @@ def test_runtime_failures_become_safe_failed_session_state(
         "data": {"sessionId": SESSION_ID, "status": "failed"}
     }
     assert "sensitive" not in json.dumps(response)
+    assert len(client.requests) == 1
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        ReadTimeoutError(endpoint_url="https://sensitive.example.com"),
+        ClientError(
+            {"Error": {"Code": "ThrottlingException", "Message": "sensitive throttle detail"}},
+            "InvokeAgentRuntime",
+        ),
+    ],
+    ids=["timeout", "throttled"],
+)
+def test_selection_failure_preserves_candidates_and_returns_safe_503(
+    monkeypatch: pytest.MonkeyPatch, failure: Exception
+) -> None:
+    client = FakeRuntimeClient(runtime_response())
+    store, queue = configure_pipeline(monkeypatch, client)
+    api_function.lambda_handler(
+        api_event("POST /v1/sessions", body=json.dumps({"goal": GOAL})), object()
+    )
+    recommendation_worker.lambda_handler(sqs_event(queue), object())
+    ready_record = store.record
+    client.response = failure
+    monkeypatch.setattr(api_function, "runtime_client", lambda: client)
+
+    response = api_function.lambda_handler(
+        api_event(
+            "POST /v1/projects/{candidateId}/select",
+            body=json.dumps({"sessionId": SESSION_ID}),
+        ),
+        object(),
+    )
+
+    assert response["statusCode"] == 503
+    assert json.loads(str(response["body"])) == {
+        "error": {
+            "code": "service_unavailable",
+            "message": "Recommendation service is temporarily unavailable.",
+        }
+    }
+    assert cast("dict[str, str]", response["headers"])["x-correlation-id"] == CORRELATION_ID
+    assert store.record is ready_record
+    assert len(client.requests) == 2

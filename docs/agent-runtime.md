@@ -199,14 +199,60 @@ read traces or change observability configuration.
 AgentCore Evaluations consumes the standard Strands spans rather than a Praxis-
 specific trace schema. AgentCore stores them in the named Runtime endpoint's
 CloudWatch `spans` stream. Trace data may contain the user prompt, model response, and tool
-inputs and results required for quality and tool-use evaluation; it must never
-contain credentials or secrets. The Runtime trace smoke check records only
+inputs and results required for quality and tool-use evaluation. Do not submit
+secrets in goals, catalog records, or memory: content tracing is not a secret
+redaction boundary. The Runtime trace smoke check records only
 scope, operation, service, span, and trace counts, omitting content and IDs.
 
 AWS documents the required ADOT entrypoint and X-Ray permissions in its
 [AgentCore observability setup](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability-configure.html),
 and Strands documents its native OTEL span structure in the
 [Strands tracing guide](https://strandsagents.com/docs/user-guide/observability-evaluation/traces/).
+
+## Credential isolation
+
+The public `POST /v1/sessions` handler screens the decoded, schema-validated goal
+before creating session state, queuing work, or invoking Runtime. Recognizable
+AWS access IDs, GitHub and `sk-`-prefixed tokens, private-key headers, JWT-shaped
+strings, authorization header assignments, and explicit password/key/token
+assignments produce a fixed `400 sensitive_input` response. The detector returns
+only a boolean and does not log or echo matches. Rejection, rather than silent
+redaction, lets the user remove the value without changing their goal implicitly.
+Even synthetic credential examples can be rejected; describe the mechanism
+without including values. The browser displays a fixed correction message.
+
+This screening is intentionally limited: unlabelled passwords, unknown token
+formats, encoded or obfuscated secrets, and ordinary sensitive prose may pass.
+It does not screen direct IAM Runtime/CLI requests, existing sessions, catalog
+content, memory, or generated output, and it does not remove previously retained
+data. Do not treat a successful request as proof that its content is safe to log.
+Avoid recording request bodies or validator inputs; this follows
+[OWASP guidance to exclude passwords and access tokens from logs](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html#data-to-exclude).
+
+Cognito bearer tokens authenticate browser requests; the API forwards only
+validated application fields to the queue and Runtime, not authorization headers,
+cookies, or unused JWT claims. AWS credentials stay in SDK authentication; they
+are not part of agent prompts or tool arguments. Runtime generation receives
+only the goal, validated evidence, explicit memory context, and, for briefs, the
+selected candidate. Strands console
+callbacks are disabled, and API access logs use a fixed metadata-only schema.
+
+Local regression tests cover synthetic authentication markers across API jobs,
+Runtime requests, stored sessions, public responses, and captured application
+logs on success and handled dependency failure. Runtime tests also verify the
+agent receives only the expected prompt and memory with synthetic AWS credentials
+in the environment. These checks do not prove absence from every SDK log or
+deployed trace. Keep SDK debug/wire logging and shell tracing disabled around
+credentials, and do not enable HTTP header capture without a security review;
+[OpenTelemetry warns that capturing all headers can leak sensitive information](https://opentelemetry.io/docs/specs/semconv/http/http-spans/).
+
+Prompts, generated output, tool content, and exception diagnostics can contain
+sensitive text supplied by a user or dependency. Guardrails and schema validation
+do not guarantee secret detection or redaction. Use non-sensitive inputs for
+smokes and evaluations; treat Runtime traces as sensitive, with restricted IAM
+access and seven-day retention. If a credential is submitted accidentally,
+revoke or rotate it and review retained session data, traces, and evaluation
+artifacts before sharing any captures.
 
 ## Lifecycle and isolation
 

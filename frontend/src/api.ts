@@ -109,6 +109,12 @@ export interface ApiConfiguration {
   baseUrl: string;
 }
 
+export class SensitiveInputError extends Error {
+  constructor() {
+    super("Remove passwords, API keys, or tokens from your goal.");
+  }
+}
+
 type RequestFunction = (input: string, init: RequestInit) => Promise<Response>;
 type WaitFunction = (milliseconds: number) => Promise<void>;
 
@@ -421,6 +427,16 @@ export function createApiClient(
         method: "POST",
       });
       if (!response.ok) {
+        if (response.status === 400) {
+          const errorBody: unknown = await response.json().catch(() => null);
+          if (
+            isRecord(errorBody) &&
+            isRecord(errorBody.error) &&
+            errorBody.error.code === "sensitive_input"
+          ) {
+            throw new SensitiveInputError();
+          }
+        }
         throw new Error(`API request failed with status ${response.status.toString()}`);
       }
       const pending = parsePendingSessionResponse(await response.json());

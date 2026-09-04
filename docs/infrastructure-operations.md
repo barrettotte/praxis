@@ -137,6 +137,14 @@ Run `make smoke-dev SUITE=api`, then remove the token with
 token. Access tokens expire after one hour; sign in again when the token is no
 longer accepted. Do not store a token in `.env` or commit it.
 
+The API smoke script removes the token from its child-process environment and
+passes it to `jq` over stdin to build a private temporary curl configuration;
+it is not a command-line argument. The configuration is removed on normal exit
+or a trapped failure. Do not run authenticated scripts with `bash -x`, curl
+verbose/trace options, or AWS debug logging. See
+[credential isolation and trace limits](agent-runtime.md#credential-isolation)
+before sharing logs or evaluation captures.
+
 Run `./scripts/smoke/smoke-dev.sh --help` for the same suite list. Narrow
 scripts in `scripts/smoke/` remain available for diagnosing one failed check,
 but they are not separate Make targets.
@@ -188,9 +196,11 @@ correlates an unauthenticated 401 request with its delivered CloudWatch record
 without invoking Lambda. Initial log delivery can
 take up to two minutes. The CORS check requires an exact frontend origin and
 proves an unrelated origin receives no allow-origin header; API Gateway answers
-both preflights without Lambda. The throttling check reads the deployed stage and requires the
-session route to match the reviewed rate and burst values without invoking the
-API. The payload check invokes the private API Lambda with a body over 16 KiB
+both preflights without Lambda. The throttling check reads the deployed stage
+and verifies both POST routes target a burst of one and 0.1 requests per second.
+It also reads the API, catalog, and worker Lambda timeouts (29, 15, and 120
+seconds) and records configuration evidence in `docs/evidence/api-throttling.json`.
+The payload check invokes the private API Lambda with a body over 16 KiB
 and a separate 4,001-character goal. It requires fixed 413 and 400 responses,
 respectively, proving validation stopped before Runtime.
 The `api` suite exercises the Runtime-backed success path through API Gateway.
@@ -199,6 +209,17 @@ successful Runtime call is metered. That diagnostic supplies trusted-context
 fixtures for two JWT subjects and requires the second subject to receive the
 same fixed 404 for both session status and candidate selection; its sanitized
 result is recorded in `docs/evidence/api-lambda.json`.
+
+`make check` injects transport timeouts and throttling errors into the API,
+worker, and catalog adapters. Expected worker failures become a safe `failed`
+session and are acknowledged; brief failures return 503 while preserving the
+stored candidates. Catalog storage failures are retryable, and its remaining-time
+guard rejects work before accessing storage. The browser stops pending-session
+polling after 60 attempts and does not automatically retry POST requests on 429.
+These are deterministic failure tests, not live Lambda saturation or hard-timeout
+experiments. A hard worker termination cannot write a failed status; its SQS
+message remains subject to redelivery and dead-letter handling, and the browser
+can reach its polling limit while the stored session still says `pending`.
 
 The Memory check has a distinct confirmation because its first run creates one
 typed preference and one typed decision for a dedicated smoke actor. A

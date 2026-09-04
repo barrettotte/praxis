@@ -32,6 +32,7 @@ class ApiErrorCode(StrEnum):
     INVALID_REQUEST = "invalid_request"
     NOT_FOUND = "not_found"
     PAYLOAD_TOO_LARGE = "payload_too_large"
+    SENSITIVE_INPUT = "sensitive_input"
     SERVICE_UNAVAILABLE = "service_unavailable"
 
 
@@ -61,6 +62,7 @@ _ERROR_DEFINITIONS: dict[ApiErrorCode, tuple[int, str]] = {
     ApiErrorCode.INVALID_REQUEST: (400, "Invalid request."),
     ApiErrorCode.NOT_FOUND: (404, "Requested recommendation session was not found."),
     ApiErrorCode.PAYLOAD_TOO_LARGE: (413, "Request payload is too large."),
+    ApiErrorCode.SENSITIVE_INPUT: (400, "Remove passwords, API keys, or tokens from your goal."),
     ApiErrorCode.SERVICE_UNAVAILABLE: (
         503,
         "Recommendation service is temporarily unavailable.",

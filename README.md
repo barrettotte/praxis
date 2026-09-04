@@ -17,7 +17,7 @@ flowchart TD
     ui -->|Authenticate| cognito[Amazon Cognito]
     cognito -->|JWT| ui
     ui -->|JWT request| apiGateway[Amazon API Gateway HTTP API]
-    apiGateway -->|Validated JWT claims| apiLambda[API Lambda<br/>API execution role]
+    apiGateway -->|Validated JWT claims| apiLambda[API Lambda<br/>Goal credential screening + API execution role]
     apiLambda -->|Store/read subject-owned state| sessions[(Encrypted DynamoDB sessions<br/>Subject bound + TTL enabled)]
     apiLambda -->|Queue subject + validated goal| jobs[[Encrypted SQS<br/>recommendation jobs]]
     jobs --> worker[Recommendation worker Lambda<br/>Worker execution role]
@@ -77,6 +77,9 @@ API Gateway is the application boundary, while AgentCore Gateway is the
 authenticated tool boundary. Application routes use Cognito JWT authorization
 and bind session access to the validated token subject;
 AgentCore Runtime and Gateway remain IAM-authenticated internal boundaries.
+The API rejects recognizable pasted credentials in new goals before storing or
+queueing them. This is limited screening, not a guarantee that prompts or traces
+are secret-free; see [input-screening limits](docs/agent-runtime.md#credential-isolation).
 OpenTofu manages the AWS infrastructure.
 
 ## Development

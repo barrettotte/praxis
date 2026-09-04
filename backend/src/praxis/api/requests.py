@@ -8,6 +8,7 @@ from typing import Annotated, Literal, cast
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 from praxis.api.correlation import CorrelationIdError, correlation_id_from_event
+from praxis.api.prompt_safety import contains_likely_secret
 
 MAX_API_BODY_BYTES = 16 * 1024
 MAX_API_TEXT_CHARACTERS = 4_000
@@ -42,6 +43,10 @@ class ApiRequestError(ValueError):
 
 class ApiPayloadTooLargeError(ApiRequestError):
     """Raised when a request body exceeds the application payload limit."""
+
+
+class ApiSensitiveInputError(ApiRequestError):
+    """Raised when a goal appears to contain pasted credentials."""
 
 
 class RequestModel(BaseModel):
@@ -214,6 +219,8 @@ def _validate_event(event: _HttpApiEvent, correlation_id: str) -> ValidatedApiRe
     body = cast(
         "ApiRequestBody", _BODY_MODELS[event.route_key].model_validate_json(_decode_body(event))
     )
+    if isinstance(body, CreateSessionRequest) and contains_likely_secret(body.goal):
+        raise ApiSensitiveInputError("goal appears to contain credentials")
     return ValidatedApiRequest(
         event.route_key,
         path_parameters,
@@ -228,7 +235,7 @@ def validate_api_request(event: object) -> ValidatedApiRequest:
     try:
         correlation_id = correlation_id_from_event(event)
         return _validate_event(_HttpApiEvent.model_validate(event), correlation_id)
-    except ApiPayloadTooLargeError:
+    except (ApiPayloadTooLargeError, ApiSensitiveInputError):
         raise
     except (CorrelationIdError, KeyError, ValidationError, ValueError) as error:
         raise ApiRequestError("invalid API request") from error
