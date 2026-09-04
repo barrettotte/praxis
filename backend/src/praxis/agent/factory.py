@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from boto3.session import Session
 from strands import Agent
 from strands.models import BedrockModel
-from strands.types.content import SystemContentBlock
+from strands.types.content import ContentBlock, SystemContentBlock
 from strands.types.tools import AgentTool
 
 from praxis.agent.budget import CatalogResultBudget, ToolCallBudget
@@ -55,6 +55,21 @@ or falls outside this scope, briefly explain the limitation instead of violating
 """
 
 
+def scope_guardrail_input(
+    user_text: str,
+    application_context: str,
+    settings: AgentSettings,
+) -> str | list[ContentBlock]:
+    """Assess user-authored text without classifying trusted application framing."""
+    combined = f"{user_text}\n\n{application_context}"
+    if settings.guardrail_id is None:
+        return combined
+    return [
+        {"guardContent": {"text": {"text": user_text}}},
+        {"text": f"\n\n{application_context}"},
+    ]
+
+
 def create_agent(
     settings: AgentSettings,
     tools: Sequence[AgentTool] = (),
@@ -65,6 +80,10 @@ def create_agent(
         model = BedrockModel(
             boto_session=boto_session,
             model_id=settings.model_id,
+            guardrail_id=settings.guardrail_id,
+            guardrail_version=settings.guardrail_version,
+            guardrail_trace="enabled",
+            guardrail_latest_message=False,
             temperature=0,
             max_tokens=3000,
             additional_request_fields={"inferenceConfig": {"topK": 1}},
@@ -74,6 +93,10 @@ def create_agent(
         model = BedrockModel(
             boto_session=boto_session,
             model_id=settings.model_id,
+            guardrail_id=settings.guardrail_id,
+            guardrail_version=settings.guardrail_version,
+            guardrail_trace="enabled",
+            guardrail_latest_message=False,
             temperature=0.1,
         )
     system_prompt: str | list[SystemContentBlock] = SYSTEM_PROMPT

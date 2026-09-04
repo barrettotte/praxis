@@ -20,12 +20,19 @@ class AgentSettings:
 
     model_id: str
     region: str
+    guardrail_id: str | None = None
+    guardrail_version: str | None = None
     max_catalog_results: int = DEFAULT_MAX_CATALOG_RESULTS
     max_tool_calls: int = DEFAULT_MAX_TOOL_CALLS
 
     def __post_init__(self) -> None:
         if self.max_catalog_results < 1 or self.max_tool_calls < 1:
             raise ValueError("agent budgets must be positive")
+        guardrail_values = (self.guardrail_id, self.guardrail_version)
+        if any(value is not None and not value.strip() for value in guardrail_values):
+            raise ValueError("guardrail configuration must not be blank")
+        if (self.guardrail_id is None) != (self.guardrail_version is None):
+            raise ValueError("guardrail ID and version must be configured together")
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,9 +80,15 @@ def _positive_int(source: Mapping[str, str], name: str, default: int) -> int:
 def load_settings(environ: Mapping[str, str] | None = None) -> AgentSettings:
     """Load agent settings from environment variables."""
     source = os.environ if environ is None else environ
+    guardrail_id = source.get("PRAXIS_GUARDRAIL_ID", "").strip() or None
+    guardrail_version = source.get("PRAXIS_GUARDRAIL_VERSION", "").strip() or None
+    if (guardrail_id is None) != (guardrail_version is None):
+        raise SettingsError("PRAXIS_GUARDRAIL_ID and PRAXIS_GUARDRAIL_VERSION must be set together")
     return AgentSettings(
         model_id=_required(source, "PRAXIS_MODEL_ID"),
         region=_required(source, "AWS_REGION"),
+        guardrail_id=guardrail_id,
+        guardrail_version=guardrail_version,
         max_catalog_results=_positive_int(
             source,
             "PRAXIS_MAX_CATALOG_RESULTS",

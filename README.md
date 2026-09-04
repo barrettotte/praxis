@@ -2,6 +2,9 @@
 
 An Amazon Bedrock and AgentCore app that uses personal evidence to recommend worthwhile software projects and turn ideas into actionable briefs.
 
+I wanted to see a basic AgentCore app doing something mildly interesting.
+I used my data from [barrettotte.github.io](https://github.com/barrettotte/barrettotte.github.io/tree/master/data).
+
 ## Architecture
 
 Praxis follows this serverless architecture:
@@ -9,30 +12,31 @@ Praxis follows this serverless architecture:
 ```mermaid
 flowchart TD
     user[User] -->|HTTPS| edge[Amazon CloudFront]
-    edge -->|Signed OAC reads| frontendAssets[(Private S3 frontend assets)]
+    edge -->|Signed OAC reads| frontendAssets[(Encrypted private S3 frontend assets)]
     edge -->|Serve application| ui[React + TypeScript in browser]
     ui -->|Authenticate| cognito[Amazon Cognito]
     cognito -->|JWT| ui
     ui -->|JWT request| apiGateway[Amazon API Gateway HTTP API]
-    apiGateway --> apiLambda[API Lambda]
-    apiLambda -->|Store/read expiring session state| sessions[(DynamoDB sessions<br/>TTL enabled)]
+    apiGateway --> apiLambda[API Lambda<br/>API execution role]
+    apiLambda -->|Store/read expiring session state| sessions[(Encrypted DynamoDB sessions<br/>TTL enabled)]
     apiLambda -->|Queue validated goal| jobs[[Encrypted SQS<br/>recommendation jobs]]
-    jobs --> worker[Recommendation worker Lambda]
+    jobs --> worker[Recommendation worker Lambda<br/>Worker execution role]
     jobs -.->|Retries exhausted| deadLetter[[Encrypted SQS<br/>dead-letter queue]]
     worker -->|Complete ready or failed state| sessions
 
     subgraph runtime[Amazon Bedrock AgentCore Runtime]
         runtimeEndpoint[stable endpoint<br/>Pinned Runtime version]
-        agent[Python 3.13 ARM64 container<br/>Strands agent]
-        memory[AgentCore Memory]
+        agent[Python 3.13 ARM64 container<br/>Strands agent + Runtime execution role]
+        memory[Encrypted AgentCore Memory]
         runtimeEndpoint --> agent
         agent -->|Read typed preferences and decisions| memory
     end
 
     worker -->|Generate candidates| runtimeEndpoint
     apiLambda -->|Generate selected project brief| runtimeEndpoint
-    agent --> bedrock[Amazon Bedrock<br/>Nova Pro]
-    agentImage[(Amazon ECR<br/>agent image)] -->|Immutable image digest| agent
+    agent -->|Guarded Converse requests| guardrail[Amazon Bedrock Guardrail<br/>Prompt-attack input filter]
+    guardrail --> bedrock[Amazon Bedrock<br/>Nova Pro]
+    agentImage[(Encrypted Amazon ECR<br/>agent image)] -->|Immutable image digest| agent
 
     subgraph observability[Application and agent observability]
         apiAccessLogs[CloudWatch Logs<br/>API access metadata]
@@ -56,16 +60,16 @@ flowchart TD
     evalRunner -->|Read correlated spans| runtimeSpans
 
     subgraph tools[AgentCore Gateway MCP tool boundary]
-        gateway[AgentCore Gateway]
-        catalogLambda[Catalog Lambda]
+        gateway[AgentCore Gateway<br/>Gateway execution role]
+        catalogLambda[Catalog Lambda<br/>Catalog execution role]
         gateway --> catalogLambda
     end
 
     agent -->|IAM-authenticated MCP| gateway
-    catalogLambda --> catalog[(DynamoDB catalog)]
+    catalogLambda --> catalog[(Encrypted DynamoDB catalog)]
 
-    sources[Read-only source JSON] -->|Manual reproducible seed upload| sourceBucket[(S3 source copies)]
-    sourceBucket -->|Manual invocation reads| ingestion[Ingestion Lambda]
+    sources[Read-only source JSON] -->|Manual reproducible seed upload| sourceBucket[(Encrypted S3 source copies)]
+    sourceBucket -->|Manual invocation reads| ingestion[Ingestion Lambda<br/>Ingestion execution role]
     ingestion --> catalog
 ```
 

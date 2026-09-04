@@ -34,6 +34,11 @@ run_check() {
 
 case "${praxis_suite}" in
   config)
+    run_check "IAM role separation" "${praxis_script_dir}/smoke-iam-roles-dev.sh"
+    run_check "Encryption and log retention" \
+      "${praxis_script_dir}/smoke-data-protection-dev.sh"
+    run_check "Bedrock prompt-attack guardrail" \
+      "${praxis_script_dir}/smoke-guardrail-dev.sh"
     run_check "API CORS" "${praxis_script_dir}/smoke-api-cors-dev.sh"
     run_check "API payload limit" "${praxis_script_dir}/smoke-api-payload-dev.sh"
     run_check "API throttling" "${praxis_script_dir}/smoke-api-throttling-dev.sh"

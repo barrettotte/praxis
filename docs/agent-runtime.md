@@ -94,6 +94,19 @@ Comparative claims must define a baseline, metric, and measurement procedure.
 The brief path receives no Gateway tools and cannot add catalog facts beyond the
 already resolved evidence.
 
+## Bedrock guardrail
+
+Deployed recommendation and project-brief model calls include the immutable
+guardrail ID and version supplied through `PRAXIS_GUARDRAIL_ID` and
+`PRAXIS_GUARDRAIL_VERSION`. Both variables must be set together. Local workflows
+may omit both to remain independent of deployed AWS resources.
+
+The guardrail evaluates the latest user message, which contains the goal and any
+explicitly labeled untrusted catalog or memory context. It blocks prompt attacks
+at high strength and does not apply broad topic, harmful-content, or output
+filters. Strict structured-output validation, evidence ledgers, catalog budgets,
+and the Gateway tool allowlist remain separate controls.
+
 ## Invocation budgets
 
 Each invocation may execute at most four model-selected catalog tool calls by

@@ -1,0 +1,12 @@
+{
+  "attached_to_stable_runtime": true,
+  "filter": {
+    "input_action": "BLOCK",
+    "input_strength": "HIGH",
+    "output_enabled": false,
+    "type": "PROMPT_ATTACK"
+  },
+  "status": "READY",
+  "tier": "CLASSIC",
+  "versioned": true
+}

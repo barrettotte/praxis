@@ -75,6 +75,34 @@ def test_load_settings_reads_tool_call_budget() -> None:
     assert settings.max_tool_calls == 2
 
 
+def test_load_settings_reads_versioned_guardrail() -> None:
+    settings = load_settings(
+        {
+            "PRAXIS_MODEL_ID": "example.model-v1:0",
+            "AWS_REGION": "us-east-1",
+            "PRAXIS_GUARDRAIL_ID": "guardrail-123",
+            "PRAXIS_GUARDRAIL_VERSION": "7",
+        }
+    )
+
+    assert settings.guardrail_id == "guardrail-123"
+    assert settings.guardrail_version == "7"
+
+
+@pytest.mark.parametrize("missing_name", ["PRAXIS_GUARDRAIL_ID", "PRAXIS_GUARDRAIL_VERSION"])
+def test_load_settings_requires_complete_guardrail_configuration(missing_name: str) -> None:
+    environ = {
+        "PRAXIS_MODEL_ID": "example.model-v1:0",
+        "AWS_REGION": "us-east-1",
+        "PRAXIS_GUARDRAIL_ID": "guardrail-123",
+        "PRAXIS_GUARDRAIL_VERSION": "7",
+    }
+    del environ[missing_name]
+
+    with pytest.raises(SettingsError, match="must be set together"):
+        load_settings(environ)
+
+
 @pytest.mark.parametrize("value", ["0", "-1", "many"])
 def test_load_settings_rejects_invalid_tool_call_budget(value: str) -> None:
     with pytest.raises(SettingsError, match="PRAXIS_MAX_TOOL_CALLS must be a positive integer"):

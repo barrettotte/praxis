@@ -7,6 +7,8 @@ set -euo pipefail
 for praxis_name in \
   PRAXIS_AGENT_CONTAINER_URI \
   PRAXIS_AGENT_GATEWAY_URL \
+  PRAXIS_AGENT_GUARDRAIL_ID \
+  PRAXIS_AGENT_GUARDRAIL_VERSION \
   PRAXIS_AGENT_IDLE_TIMEOUT \
   PRAXIS_AGENT_MAX_LIFETIME \
   PRAXIS_AGENT_MAX_RESULTS \
@@ -44,6 +46,8 @@ praxis_environment="$(
   jq -cn \
     --arg region "${PRAXIS_AGENT_RUNTIME_REGION}" \
     --arg gateway_url "${PRAXIS_AGENT_GATEWAY_URL}" \
+    --arg guardrail_id "${PRAXIS_AGENT_GUARDRAIL_ID}" \
+    --arg guardrail_version "${PRAXIS_AGENT_GUARDRAIL_VERSION}" \
     --arg max_results "${PRAXIS_AGENT_MAX_RESULTS}" \
     --arg max_tool_calls "${PRAXIS_AGENT_MAX_TOOL_CALLS}" \
     --arg memory_id "${PRAXIS_AGENT_MEMORY_ID}" \
@@ -60,6 +64,8 @@ praxis_environment="$(
       OTEL_PYTHON_CONFIGURATOR: $otel_configurator,
       OTEL_PYTHON_DISTRO: $otel_distro,
       PRAXIS_GATEWAY_URL: $gateway_url,
+      PRAXIS_GUARDRAIL_ID: $guardrail_id,
+      PRAXIS_GUARDRAIL_VERSION: $guardrail_version,
       PRAXIS_MAX_CATALOG_RESULTS: $max_results,
       PRAXIS_MAX_TOOL_CALLS: $max_tool_calls,
       PRAXIS_MEMORY_ID: $memory_id,

@@ -1,6 +1,7 @@
 # Centralize development naming, deployable images, and mandatory resource tags.
 locals {
-  name_prefix = "${var.project_name}-${var.environment}"
+  api_actor_id = "praxis-single-user"
+  name_prefix  = "${var.project_name}-${var.environment}"
   ecr_repositories = {
     agent = "AgentCore runtime image"
   }

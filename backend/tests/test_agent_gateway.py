@@ -254,6 +254,8 @@ def test_gateway_agent_session_keeps_client_open_while_constructing_agent() -> N
     agent_settings = AgentSettings(
         model_id="amazon.nova-micro-v1:0",
         region="us-east-1",
+        guardrail_id="guardrail-123",
+        guardrail_version="7",
     )
 
     with (
@@ -295,7 +297,7 @@ def test_invoke_gateway_agent_keeps_session_open_during_model_invocation() -> No
                 }
             )
 
-    def invoke_stub(_prompt: str, **kwargs: object) -> StubAgentResult:
+    def invoke_stub(_prompt: object, **kwargs: object) -> StubAgentResult:
         invocation_state = cast("dict[str, object]", kwargs["invocation_state"])
         budget = ToolCallBudget(
             maximum_calls=agent_settings.max_tool_calls,
@@ -317,6 +319,8 @@ def test_invoke_gateway_agent_keeps_session_open_during_model_invocation() -> No
     agent_settings = AgentSettings(
         model_id="amazon.nova-micro-v1:0",
         region="us-east-1",
+        guardrail_id="guardrail-123",
+        guardrail_version="7",
     )
 
     with (
@@ -337,11 +341,14 @@ def test_invoke_gateway_agent_keeps_session_open_during_model_invocation() -> No
         arguments={"query": "recommend compiler project", "limit": 3},
         read_timeout_seconds=None,
     )
-    generation_prompt = cast("str", fake_agent.call_args.args[0])
-    assert generation_prompt.startswith("Recommend a compiler project\n\n")
-    assert '"evidence_id":"book:0f5ba253568e4836"' in generation_prompt
-    assert "user-authored preferences and prior decisions" in generation_prompt
-    assert "Prefer weekend scope" in generation_prompt
+    generation_prompt = cast("list[dict[str, object]]", fake_agent.call_args.args[0])
+    assert generation_prompt[0] == {
+        "guardContent": {"text": {"text": "Recommend a compiler project"}}
+    }
+    application_context = cast("str", generation_prompt[1]["text"])
+    assert '"evidence_id":"book:0f5ba253568e4836"' in application_context
+    assert "user-authored preferences and prior decisions" in application_context
+    assert "Prefer weekend scope" in application_context
     assert fake_agent.call_args.kwargs["structured_output_model"] is gateway.GatewayCandidateOutput
     assert fake_agent.call_args.kwargs["limits"] == {"turns": 6}
     assert result.candidates == candidate_set()

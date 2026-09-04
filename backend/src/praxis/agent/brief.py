@@ -9,8 +9,10 @@ from botocore.exceptions import ClientError
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 from strands import Agent
 from strands.models import BedrockModel
+from strands.types.content import ContentBlock
 from strands.types.exceptions import StructuredOutputException
 
+from praxis.agent.factory import scope_guardrail_input
 from praxis.config import AgentSettings
 from praxis.domain import ProjectCandidate
 from praxis.domain.briefs import ProjectBrief
@@ -126,6 +128,10 @@ def create_brief_agent(settings: AgentSettings) -> Agent:
     model = BedrockModel(
         boto_session=Session(region_name=settings.region),
         model_id=settings.model_id,
+        guardrail_id=settings.guardrail_id,
+        guardrail_version=settings.guardrail_version,
+        guardrail_trace="enabled",
+        guardrail_latest_message=False,
         temperature=0,
         max_tokens=3000,
         additional_request_fields={"inferenceConfig": {"topK": 1}},
@@ -148,7 +154,10 @@ def _is_invalid_tool_sequence(error: ClientError) -> bool:
     )
 
 
-def _generate_structured_brief(prompt: str, settings: AgentSettings) -> ProjectBriefOutput:
+def _generate_structured_brief(
+    prompt: str | list[ContentBlock],
+    settings: AgentSettings,
+) -> ProjectBriefOutput:
     """Request a valid brief with one fresh retry for transient tool sequencing."""
     for attempt in range(BRIEF_MODEL_ATTEMPTS):
         try:
@@ -184,12 +193,16 @@ def invoke_project_brief(
     cited_ids = {citation.evidence_id for citation in candidate.evidence_citations}
     if not cited_ids or not cited_ids <= evidence_ids:
         raise ProjectBriefAgentError("Selected candidate evidence is unavailable")
-    prompt = json.dumps(
+    application_context = json.dumps(
         {
-            "original_goal": goal,
             "selected_candidate": candidate.model_dump(mode="json"),
             "catalog_evidence": [item.model_dump(mode="json") for item in evidence],
         },
         separators=(",", ":"),
+    )
+    prompt = scope_guardrail_input(
+        goal,
+        f"Generate the project brief from this server-validated context:\n{application_context}",
+        settings,
     )
     return _generate_structured_brief(prompt, settings).as_brief()

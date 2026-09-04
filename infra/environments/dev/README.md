@@ -100,6 +100,12 @@ route templates, status, latency, and byte counts only; they omit bodies,
 prompts, raw paths, caller identities, IP addresses, user agents, and error
 text.
 
+All project-owned CloudWatch log groups use service-managed encryption and
+seven-day retention. AgentCore creates Runtime endpoint groups outside the AWS
+provider's resource lifecycle, so an idempotent OpenTofu provisioner applies
+the same retention to the `DEFAULT` and `stable` groups after endpoint changes.
+The account-level `aws/spans` group is shared and remains outside this stack.
+
 The Cognito Lite user pool is an admin-provisioned, single-user directory with
 case-insensitive email sign-in, verified-email recovery, and no public
 self-registration. OpenTofu manages no user or password, and deletion
@@ -119,13 +125,26 @@ ingestion or access DynamoDB directly. The Gateway accepts MCP versions
 `2025-03-26`, `2025-06-18`, and `2025-11-25`; signed evidence captures remain
 on `2025-03-26`, while the current Strands MCP client negotiates `2025-11-25`.
 
+API, recommendation worker, Runtime, Gateway, catalog, and ingestion workloads
+each use a distinct execution role with an OpenTofu-owned inline policy. The
+configuration smoke suite reads the active role from every service and rejects
+shared roles, unexpected bindings, and managed-policy attachments.
+
 The AgentCore Runtime runs the digest-pinned Strands container with IAM inbound
 authorization and public outbound networking. Its execution role can pull only
-the agent image, invoke the configured Nova Lite model, retain Nova Micro as a
-measured rollback model, invoke the catalog Gateway, write Runtime logs, and
-submit ADOT traces to X-Ray. It has no direct access to catalog storage or
-ingestion. The ADOT entrypoint exports evaluation-compatible Strands spans
-correlated with AgentCore Runtime sessions to CloudWatch.
+the agent image, invoke the configured Nova Pro model, retain Nova Lite and Nova
+Micro as measured rollback models, invoke the catalog Gateway, read Memory only
+for the application and verification actors, write only its generated Runtime
+log groups, and submit ADOT traces to X-Ray. It has no direct access to catalog
+storage or ingestion. The ADOT entrypoint exports evaluation-compatible Strands
+spans correlated with AgentCore Runtime sessions to CloudWatch.
+
+Every Runtime model request uses an immutable OpenTofu-managed Bedrock
+Guardrail version. Its Classic-tier text prompt-attack filter blocks direct and
+indirect instruction-override attempts at high strength. Output evaluation and
+broad topic or harmful-content filters remain disabled to avoid screening valid
+technical project domains and unnecessary guardrail charges. Strict schemas,
+evidence validation, and tool allowlists remain independently authoritative.
 Session timeouts limit idle development cost. During apply, OpenTofu runs the
 MMDSv2 compatibility update documented in
 `docs/adr/0004-agentcore-runtime-deployment.md` and fails unless the Runtime

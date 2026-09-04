@@ -8,6 +8,12 @@ locals {
     "amazon.nova-lite-v1:0",
     var.agent_model_id,
   ])
+  # Runtime smoke tests and evaluations use isolated actors without widening memory access.
+  agentcore_runtime_actor_ids = [
+    local.api_actor_id,
+    "praxis-evaluation",
+    "praxis-smoke",
+  ]
   agentcore_runtime_environment = {
     AGENT_OBSERVABILITY_ENABLED = "true"
     AWS_REGION                  = var.aws_region
@@ -15,6 +21,8 @@ locals {
     OTEL_PYTHON_CONFIGURATOR    = "aws_configurator"
     OTEL_PYTHON_DISTRO          = "aws_distro"
     PRAXIS_GATEWAY_URL          = aws_bedrockagentcore_gateway.catalog.gateway_url
+    PRAXIS_GUARDRAIL_ID         = aws_bedrock_guardrail.project_planning.guardrail_id
+    PRAXIS_GUARDRAIL_VERSION    = aws_bedrock_guardrail_version.project_planning.version
     PRAXIS_MAX_CATALOG_RESULTS  = "20"
     PRAXIS_MAX_TOOL_CALLS       = "4"
     PRAXIS_MEMORY_ID            = aws_bedrockagentcore_memory.personalization.id
@@ -26,6 +34,10 @@ locals {
     idle_runtime_session_timeout = 300
     max_lifetime                 = 3600
   }
+  agentcore_runtime_log_group_names = [
+    for endpoint_name in ["DEFAULT", "stable"] :
+    "/aws/bedrock-agentcore/runtimes/${aws_bedrockagentcore_agent_runtime.agent.agent_runtime_id}-${endpoint_name}"
+  ]
 }
 
 # Source constraints prevent confused-deputy use by unrelated AgentCore resources.
@@ -76,9 +88,10 @@ data "aws_iam_policy_document" "agentcore_runtime" {
   }
 
   statement {
-    sid       = "GetECRToken"
-    effect    = "Allow"
-    actions   = ["ecr:GetAuthorizationToken"]
+    sid     = "GetECRToken"
+    effect  = "Allow"
+    actions = ["ecr:GetAuthorizationToken"]
+    # ECR authorization tokens do not support resource-level permissions.
     resources = ["*"]
   }
 
@@ -90,7 +103,7 @@ data "aws_iam_policy_document" "agentcore_runtime" {
       "logs:DescribeLogStreams",
     ]
     resources = [
-      "arn:${data.aws_partition.current.partition}:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/bedrock-agentcore/runtimes/*",
+      "arn:${data.aws_partition.current.partition}:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/bedrock-agentcore/runtimes/${local.agentcore_runtime_name}-*",
     ]
   }
 
@@ -120,7 +133,7 @@ data "aws_iam_policy_document" "agentcore_runtime" {
       "logs:PutLogEvents",
     ]
     resources = [
-      "arn:${data.aws_partition.current.partition}:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/bedrock-agentcore/runtimes/*:log-stream:*",
+      "arn:${data.aws_partition.current.partition}:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/bedrock-agentcore/runtimes/${local.agentcore_runtime_name}-*:log-stream:*",
     ]
   }
 
@@ -135,6 +148,13 @@ data "aws_iam_policy_document" "agentcore_runtime" {
       for model_id in local.agentcore_runtime_model_ids :
       "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}::foundation-model/${model_id}"
     ]
+  }
+
+  statement {
+    sid       = "ApplyProjectPlanningGuardrail"
+    effect    = "Allow"
+    actions   = ["bedrock:ApplyGuardrail"]
+    resources = [aws_bedrock_guardrail.project_planning.guardrail_arn]
   }
 
   statement {
@@ -154,7 +174,10 @@ data "aws_iam_policy_document" "agentcore_runtime" {
     condition {
       test     = "StringLike"
       variable = "bedrock-agentcore:namespacePath"
-      values   = ["/actors/*"]
+      values = [
+        for actor_id in local.agentcore_runtime_actor_ids :
+        "/actors/${actor_id}/*"
+      ]
     }
   }
 
@@ -168,6 +191,7 @@ data "aws_iam_policy_document" "agentcore_runtime" {
       "xray:PutTelemetryRecords",
       "xray:PutTraceSegments",
     ]
+    # X-Ray sampling and trace APIs do not support resource-level permissions.
     resources = ["*"]
   }
 }
@@ -231,6 +255,8 @@ resource "terraform_data" "agentcore_runtime_mmdsv2" {
     environment = {
       PRAXIS_AGENT_CONTAINER_URI     = local.agentcore_runtime_container_uri
       PRAXIS_AGENT_GATEWAY_URL       = aws_bedrockagentcore_gateway.catalog.gateway_url
+      PRAXIS_AGENT_GUARDRAIL_ID      = local.agentcore_runtime_environment.PRAXIS_GUARDRAIL_ID
+      PRAXIS_AGENT_GUARDRAIL_VERSION = local.agentcore_runtime_environment.PRAXIS_GUARDRAIL_VERSION
       PRAXIS_AGENT_IDLE_TIMEOUT      = tostring(local.agentcore_runtime_lifecycle.idle_runtime_session_timeout)
       PRAXIS_AGENT_MAX_LIFETIME      = tostring(local.agentcore_runtime_lifecycle.max_lifetime)
       PRAXIS_AGENT_MAX_RESULTS       = local.agentcore_runtime_environment.PRAXIS_MAX_CATALOG_RESULTS
@@ -262,4 +288,24 @@ resource "aws_bedrockagentcore_agent_runtime_endpoint" "stable" {
   }
 
   depends_on = [terraform_data.agentcore_runtime_mmdsv2]
+}
+
+# AgentCore creates these groups outside the AWS provider's resource lifecycle.
+resource "terraform_data" "agentcore_runtime_log_retention" {
+  triggers_replace = [
+    sha256(jsonencode(local.agentcore_runtime_log_group_names)),
+    "7",
+  ]
+
+  provisioner "local-exec" {
+    command = "${path.module}/../../../scripts/configure-agentcore-log-retention.sh"
+
+    environment = {
+      PRAXIS_LOG_GROUP_NAMES    = jsonencode(local.agentcore_runtime_log_group_names)
+      PRAXIS_LOG_RETENTION_DAYS = "7"
+      PRAXIS_RUNTIME_REGION     = var.aws_region
+    }
+  }
+
+  depends_on = [aws_bedrockagentcore_agent_runtime_endpoint.stable]
 }

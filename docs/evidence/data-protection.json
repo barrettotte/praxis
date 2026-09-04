@@ -1,0 +1,12 @@
+{
+  "encryption_at_rest": {
+    "agentcore": "AWS-owned keys",
+    "cloudwatch_logs": "service-managed AES-256-GCM",
+    "dynamodb": "enabled",
+    "ecr": "AES256",
+    "s3": "AES256",
+    "sqs": "SQS-managed"
+  },
+  "log_group_count": 7,
+  "log_retention_days": 7
+}

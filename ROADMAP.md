@@ -369,10 +369,10 @@ Definition of done: measurements show that cost or latency improved without a ma
 
 ## Phase 9 - Security and failure testing
 
-- [ ] Apply least-privilege IAM policies
-- [ ] Separate API, runtime, gateway, and tool roles
-- [ ] Enable encryption and set log-retention periods
-- [ ] Configure Bedrock Guardrails where appropriate
+- [x] Apply least-privilege IAM policies
+- [x] Separate API, runtime, gateway, and tool roles
+- [x] Enable encryption and set log-retention periods
+- [x] Configure Bedrock Guardrails where appropriate
 - [ ] Test prompt injection inside catalog records
 - [ ] Test attempts to invoke unregistered tools
 - [ ] Test cross-session data access

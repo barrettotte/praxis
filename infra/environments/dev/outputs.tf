@@ -6,6 +6,28 @@ output "ecr_repository_urls" {
   }
 }
 
+output "bedrock_guardrail_id" {
+  description = "Identifier of the Bedrock guardrail attached to model requests."
+  value       = aws_bedrock_guardrail.project_planning.guardrail_id
+}
+
+output "bedrock_guardrail_version" {
+  description = "Immutable Bedrock guardrail version attached to model requests."
+  value       = aws_bedrock_guardrail_version.project_planning.version
+}
+
+output "application_execution_role_arns" {
+  description = "Execution role ARNs keyed by independently privileged application component."
+  value = {
+    api       = aws_iam_role.api_lambda.arn
+    catalog   = aws_iam_role.catalog_lambda.arn
+    gateway   = aws_iam_role.agentcore_gateway.arn
+    ingestion = aws_iam_role.ingestion_lambda.arn
+    runtime   = aws_iam_role.agentcore_runtime.arn
+    worker    = aws_iam_role.recommendation_worker.arn
+  }
+}
+
 output "api_lambda_name" {
   description = "Name of the private application API Lambda function."
   value       = aws_lambda_function.api.function_name
@@ -76,6 +98,20 @@ output "api_gateway_access_log_group_name" {
   value       = aws_cloudwatch_log_group.api_gateway_access.name
 }
 
+output "application_log_group_names" {
+  description = "Project-owned CloudWatch log groups requiring finite retention."
+  value = concat(
+    [
+      aws_cloudwatch_log_group.api_gateway_access.name,
+      aws_cloudwatch_log_group.api_lambda.name,
+      aws_cloudwatch_log_group.catalog_lambda.name,
+      aws_cloudwatch_log_group.ingestion_lambda.name,
+      aws_cloudwatch_log_group.recommendation_worker.name,
+    ],
+    local.agentcore_runtime_log_group_names,
+  )
+}
+
 output "catalog_table_name" {
   description = "Name of the DynamoDB table containing the disposable catalog."
   value       = aws_dynamodb_table.catalog.name
@@ -94,6 +130,14 @@ output "api_session_table_name" {
 output "recommendation_queue_name" {
   description = "Name of the encrypted asynchronous recommendation queue."
   value       = aws_sqs_queue.recommendations.name
+}
+
+output "recommendation_queue_names" {
+  description = "Encrypted application queue names checked by the configuration smoke suite."
+  value = [
+    aws_sqs_queue.recommendation_dead_letter.name,
+    aws_sqs_queue.recommendations.name,
+  ]
 }
 
 output "recommendation_worker_name" {

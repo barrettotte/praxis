@@ -29,6 +29,34 @@ def test_system_prompt_defines_the_agent_boundaries() -> None:
         assert instruction in normalized_prompt
 
 
+def test_scope_guardrail_input_only_marks_user_authored_text() -> None:
+    settings = AgentSettings(
+        model_id="amazon.nova-lite-v1:0",
+        region="us-east-1",
+        guardrail_id="guardrail-123",
+        guardrail_version="7",
+    )
+
+    prompt = factory.scope_guardrail_input(
+        "Recommend a compiler project",
+        "Validated catalog evidence follows.",
+        settings,
+    )
+
+    assert prompt == [
+        {"guardContent": {"text": {"text": "Recommend a compiler project"}}},
+        {"text": "\n\nValidated catalog evidence follows."},
+    ]
+
+
+def test_scope_guardrail_input_preserves_plain_local_prompt() -> None:
+    settings = AgentSettings(model_id="amazon.nova-lite-v1:0", region="us-east-1")
+
+    prompt = factory.scope_guardrail_input("compiler", "Validated evidence", settings)
+
+    assert prompt == "compiler\n\nValidated evidence"
+
+
 def test_create_agent_configures_strands_with_bedrock() -> None:
     settings = AgentSettings(
         model_id="amazon.nova-micro-v1:0",
@@ -51,6 +79,10 @@ def test_create_agent_configures_strands_with_bedrock() -> None:
     model_type.assert_called_once_with(
         boto_session=boto_session,
         model_id="amazon.nova-micro-v1:0",
+        guardrail_id=None,
+        guardrail_version=None,
+        guardrail_trace="enabled",
+        guardrail_latest_message=False,
         temperature=0.1,
     )
     agent_type.assert_called_once_with(
@@ -65,6 +97,8 @@ def test_create_agent_uses_nova_tool_calling_parameters() -> None:
     settings = AgentSettings(
         model_id="amazon.nova-micro-v1:0",
         region="us-east-1",
+        guardrail_id="guardrail-123",
+        guardrail_version="7",
     )
     tool = cast("AgentTool", SimpleNamespace(tool_name="search_catalog"))
 
@@ -83,6 +117,10 @@ def test_create_agent_uses_nova_tool_calling_parameters() -> None:
     model_type.assert_called_once_with(
         boto_session=session_type.return_value,
         model_id="amazon.nova-micro-v1:0",
+        guardrail_id="guardrail-123",
+        guardrail_version="7",
+        guardrail_trace="enabled",
+        guardrail_latest_message=False,
         temperature=0,
         max_tokens=3000,
         additional_request_fields={"inferenceConfig": {"topK": 1}},

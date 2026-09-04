@@ -108,6 +108,35 @@ def settings() -> AgentSettings:
     return AgentSettings(model_id="amazon.nova-lite-v1:0", region="us-east-1")
 
 
+def test_brief_agent_configures_versioned_guardrail() -> None:
+    configured = AgentSettings(
+        model_id="amazon.nova-lite-v1:0",
+        region="us-east-1",
+        guardrail_id="guardrail-123",
+        guardrail_version="7",
+    )
+
+    with (
+        patch.object(brief, "Session") as session_type,
+        patch.object(brief, "BedrockModel") as model_type,
+        patch.object(brief, "Agent"),
+    ):
+        brief.create_brief_agent(configured)
+
+    model_type.assert_called_once_with(
+        boto_session=session_type.return_value,
+        model_id="amazon.nova-lite-v1:0",
+        guardrail_id="guardrail-123",
+        guardrail_version="7",
+        guardrail_trace="enabled",
+        guardrail_latest_message=False,
+        temperature=0,
+        max_tokens=3000,
+        additional_request_fields={"inferenceConfig": {"topK": 1}},
+        streaming=False,
+    )
+
+
 def test_project_brief_output_parses_atomic_json() -> None:
     output = brief.ProjectBriefOutput(brief_json=json.dumps(valid_brief()) + "}")
 
@@ -134,8 +163,13 @@ def test_invokes_deterministic_brief_agent_with_server_context() -> None:
 
     invocation = create_agent.return_value.call_args
     assert invocation is not None
-    payload = json.loads(invocation.args[0])
-    assert payload["original_goal"] == "Learn compiler backends over a weekend"
+    prompt = cast("str", invocation.args[0])
+    goal, context = prompt.split(
+        "\n\nGenerate the project brief from this server-validated context:\n",
+        maxsplit=1,
+    )
+    assert goal == "Learn compiler backends over a weekend"
+    payload = json.loads(context)
     assert payload["selected_candidate"]["title"] == "Compiler backend exercise"
     assert payload["catalog_evidence"][0]["evidence_id"] == "book:0f5ba253568e4836"
     assert invocation.kwargs == {
@@ -143,6 +177,34 @@ def test_invokes_deterministic_brief_agent_with_server_context() -> None:
         "limits": {"turns": 3},
     }
     assert result.model_dump(mode="json") == valid_brief()
+
+
+def test_brief_guardrail_assesses_only_original_goal() -> None:
+    structured_output = brief.ProjectBriefOutput(brief_json=json.dumps(valid_brief()))
+    agent_result = cast("AgentResult", SimpleNamespace(structured_output=structured_output))
+    configured = AgentSettings(
+        model_id="amazon.nova-lite-v1:0",
+        region="us-east-1",
+        guardrail_id="guardrail-123",
+        guardrail_version="7",
+    )
+
+    with patch.object(brief, "create_brief_agent") as create_agent:
+        create_agent.return_value.return_value = agent_result
+        brief.invoke_project_brief(
+            "Learn compiler backends over a weekend",
+            candidate(),
+            [evidence()],
+            configured,
+        )
+
+    invocation = create_agent.return_value.call_args
+    assert invocation is not None
+    prompt = cast("list[dict[str, object]]", invocation.args[0])
+    assert prompt[0] == {
+        "guardContent": {"text": {"text": "Learn compiler backends over a weekend"}}
+    }
+    assert "book:0f5ba253568e4836" in cast("str", prompt[1]["text"])
 
 
 def test_retries_transient_model_tool_sequence_failure() -> None:

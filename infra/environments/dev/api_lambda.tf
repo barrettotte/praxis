@@ -88,7 +88,7 @@ resource "aws_lambda_function" "api" {
     variables = {
       PRAXIS_AGENT_RUNTIME_ARN        = aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn
       PRAXIS_AGENT_RUNTIME_QUALIFIER  = aws_bedrockagentcore_agent_runtime_endpoint.stable.name
-      PRAXIS_API_ACTOR_ID             = "praxis-single-user"
+      PRAXIS_API_ACTOR_ID             = local.api_actor_id
       PRAXIS_RECOMMENDATION_QUEUE_URL = aws_sqs_queue.recommendations.url
       PRAXIS_SESSION_TABLE_NAME       = aws_dynamodb_table.api_sessions.name
     }
