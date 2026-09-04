@@ -4,7 +4,6 @@ locals {
     "GET /v1/sessions/{sessionId}",
     "POST /v1/projects/{candidateId}/select",
     "POST /v1/sessions",
-    "POST /v1/sessions/{sessionId}/messages",
   ])
   frontend_origins = [var.frontend_origin, local.frontend_url]
 }

@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from boto3.session import Session
 from strands import Agent
 from strands.models import BedrockModel
+from strands.types.content import SystemContentBlock
 from strands.types.tools import AgentTool
 
 from praxis.agent.budget import CatalogResultBudget, ToolCallBudget
@@ -75,10 +76,18 @@ def create_agent(
             model_id=settings.model_id,
             temperature=0.1,
         )
+    system_prompt: str | list[SystemContentBlock] = SYSTEM_PROMPT
+    if tools:
+        # Bedrock processes stable tool schemas before this system checkpoint;
+        # variable goals and evidence remain outside the reusable prefix.
+        system_prompt = [
+            {"text": SYSTEM_PROMPT},
+            {"cachePoint": {"type": "default"}},
+        ]
     agent = Agent(
         model=model,
         tools=list(tools),
-        system_prompt=SYSTEM_PROMPT,
+        system_prompt=system_prompt,
         callback_handler=None,
     )
     if tools:

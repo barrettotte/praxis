@@ -17,6 +17,7 @@ Suites:
   api                JWT-authenticated API request; requires PRAXIS_ACCESS_TOKEN
   agent              Local Strands agent through Gateway; invokes the configured model
   runtime            One signed Runtime request; invokes the configured model
+  runtime-cache      Warm and verify the Runtime prompt cache; invokes the model twice
   runtime-sessions   Runtime session-isolation check; invokes the configured model twice
   runtime-traces     Runtime request plus CloudWatch trace verification
 
@@ -57,6 +58,13 @@ case "${praxis_suite}" in
     ;;
   runtime)
     run_check "AgentCore Runtime" "${praxis_script_dir}/smoke-runtime-dev.sh"
+    ;;
+  runtime-cache)
+    run_check "Warm Runtime prompt cache" \
+      env VERIFY_RUNTIME_TRACES=true "${praxis_script_dir}/smoke-runtime-dev.sh"
+    run_check "Verify Runtime prompt cache read" \
+      env VERIFY_RUNTIME_TRACES=true REQUIRE_PROMPT_CACHE_READ=true \
+      "${praxis_script_dir}/smoke-runtime-dev.sh"
     ;;
   runtime-sessions)
     run_check "Runtime session isolation" \

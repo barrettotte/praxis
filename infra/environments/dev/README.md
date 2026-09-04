@@ -53,14 +53,14 @@ The application API Lambda uses an independent deployment ZIP with locked
 validation dependencies and no function URL. Its execution role can write only
 to its seven-day log group and invoke the configured Runtime plus its stable
 endpoint. A low-cost API Gateway HTTP API invokes it through payload format 2.0
-on four explicit Cognito JWT-authorized application routes. The authorizer is
+on three explicit Cognito JWT-authorized application routes. The authorizer is
 bound to the application user pool and public browser client. The default stage
 deploys OpenTofu-managed route changes automatically; unauthenticated
 declared-route requests return 401, and undeclared routes return 404 without
 invoking the function. The Lambda validates the route, path identifiers, content
 type, query parameters, and strict JSON body. It rejects decoded bodies over 16 KiB before
-JSON parsing or Runtime invocation and limits goal and message text to 4,000
-characters. Session creation stores a pending session, sends one validated job
+JSON parsing or Runtime invocation and limits goal text to 4,000 characters.
+Session creation stores a pending session, sends one validated job
 to an encrypted SQS queue, and returns 202 without waiting for model work. A
 dedicated worker Lambda invokes Runtime with a deployment-owned single-user
 actor, the generated UUIDv4 session, one 90-second SDK attempt, and a 120-second

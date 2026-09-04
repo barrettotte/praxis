@@ -303,7 +303,6 @@ Initial API:
 
 ```http
 POST /v1/sessions
-POST /v1/sessions/{sessionId}/messages
 GET  /v1/sessions/{sessionId}
 POST /v1/projects/{candidateId}/select
 ```
@@ -359,8 +358,8 @@ Definition of done: the complete application is usable from a browser.
 - [x] Record input and output tokens
 - [x] Compare full records with projected tool responses
 - [x] Compare different retrieval limits
-- [ ] Test conversation summarization
-- [ ] Add prompt caching where repeated context qualifies
+- [x] Confirm conversation summarization is unnecessary for bounded one-shot model invocations
+- [x] Add prompt caching where repeated context qualifies
 - [ ] Compare DSPy-optimized instructions with the maintained baseline on a held-out evaluation set
 - [ ] Repeat the default-model versus stronger-model comparison
 - [ ] Establish regression thresholds

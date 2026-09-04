@@ -60,7 +60,7 @@ variable "agent_model_id" {
 variable "agent_image_digest" {
   description = "Immutable digest of the published AgentCore Runtime image."
   type        = string
-  default     = "sha256:9de33f61222a79f54df08cdf9c4ccd2768512260e4310a1f5c8095bb97389e1c"
+  default     = "sha256:f8430ed1b7b76b06b1be9a43b9a1f2662136f770a82cec6365e2ad394718f224"
 
   validation {
     condition     = can(regex("^sha256:[0-9a-f]{64}$", var.agent_image_digest))
@@ -71,7 +71,7 @@ variable "agent_image_digest" {
 variable "agent_runtime_endpoint_version" {
   description = "Verified immutable Runtime version promoted to the stable endpoint."
   type        = string
-  default     = "38"
+  default     = "40"
 
   validation {
     condition     = can(regex("^[1-9][0-9]{0,4}$", var.agent_runtime_endpoint_version))

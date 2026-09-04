@@ -14,6 +14,7 @@ from praxis.agent.runtime_smoke import (
     SessionIsolationResult,
     invoke_runtime_endpoint,
     parse_runtime_traces,
+    require_prompt_cache_read,
     runtime_trace_log_group,
     verify_session_isolation,
     wait_for_runtime_traces,
@@ -293,6 +294,8 @@ def trace_message(
     session_id: str = "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4",
     operation: str = "invoke_agent",
     scope: str = "strands.telemetry.tracer",
+    cache_read_input_tokens: int = 0,
+    cache_write_input_tokens: int = 0,
 ) -> str:
     """Build one representative CloudWatch OpenTelemetry span record."""
     return json.dumps(
@@ -310,6 +313,8 @@ def trace_message(
             "traceId": "6a83d54108313407510590e54dfc81d6",
             "spanId": f"span-{operation}",
             "attributes": {
+                "gen_ai.usage.cache_read_input_tokens": cache_read_input_tokens,
+                "gen_ai.usage.cache_write_input_tokens": cache_write_input_tokens,
                 "gen_ai.operation.name": operation,
                 "session.id": session_id,
             },
@@ -330,6 +335,8 @@ def test_parse_runtime_traces_requires_correlated_strands_agent_span() -> None:
 
     assert result is not None
     assert result.as_dict() == {
+        "cache_read_input_tokens": 0,
+        "cache_write_input_tokens": 0,
         "evaluation_scope_present": True,
         "operation_names": ["chat", "invoke_agent"],
         "scope_names": ["strands.telemetry.tracer"],
@@ -399,3 +406,19 @@ def test_write_trace_evidence_omits_span_trace_session_and_resource_ids(tmp_path
     assert capture["span_count"] == 1
     assert "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4" not in evidence_path.read_text()
     assert "123456789012" not in evidence_path.read_text()
+
+
+def test_runtime_trace_reports_and_accepts_prompt_cache_read() -> None:
+    result = RuntimeTraceResult(
+        (RuntimeTraceSpan.model_validate_json(trace_message(cache_read_input_tokens=1_200)),)
+    )
+
+    require_prompt_cache_read(result)
+    assert result.as_dict()["cache_read_input_tokens"] == 1_200
+
+
+def test_require_prompt_cache_read_rejects_cache_miss() -> None:
+    trace = RuntimeTraceResult((RuntimeTraceSpan.model_validate_json(trace_message()),))
+
+    with pytest.raises(RuntimeSmokeError, match="did not read"):
+        require_prompt_cache_read(trace)

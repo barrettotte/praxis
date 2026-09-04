@@ -1,7 +1,7 @@
 # Application API
 
 The API Gateway HTTP API accepts Cognito JWT-authenticated JSON requests through
-four explicit routes. Unknown routes stop at API Gateway, unauthenticated
+three explicit routes. Unknown routes stop at API Gateway, unauthenticated
 declared-route requests return 401, and the Lambda rejects unknown fields and
 query parameters without reflecting invalid input. The authorizer accepts only
 tokens issued by the application user pool for its public browser client.
@@ -9,14 +9,13 @@ tokens issued by the application user pool for its public browser client.
 | Method | Path | JSON body |
 | --- | --- | --- |
 | `POST` | `/v1/sessions` | `{ "goal": "non-empty string" }` |
-| `POST` | `/v1/sessions/{sessionId}/messages` | `{ "message": "non-empty string" }` |
 | `GET` | `/v1/sessions/{sessionId}` | None |
 | `POST` | `/v1/projects/{candidateId}/select` | `{ "sessionId": "UUIDv4" }` |
 
-Every decoded JSON request body is limited to 16 KiB. The `goal` and `message`
-fields are each limited to 4,000 characters; bodies at or below the byte limit
-that violate a field contract remain invalid requests. `sessionId` path and body
-values are canonical lowercase UUIDv4 strings.
+Every decoded JSON request body is limited to 16 KiB. The `goal` field is limited
+to 4,000 characters; bodies at or below the byte limit that violate a field
+contract remain invalid requests. `sessionId` path and body values are canonical
+lowercase UUIDv4 strings.
 `candidateId` is one of the server-assigned identifiers `candidate_1` through
 `candidate_3`. POST requests require an `application/json` content type; API
 Gateway base64-encoded UTF-8 bodies are supported, with the limit applied to

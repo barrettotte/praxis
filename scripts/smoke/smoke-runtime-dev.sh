@@ -8,6 +8,7 @@ praxis_prompt="${PROMPT:-compiler}"
 praxis_timeout_seconds="${RUNTIME_SMOKE_TIMEOUT_SECONDS:-180}"
 praxis_verify_session_isolation="${VERIFY_SESSION_ISOLATION:-false}"
 praxis_verify_traces="${VERIFY_RUNTIME_TRACES:-false}"
+praxis_require_prompt_cache_read="${REQUIRE_PROMPT_CACHE_READ:-false}"
 praxis_trace_timeout_seconds="${RUNTIME_TRACE_TIMEOUT_SECONDS:-180}"
 
 # Resolve the Runtime and its immutable qualifier from deployed OpenTofu state.
@@ -28,6 +29,9 @@ fi
 if [[ "${praxis_verify_traces}" == "true" ]]; then
   praxis_arguments+=(--verify-traces --trace-timeout-seconds "${praxis_trace_timeout_seconds}")
   praxis_command_timeout_seconds="$((praxis_timeout_seconds + praxis_trace_timeout_seconds))"
+fi
+if [[ "${praxis_require_prompt_cache_read}" == "true" ]]; then
+  praxis_arguments+=(--require-prompt-cache-read)
 fi
 UV_CACHE_DIR="${praxis_repo_root}/.cache/uv" timeout --foreground "${praxis_command_timeout_seconds}s" \
   uv run --project "${praxis_repo_root}" \

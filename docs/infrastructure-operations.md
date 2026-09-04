@@ -97,6 +97,7 @@ and mutating operations visibly separate:
 | `make smoke-dev SUITE=api` | JWT API through AgentCore Runtime; requires an exported access token | Yes |
 | `make smoke-dev SUITE=agent` | Local Strands agent through Gateway | Yes |
 | `make smoke-dev SUITE=runtime` | Stable AgentCore Runtime endpoint | Yes |
+| `make smoke-dev SUITE=runtime-cache` | Explicit prompt-cache write/read behavior | Yes, twice |
 | `make smoke-dev SUITE=runtime-sessions` | Runtime session isolation | Yes, twice |
 | `make smoke-dev SUITE=runtime-traces` | Runtime response and trace delivery | Yes |
 | `make smoke-memory-dev CONFIRM=smoke-memory-dev` | Typed Memory records | May write records |
@@ -264,6 +265,14 @@ writes sanitized metadata to
 `docs/evidence/agentcore-runtime-traces.json`. It never records prompts,
 responses, session IDs, trace IDs, span IDs, account IDs, or resource ARNs.
 Override only the delivery wait with `RUNTIME_TRACE_TIMEOUT_SECONDS=seconds`.
+
+The `runtime-cache` suite runs the trace check twice with the same recommendation
+request within Nova Lite's five-minute cache lifetime. The first invocation
+warms the cache; the second must report cached input tokens. The cache checkpoint
+follows the stable Gateway tool schemas and system instructions; user goals,
+retrieved evidence, memory context, and model output remain outside the cached
+prefix. Each run writes sanitized counters to the existing
+`docs/evidence/agentcore-runtime-traces.json` capture.
 
 ## Deployed evaluation
 

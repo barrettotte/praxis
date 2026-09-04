@@ -2,8 +2,8 @@
 
 ## Status
 
-Superseded in part by ADR 0010 for Runtime invocation and ADR 0017 for
-authorization.
+Superseded in part by ADR 0010 for Runtime invocation, ADR 0017 for
+authorization, and ADR 0022 for the application route set.
 
 ## Context
 

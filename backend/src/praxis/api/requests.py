@@ -17,7 +17,6 @@ type ApiRoute = Literal[
     "GET /v1/sessions/{sessionId}",
     "POST /v1/projects/{candidateId}/select",
     "POST /v1/sessions",
-    "POST /v1/sessions/{sessionId}/messages",
 ]
 type SessionId = Annotated[
     str,
@@ -56,19 +55,13 @@ class CreateSessionRequest(RequestModel):
     goal: Annotated[str, Field(min_length=1, max_length=MAX_API_TEXT_CHARACTERS)]
 
 
-class SessionMessageRequest(RequestModel):
-    """A follow-up message within an existing session."""
-
-    message: Annotated[str, Field(min_length=1, max_length=MAX_API_TEXT_CHARACTERS)]
-
-
 class SelectCandidateRequest(RequestModel):
     """The session that owns a selected candidate."""
 
     session_id: SessionId = Field(alias="sessionId")
 
 
-type ApiRequestBody = CreateSessionRequest | SessionMessageRequest | SelectCandidateRequest
+type ApiRequestBody = CreateSessionRequest | SelectCandidateRequest
 
 
 class _HttpApiEvent(BaseModel):
@@ -102,7 +95,6 @@ _CANDIDATE_ID_ADAPTER: TypeAdapter[str] = TypeAdapter(CandidateId)
 _BODY_MODELS: dict[str, type[RequestModel]] = {
     "POST /v1/projects/{candidateId}/select": SelectCandidateRequest,
     "POST /v1/sessions": CreateSessionRequest,
-    "POST /v1/sessions/{sessionId}/messages": SessionMessageRequest,
 }
 
 
@@ -138,10 +130,7 @@ def _decode_body(event: _HttpApiEvent) -> str:
 
 def _validate_path_parameters(event: _HttpApiEvent) -> dict[str, str]:
     path_parameters = event.path_parameters or {}
-    if event.route_key in {
-        "GET /v1/sessions/{sessionId}",
-        "POST /v1/sessions/{sessionId}/messages",
-    }:
+    if event.route_key == "GET /v1/sessions/{sessionId}":
         if set(path_parameters) != {"sessionId"}:
             raise ValueError("sessionId path parameter is required")
         return {

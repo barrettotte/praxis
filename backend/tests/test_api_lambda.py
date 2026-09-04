@@ -13,7 +13,6 @@ from praxis.api.requests import (
     ApiRequestError,
     CreateSessionRequest,
     SelectCandidateRequest,
-    SessionMessageRequest,
     validate_api_request,
 )
 from praxis.api.runtime import (
@@ -122,21 +121,20 @@ def test_validates_create_session_request() -> None:
     assert request.body == CreateSessionRequest(goal="Learn Rust")
 
 
-def test_validates_base64_encoded_message_request() -> None:
-    encoded_body = b64encode(json.dumps({"message": "Continue"}).encode()).decode()
+def test_validates_base64_encoded_create_session_request() -> None:
+    encoded_body = b64encode(json.dumps({"goal": "Learn Rust"}).encode()).decode()
 
     request = validate_api_request(
         http_event(
-            "POST /v1/sessions/{sessionId}/messages",
+            "POST /v1/sessions",
             body=encoded_body,
-            path_parameters={"sessionId": SESSION_ID},
             is_base64_encoded=True,
             content_type="application/json; charset=utf-8",
         )
     )
 
-    assert request.path_parameters == {"sessionId": SESSION_ID}
-    assert request.body == SessionMessageRequest(message="Continue")
+    assert request.path_parameters == {}
+    assert request.body == CreateSessionRequest(goal="Learn Rust")
 
 
 def test_validates_client_correlation_id() -> None:
@@ -210,22 +208,12 @@ def test_rejects_request_above_body_size_limit(is_base64_encoded: bool) -> None:
         )
 
 
-@pytest.mark.parametrize(
-    ("route_key", "field"),
-    [
-        ("POST /v1/sessions", "goal"),
-        ("POST /v1/sessions/{sessionId}/messages", "message"),
-    ],
-)
-def test_rejects_text_field_above_character_limit(route_key: str, field: str) -> None:
-    path_parameters = {"sessionId": SESSION_ID} if "{sessionId}" in route_key else None
-
+def test_rejects_goal_above_character_limit() -> None:
     with pytest.raises(ApiRequestError, match="invalid API request"):
         validate_api_request(
             http_event(
-                route_key,
-                body=json.dumps({field: "a" * (MAX_API_TEXT_CHARACTERS + 1)}),
-                path_parameters=path_parameters,
+                "POST /v1/sessions",
+                body=json.dumps({"goal": "a" * (MAX_API_TEXT_CHARACTERS + 1)}),
             )
         )
 
@@ -253,8 +241,7 @@ def test_rejects_text_field_above_character_limit(route_key: str, field: str) ->
             query_parameters={"debug": "true"},
         ),
         http_event(
-            "POST /v1/sessions/{sessionId}/messages",
-            body=json.dumps({"message": "valid"}),
+            "GET /v1/sessions/{sessionId}",
             path_parameters={"sessionId": "not-a-session"},
         ),
         http_event(

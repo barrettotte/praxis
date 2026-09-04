@@ -75,6 +75,11 @@ def test_create_agent_uses_nova_tool_calling_parameters() -> None:
     ):
         factory.create_agent(settings, tools=[tool])
 
+    assert agent_type.call_args.kwargs["system_prompt"] == [
+        {"text": factory.SYSTEM_PROMPT},
+        {"cachePoint": {"type": "default"}},
+    ]
+
     model_type.assert_called_once_with(
         boto_session=session_type.return_value,
         model_id="amazon.nova-micro-v1:0",

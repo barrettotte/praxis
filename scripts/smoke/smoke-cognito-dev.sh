@@ -113,15 +113,14 @@ if ! jq -e \
 fi
 
 if ! jq -e --arg authorizer_id "${praxis_authorizer_id}" '
-  length == 4
+  length == 3
   and all(.[];
     .AuthorizationType == "JWT"
     and .AuthorizerId == $authorizer_id)
   and ([.[].RouteKey] | sort) == [
     "GET /v1/sessions/{sessionId}",
     "POST /v1/projects/{candidateId}/select",
-    "POST /v1/sessions",
-    "POST /v1/sessions/{sessionId}/messages"
+    "POST /v1/sessions"
   ]
 ' <<<"${praxis_routes}" >/dev/null; then
   printf 'Deployed API routes are not all protected by the reviewed JWT authorizer.\n' >&2

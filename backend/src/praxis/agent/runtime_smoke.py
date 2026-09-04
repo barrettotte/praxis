@@ -148,9 +148,34 @@ class RuntimeTraceResult:
 
     spans: tuple[RuntimeTraceSpan, ...]
 
+    def prompt_cache_usage(self) -> tuple[int, int]:
+        """Return cache-read and cache-write tokens from the Strands agent span."""
+        agent_spans = [
+            span
+            for span in self.spans
+            if span.scope.name == "strands.telemetry.tracer"
+            and span.attributes.get("gen_ai.operation.name") == "invoke_agent"
+        ]
+        if len(agent_spans) != 1:
+            raise RuntimeSmokeError("Runtime trace must contain one Strands agent span")
+
+        counters: list[int] = []
+        for name in (
+            "gen_ai.usage.cache_read_input_tokens",
+            "gen_ai.usage.cache_write_input_tokens",
+        ):
+            value = agent_spans[0].attributes.get(name, 0)
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise RuntimeSmokeError("Runtime trace contains invalid prompt-cache metrics")
+            counters.append(value)
+        return counters[0], counters[1]
+
     def as_dict(self) -> dict[str, object]:
         """Return trace metadata without prompts, responses, IDs, or resource ARNs."""
+        cache_read_input_tokens, cache_write_input_tokens = self.prompt_cache_usage()
         return {
+            "cache_read_input_tokens": cache_read_input_tokens,
+            "cache_write_input_tokens": cache_write_input_tokens,
             "evaluation_scope_present": any(
                 span.scope.name == "strands.telemetry.tracer" for span in self.spans
             ),
@@ -397,6 +422,13 @@ def wait_for_runtime_traces(
         sleep(5)
 
 
+def require_prompt_cache_read(result: RuntimeTraceResult) -> None:
+    """Require a traced Runtime invocation to reuse the stable prompt prefix."""
+    cache_read_input_tokens, _ = result.prompt_cache_usage()
+    if cache_read_input_tokens == 0:
+        raise RuntimeSmokeError("Runtime invocation did not read the prompt cache")
+
+
 def write_evidence(
     evidence_directory: Path,
     qualifier: str,
@@ -484,11 +516,15 @@ def main() -> None:
     parser.add_argument("--secondary-prompt", default="commodore")
     parser.add_argument("--verify-session-isolation", action="store_true")
     parser.add_argument("--verify-traces", action="store_true")
+    parser.add_argument("--require-prompt-cache-read", action="store_true")
     parser.add_argument("--trace-timeout-seconds", type=int, default=180)
     parser.add_argument("--evidence-directory", type=Path)
     arguments = parser.parse_args()
 
     client = create_runtime_client(arguments.profile, arguments.region)
+    if arguments.require_prompt_cache_read and not arguments.verify_traces:
+        parser.error("--require-prompt-cache-read requires --verify-traces")
+
     if arguments.verify_session_isolation:
         isolation_result = verify_session_isolation(
             client,
@@ -544,6 +580,8 @@ def main() -> None:
                 trace_start_time_ms,
                 arguments.trace_timeout_seconds,
             )
+            if arguments.require_prompt_cache_read:
+                require_prompt_cache_read(trace_result)
             output["trace_verification"] = trace_result.as_dict()
             if arguments.evidence_directory is not None:
                 output["trace_capture"] = str(
