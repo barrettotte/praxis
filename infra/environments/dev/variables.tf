@@ -49,7 +49,7 @@ variable "frontend_origin" {
 variable "agent_model_id" {
   description = "Bedrock model identifier used by the AgentCore Runtime."
   type        = string
-  default     = "amazon.nova-lite-v1:0"
+  default     = "amazon.nova-pro-v1:0"
 
   validation {
     condition     = length(trimspace(var.agent_model_id)) > 0
@@ -60,7 +60,7 @@ variable "agent_model_id" {
 variable "agent_image_digest" {
   description = "Immutable digest of the published AgentCore Runtime image."
   type        = string
-  default     = "sha256:f8430ed1b7b76b06b1be9a43b9a1f2662136f770a82cec6365e2ad394718f224"
+  default     = "sha256:fe332eb7ef6ca8a3758c5318fa64a4abf2bc1b0c641a11ac2a11270227bce7f6"
 
   validation {
     condition     = can(regex("^sha256:[0-9a-f]{64}$", var.agent_image_digest))
@@ -71,7 +71,7 @@ variable "agent_image_digest" {
 variable "agent_runtime_endpoint_version" {
   description = "Verified immutable Runtime version promoted to the stable endpoint."
   type        = string
-  default     = "40"
+  default     = "46"
 
   validation {
     condition     = can(regex("^[1-9][0-9]{0,4}$", var.agent_runtime_endpoint_version))

@@ -13,6 +13,7 @@ from praxis.evaluation.models import (
     EvidenceExpectation,
     ExpectedEvidenceRecord,
     ExpectedToolCall,
+    InstructionOptimizationSplit,
 )
 from praxis.evaluation.results import (
     BaselineResult,
@@ -37,5 +38,6 @@ __all__ = [
     "EvidenceExpectation",
     "ExpectedEvidenceRecord",
     "ExpectedToolCall",
+    "InstructionOptimizationSplit",
     "RetrievalRelevanceResult",
 ]

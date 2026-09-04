@@ -182,6 +182,17 @@ def test_gateway_candidate_schema_uses_one_atomic_string_field() -> None:
     assert schema["properties"]["candidates_json"]["type"] == "string"
 
 
+def test_gateway_candidate_output_model_uses_native_shape_for_nova_pro() -> None:
+    assert (
+        gateway.gateway_candidate_output_model("amazon.nova-pro-v1:0")
+        is gateway.GatewayCandidateDraftSet
+    )
+    assert (
+        gateway.gateway_candidate_output_model("amazon.nova-lite-v1:0")
+        is gateway.GatewayCandidateOutput
+    )
+
+
 def test_gateway_candidate_schema_rejects_incomplete_inner_candidate_sets() -> None:
     records = gateway_candidate_records()
     records.pop()
@@ -397,6 +408,20 @@ def test_validate_gateway_candidate_result_maps_evidence_positions_to_exact_ids(
         tuple(candidate.evidence_citations[0].evidence_id for candidate in candidates.candidates)
         == evidence_ids
     )
+
+
+def test_validate_gateway_candidate_result_accepts_native_candidate_set() -> None:
+    output = gateway.GatewayCandidateDraftSet.model_validate(
+        {"candidates": gateway_candidate_records()}
+    )
+    result = cast("AgentResult", SimpleNamespace(structured_output=output))
+
+    candidates = gateway.validate_gateway_candidate_result(
+        result,
+        evidence_state("book:0f5ba253568e4836"),
+    )
+
+    assert candidates == candidate_set()
 
 
 def test_validate_gateway_candidate_result_rejects_unavailable_evidence_position() -> None:

@@ -20,12 +20,23 @@ TOFU_DEV_DESTROY_PLAN ?= dev-destroy.tfplan
 PROMPT ?=
 SUITE ?= config
 SOURCE_DATA_DIR ?= $(abspath ../barrettotte.github.io/data)
+DSPY_MODEL_ID ?= amazon.nova-lite-v1:0
+REGRESSION_RESULT ?= evals/project-recommendations/results/agentcore-v46-20260904T175002Z.json
 PYTHON_SOURCES := backend/src backend/tests
+EVALUATION_TESTS := \
+	backend/tests/test_agentcore_evaluation.py \
+	backend/tests/test_dspy_optimization.py \
+	backend/tests/test_evaluation_regression.py \
+	backend/tests/test_evaluation_runner.py \
+	backend/tests/test_evaluation_set.py \
+	backend/tests/test_projection_comparison.py \
+	backend/tests/test_retrieval_limit_comparison.py \
+	backend/tests/test_runtime_evaluation.py
 FRONTEND_NPM := $(NPM) --prefix frontend
 
 export UV_CACHE_DIR
 
-.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-api-lambda package-functions agent agent-image smoke-agent-container preview-agent-image-dev push-agent-image-dev deploy-frontend-dev eval-baseline eval-projections eval-retrieval-limits eval-runtime-dev inspect-runtime-versions-dev tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-dev smoke-memory-dev dev-frontend
+.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-api-lambda package-functions agent agent-image smoke-agent-container preview-agent-image-dev push-agent-image-dev deploy-frontend-dev eval-baseline eval-check eval-dspy-instructions eval-projections eval-regression eval-retrieval-limits eval-runtime-dev inspect-runtime-versions-dev tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-dev smoke-memory-dev dev-frontend
 
 help: ## Show the available Make targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-30s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -59,7 +70,7 @@ test: ## Run backend and frontend tests
 	$(UV) run pytest
 	$(FRONTEND_NPM) run test
 
-check: format-check lint typecheck test tool-schemas-check ## Run all repository quality checks
+check: format-check lint typecheck test tool-schemas-check eval-regression ## Run all repository quality checks
 
 build: ## Build backend packages and the frontend production bundle
 	$(UV) build
@@ -100,8 +111,21 @@ deploy-frontend-dev: ## Build and publish the frontend; requires CONFIRM=deploy-
 eval-baseline: ## Run the project-recommendation model baseline and save versioned results
 	@set -a; if [ -f .env ]; then . ./.env; fi; set +a; $(UV) run python -m praxis.evaluation
 
+eval-check: eval-regression ## Verify versioned evaluation contracts and the accepted baseline offline
+	$(UV) run pytest $(EVALUATION_TESTS)
+
+eval-dspy-instructions: ## Compare DSPy-optimized instructions on held-out cases
+	@set -a; if [ -f .env ]; then . ./.env; fi; set +a; \
+		AWS_PROFILE=$(AWS_PROFILE) AWS_DEFAULT_REGION=us-east-1 \
+		DSPY_CACHEDIR=$(CURDIR)/.cache/dspy PRAXIS_DATA_DIR=$(SOURCE_DATA_DIR) \
+		PRAXIS_MODEL_ID=$(DSPY_MODEL_ID) \
+		$(UV) run python -m praxis.evaluation.dspy_optimization
+
 eval-projections: ## Compare full catalog records with agent-facing projections
 	$(UV) run python -m praxis.evaluation.projections --data-dir "$(SOURCE_DATA_DIR)"
+
+eval-regression: ## Check an evaluation result against the reviewed regression gates
+	$(UV) run python -m praxis.evaluation.regression "$(REGRESSION_RESULT)"
 
 eval-retrieval-limits: ## Compare catalog retrieval quality and payload size by result limit
 	$(UV) run python -m praxis.evaluation.retrieval_limits --data-dir "$(SOURCE_DATA_DIR)"

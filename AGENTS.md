@@ -45,9 +45,10 @@ preserve unrelated user changes.
 ## Durable architecture constraints
 
 - Python agent: Strands Agents SDK, hosted on Amazon Bedrock AgentCore Runtime.
-- Model: Amazon Nova Lite (`amazon.nova-lite-v1:0`) in `us-east-1`, using
+- Model: Amazon Nova Pro (`amazon.nova-pro-v1:0`) in `us-east-1`, using
   on-demand in-region inference. Keep the model ID in configuration and require
-  evaluation evidence for future default-model changes.
+  evaluation evidence for future default-model changes. Retain Nova Lite and
+  Nova Micro as measured rollback models.
 - Tool boundary: AgentCore Gateway with strict MCP schemas and least-privilege
   Lambda targets.
 - Memory boundary: AgentCore Memory stores only explicit actor-scoped

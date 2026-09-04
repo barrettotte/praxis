@@ -1,9 +1,9 @@
 """Versioned result contracts for measured evaluation baselines."""
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from praxis.domain import ProjectCandidateSet
 from praxis.evaluation.models import EvaluationCategory, EvaluationModel
@@ -192,6 +192,57 @@ class BaselineResult(EvaluationModel):
     cases: Annotated[list[EvaluationCaseResult], Field(min_length=10, max_length=30)]
 
 
+class InstructionCaseResult(EvaluationModel):
+    """Content-free quality checks for one instruction-comparison case."""
+
+    case_id: str
+    succeeded: bool
+    structured_output_valid: bool
+    citations_grounded: bool
+    expected_evidence_met: bool
+    concrete_first_milestones: bool
+    score: Annotated[float, Field(ge=0, le=1)]
+    error_type: str | None = None
+
+
+class InstructionProgramResult(EvaluationModel):
+    """Aggregate held-out result for one instruction variant."""
+
+    case_count: Annotated[int, Field(ge=1)]
+    success_count: Annotated[int, Field(ge=0)]
+    average_score: Annotated[float, Field(ge=0, le=1)]
+    cases: Annotated[list[InstructionCaseResult], Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def require_consistent_counts(self) -> Self:
+        """Keep aggregate counts aligned with the case records."""
+        if self.case_count != len(self.cases):
+            raise ValueError("instruction comparison case count does not match records")
+        if self.success_count != sum(case.succeeded for case in self.cases):
+            raise ValueError("instruction comparison success count does not match records")
+        return self
+
+
+class InstructionOptimizationResult(EvaluationModel):
+    """Reproducible held-out comparison of maintained and optimized instructions."""
+
+    suite: Literal["project-recommendation-dspy-instructions"]
+    result_version: Literal[1]
+    metadata: BaselineMetadata
+    dspy_version: str
+    optimizer: Literal["MIPROv2"]
+    optimizer_candidate_count: Annotated[int, Field(ge=2)]
+    optimizer_trial_count: Annotated[int, Field(ge=2)]
+    split_version: Literal[1]
+    split_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    maintained_instruction_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    optimized_instruction_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    optimized_instruction: Annotated[str, Field(min_length=1, max_length=10_000)]
+    held_out_winner: Literal["maintained", "optimized", "tie"]
+    maintained: InstructionProgramResult
+    optimized: InstructionProgramResult
+
+
 __all__ = [
     "AgentCoreEvaluationLevel",
     "AgentCoreEvaluationResult",
@@ -204,6 +255,9 @@ __all__ = [
     "DatasetIdentity",
     "DeploymentIdentity",
     "EvaluationCaseResult",
+    "InstructionCaseResult",
+    "InstructionOptimizationResult",
+    "InstructionProgramResult",
     "QualityResult",
     "RetrievalRelevanceResult",
     "SourceIdentity",

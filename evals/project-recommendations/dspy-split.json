@@ -1,0 +1,40 @@
+{
+  "suite": "project-recommendation-dspy-instructions",
+  "version": 1,
+  "optimizer_training_case_ids": [
+    "project-01-retro-python",
+    "project-03-cpp-game-history",
+    "project-05-museum-education",
+    "project-06-rust-systems",
+    "project-07-security-python",
+    "project-08-unspecified-weekend",
+    "project-09-evening-no-hardware",
+    "project-10-impossible-scale",
+    "project-14-retro-emulator",
+    "project-17-circuit-simulation",
+    "project-20-printed-repair",
+    "project-23-use-the-museum",
+    "project-25-something-with-data",
+    "project-26-weekend-cpu",
+    "project-27-laptop-frontier-model"
+  ],
+  "optimizer_validation_case_ids": [
+    "project-02-typescript-visualization",
+    "project-12-electric-motors",
+    "project-16-accessible-typescript",
+    "project-21-outside-comfort-zone",
+    "project-29-quantum-dot-battery"
+  ],
+  "held_out_case_ids": [
+    "project-04-electronics-printing",
+    "project-11-compiler-backend",
+    "project-13-ibmi-automation",
+    "project-15-personal-data-visualization",
+    "project-18-linux-tracing",
+    "project-19-defensive-security",
+    "project-22-use-a-book",
+    "project-24-revisit-old-project",
+    "project-28-launch-satellite",
+    "project-30-clinical-diagnosis"
+  ]
+}

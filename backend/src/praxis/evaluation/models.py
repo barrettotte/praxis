@@ -176,6 +176,28 @@ class EvaluationExpectations(EvaluationModel):
         return self
 
 
+class InstructionOptimizationSplit(EvaluationModel):
+    """Disjoint cases used to optimize, select, and test instruction candidates."""
+
+    suite: Literal["project-recommendation-dspy-instructions"]
+    version: Literal[1]
+    optimizer_training_case_ids: Annotated[list[str], Field(min_length=15, max_length=15)]
+    optimizer_validation_case_ids: Annotated[list[str], Field(min_length=5, max_length=5)]
+    held_out_case_ids: Annotated[list[str], Field(min_length=10, max_length=10)]
+
+    @model_validator(mode="after")
+    def require_disjoint_cases(self) -> Self:
+        """Require every case to occur in at most one partition."""
+        case_ids = (
+            self.optimizer_training_case_ids
+            + self.optimizer_validation_case_ids
+            + self.held_out_case_ids
+        )
+        if len(case_ids) != len(set(case_ids)):
+            raise ValueError("instruction optimization partitions must be disjoint")
+        return self
+
+
 class BusinessAssertion(EvaluationModel):
     """One case-specific product behavior suitable for judged evaluation."""
 

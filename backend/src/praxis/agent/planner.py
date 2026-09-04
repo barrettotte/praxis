@@ -127,7 +127,8 @@ class StrandsCandidateGenerator:
         )
 
 
-def _planning_prompt(goal: str, evidence: tuple[CatalogEntry, ...]) -> str:
+def build_planning_prompt(goal: str, evidence: tuple[CatalogEntry, ...]) -> str:
+    """Build the untrusted-evidence prompt shared by planning evaluations."""
     records = [project_evidence(entry) for entry in evidence]
     evidence_json = json.dumps(records, ensure_ascii=False, separators=(",", ":"))
     return f"""Create exactly three differentiated, realistically scoped project candidates.
@@ -196,7 +197,7 @@ def plan_project_candidates_with_trace(
             f"Catalog returned conflicting evidence: {sorted(conflicting_ids)}"
         )
 
-    generation = generator.generate(_planning_prompt(goal, evidence))
+    generation = generator.generate(build_planning_prompt(goal, evidence))
     candidates = generation.candidates
     allowed_ids = {entry.id for entry in evidence}
     cited_ids = {

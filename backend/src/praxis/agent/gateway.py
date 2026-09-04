@@ -76,6 +76,7 @@ _CATALOG_TOOL_PATTERN = re.compile(
     rf"^.+___(?:{'|'.join(re.escape(name) for name in EXPECTED_CATALOG_TOOLS)})$"
 )
 _EVIDENCE_ADAPTER = TypeAdapter[Evidence](Evidence)
+_NATIVE_CANDIDATE_OUTPUT_MODELS = frozenset({"amazon.nova-pro-v1:0"})
 
 
 class GatewayAgentError(RuntimeError):
@@ -137,6 +138,17 @@ class GatewayCandidateDraftSet(BaseModel):
 
     candidates: Annotated[list[GatewayCandidateDraft], Field(min_length=3, max_length=3)]
 
+    def as_payload(self, evidence_ids: Sequence[str]) -> JsonValue:
+        """Return the list-based public candidate payload."""
+        return cast(
+            "JsonValue",
+            {
+                "candidates": [
+                    _candidate_payload(candidate, evidence_ids) for candidate in self.candidates
+                ]
+            },
+        )
+
 
 class GatewayCandidateOutput(BaseModel):
     """Atomic Nova-facing payload normalized into the nested domain contract."""
@@ -190,42 +202,41 @@ class GatewayCandidateOutput(BaseModel):
 
     def as_payload(self, evidence_ids: Sequence[str]) -> JsonValue:
         """Return the list-based public candidate payload."""
-        return cast(
-            "JsonValue",
-            {
-                "candidates": [
-                    self._candidate_payload(candidate, evidence_ids)
-                    for candidate in self._drafts().candidates
-                ]
-            },
-        )
+        return self._drafts().as_payload(evidence_ids)
 
-    def _candidate_payload(
-        self,
-        candidate: GatewayCandidateDraft,
-        evidence_ids: Sequence[str],
-    ) -> dict[str, object]:
-        """Normalize one candidate into the public candidate shape."""
-        try:
-            evidence_id = evidence_ids[candidate.evidence_index - 1]
-        except IndexError as error:
-            raise GatewayAgentError(
-                f"Candidate selected unavailable evidence position {candidate.evidence_index}"
-            ) from error
-        return {
-            "title": candidate.title,
-            "summary": candidate.summary,
-            "rationale": candidate.rationale,
-            "estimated_scope": candidate.estimated_scope,
-            "technologies": [candidate.primary_technology],
-            "first_milestone": candidate.first_milestone,
-            "evidence_citations": [
-                {
-                    "evidence_id": evidence_id,
-                    "generated_connection": candidate.generated_connection,
-                }
-            ],
-        }
+
+def _candidate_payload(
+    candidate: GatewayCandidateDraft,
+    evidence_ids: Sequence[str],
+) -> dict[str, object]:
+    """Normalize one model-facing candidate into the public candidate shape."""
+    try:
+        evidence_id = evidence_ids[candidate.evidence_index - 1]
+    except IndexError as error:
+        raise GatewayAgentError(
+            f"Candidate selected unavailable evidence position {candidate.evidence_index}"
+        ) from error
+    return {
+        "title": candidate.title,
+        "summary": candidate.summary,
+        "rationale": candidate.rationale,
+        "estimated_scope": candidate.estimated_scope,
+        "technologies": [candidate.primary_technology],
+        "first_milestone": candidate.first_milestone,
+        "evidence_citations": [
+            {
+                "evidence_id": evidence_id,
+                "generated_connection": candidate.generated_connection,
+            }
+        ],
+    }
+
+
+def gateway_candidate_output_model(model_id: str) -> type[BaseModel]:
+    """Select the simplest reliable structured-output shape for a Bedrock model."""
+    if model_id in _NATIVE_CANDIDATE_OUTPUT_MODELS:
+        return GatewayCandidateDraftSet
+    return GatewayCandidateOutput
 
 
 def create_gateway_client(settings: GatewaySettings) -> MCPClient:
@@ -382,7 +393,7 @@ def validate_gateway_candidate_result(
         raise GatewayAgentError("No catalog evidence matched the project goal")
 
     output = result.structured_output
-    if not isinstance(output, GatewayCandidateOutput):
+    if not isinstance(output, (GatewayCandidateOutput, GatewayCandidateDraftSet)):
         raise GatewayAgentError("Strands returned no structured project candidates")
     try:
         candidates = validate_candidate_output(
@@ -412,7 +423,7 @@ def _latest_structured_output_error(messages: Sequence[Message]) -> str | None:
                 continue
             for content in reversed(tool_result["content"]):
                 text = content.get("text", "")
-                if text.startswith("Validation failed for GatewayCandidateOutput"):
+                if text.startswith("Validation failed for GatewayCandidate"):
                     return text
     return None
 
@@ -437,7 +448,7 @@ def invoke_gateway_agent(
             result = session.agent(
                 generation_prompt,
                 invocation_state=invocation_state,
-                structured_output_model=GatewayCandidateOutput,
+                structured_output_model=gateway_candidate_output_model(agent_settings.model_id),
                 limits={"turns": agent_settings.max_tool_calls + FINAL_RESPONSE_TURNS},
             )
         except StructuredOutputException as error:

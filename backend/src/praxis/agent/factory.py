@@ -42,8 +42,8 @@ achievable software projects grounded in their personal catalog.
 
 ## Response requirements
 - When asked for project candidates, return exactly three concise, differentiated candidates.
-- Invoke the structured-output tool exactly once. Put one JSON object containing all three
-  complete candidates in its candidates_json field; never split candidates across parallel calls.
+- Invoke the structured-output tool exactly once with all three complete candidates; never split
+  candidates across parallel calls.
 - Set every estimated_scope to exactly weekend, multi-week, or multi-month.
 - Cite at least one retrieved record for every candidate using the response schema's citation
   field, and put only generated analysis in generated_connection. Keep each generated_connection

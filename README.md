@@ -31,7 +31,7 @@ flowchart TD
 
     worker -->|Generate candidates| runtimeEndpoint
     apiLambda -->|Generate selected project brief| runtimeEndpoint
-    agent --> bedrock[Amazon Bedrock<br/>Nova Lite]
+    agent --> bedrock[Amazon Bedrock<br/>Nova Pro]
     agentImage[(Amazon ECR<br/>agent image)] -->|Immutable image digest| agent
 
     subgraph observability[Application and agent observability]

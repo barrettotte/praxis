@@ -1,0 +1,4102 @@
+{
+  "suite": "project-recommendation-baseline",
+  "prompts_version": 2,
+  "expectations_version": 2,
+  "result_version": 3,
+  "metadata": {
+    "generated_at": "2026-09-04T16:14:47.891605Z",
+    "model_id": "amazon.nova-lite-v1:0",
+    "region": "us-east-1",
+    "dataset": {
+      "label": "authoritative-sibling-catalog",
+      "record_count": 1034,
+      "sha256": "12ddbea3e38a0dbf03872b46df3c52b80a215eee213dd4c41e22ad0f011130e9"
+    },
+    "source": {
+      "git_revision": "603267a402748ff9b2ca4dc7ccf5306eb74a5057",
+      "working_tree_dirty": true,
+      "sha256": "604c6343da4ac37fa444647e826bb90ba35f23ba3522abc57eae3be1040ef26f"
+    },
+    "deployment": {
+      "endpoint_qualifier": "stable",
+      "runtime_version": "40",
+      "container_digest": "sha256:f8430ed1b7b76b06b1be9a43b9a1f2662136f770a82cec6365e2ad394718f224"
+    }
+  },
+  "summary": {
+    "case_count": 30,
+    "success_count": 21,
+    "average_quality_score": 0.34,
+    "expected_evidence_pass_count": 5,
+    "expected_trajectory_pass_count": 4,
+    "concrete_milestone_pass_count": 0,
+    "wall_latency_p50_ms": 30071,
+    "wall_latency_p95_ms": 39630,
+    "total_tokens": 109284,
+    "total_local_tool_calls": 40,
+    "total_model_tool_calls": 45,
+    "average_retrieval_precision_at_k": 0.13333333333333333,
+    "average_expected_evidence_coverage": 0.11333333333333333,
+    "mean_reciprocal_rank": 0.22777777777777777,
+    "citation_claim_count": 63,
+    "supported_claim_count": 63,
+    "unsupported_claim_count": 0,
+    "citation_correctness_rate": 1.0,
+    "unsupported_claim_rate": 0.0,
+    "agentcore_evaluations": [
+      {
+        "evaluator_id": "Builtin.GoalSuccessRate",
+        "completed_case_count": 21,
+        "failed_case_count": 0,
+        "result_count": 21,
+        "score_count": 21,
+        "average_score": 0.8571428571428571,
+        "token_usage": {
+          "input_tokens": 43227,
+          "output_tokens": 4526,
+          "total_tokens": 47753,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0
+        }
+      },
+      {
+        "evaluator_id": "Builtin.Correctness",
+        "completed_case_count": 21,
+        "failed_case_count": 0,
+        "result_count": 21,
+        "score_count": 21,
+        "average_score": 0.9761904761904762,
+        "token_usage": {
+          "input_tokens": 50749,
+          "output_tokens": 6076,
+          "total_tokens": 56825,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0
+        }
+      },
+      {
+        "evaluator_id": "Builtin.ToolSelectionAccuracy",
+        "completed_case_count": 21,
+        "failed_case_count": 0,
+        "result_count": 45,
+        "score_count": 45,
+        "average_score": 0.9111111111111111,
+        "token_usage": {
+          "input_tokens": 72444,
+          "output_tokens": 15622,
+          "total_tokens": 88066,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0
+        }
+      }
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "project-01-retro-python",
+      "category": "straightforward",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "Retro Python Game",
+            "summary": "Create a simple retro-style game using Python and Pygame, inspired by classic arcade games from the 80s.",
+            "rationale": "The book 'Computational Physics Problem Solving with Python' can provide the foundational knowledge needed to create game logic and physics simulations.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "python"
+            ],
+            "first_milestone": "Design game concept and create initial game environment.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:1d48534f817374c6",
+                "generated_connection": "The book on computational physics can provide the necessary knowledge to create game logic and physics simulations, while Pygame can be used to create the retro-style graphics and gameplay."
+              }
+            ]
+          },
+          {
+            "title": "Retro Python Emulator",
+            "summary": "Develop a basic emulator for a retro gaming console using Python.",
+            "rationale": "The user's interest in retro computing aligns with the development of an emulator, which can be a fun and educational project.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "python"
+            ],
+            "first_milestone": "Research and understand the architecture of the chosen retro console.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:1d48534f817374c6",
+                "generated_connection": "The foundational knowledge from the computational physics book can be applied to understand and replicate the hardware and software of a retro console."
+              }
+            ]
+          },
+          {
+            "title": "Retro Python Data Visualizer",
+            "summary": "Build a data visualizer that mimics the style of retro computing graphics.",
+            "rationale": "Using Python for data visualization can be both a practical and nostalgic project, especially if styled after retro computing aesthetics.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "python"
+            ],
+            "first_milestone": "Choose a dataset and design the visualization style.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:1d48534f817374c6",
+                "generated_connection": "The computational physics book can provide the necessary skills to handle data and create visualizations, while the retro style can be inspired by the aesthetics of retro computing."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "project:d84ffaad30541a32",
+        "project:225ec6523e626127",
+        "book:1d48534f817374c6"
+      ],
+      "cited_evidence_ids": [
+        "book:1d48534f817374c6"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 32344,
+      "model_latency_ms": 2936,
+      "time_to_first_byte_ms": 2998,
+      "token_usage": {
+        "input_tokens": 516,
+        "output_tokens": 488,
+        "total_tokens": 2348,
+        "cache_read_input_tokens": 0,
+        "cache_write_input_tokens": 1344
+      },
+      "cycle_count": 1,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": true,
+        "expected_trajectory_met": true,
+        "concrete_first_milestones": false,
+        "score": 0.8
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 3,
+        "matched_count": 1,
+        "precision_at_k": 0.3333333333333333,
+        "expected_evidence_coverage": 0.3333333333333333,
+        "reciprocal_rank": 0.3333333333333333
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 0.0,
+          "labels": [
+            "No"
+          ],
+          "token_usage": {
+            "input_tokens": 1687,
+            "output_tokens": 212,
+            "total_tokens": 1899,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2051,
+            "output_tokens": 347,
+            "total_tokens": 2398,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 1515,
+            "output_tokens": 344,
+            "total_tokens": 1859,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-02-typescript-visualization",
+      "category": "straightforward",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "Interactive Data Visualization Dashboard",
+            "summary": "Develop an interactive dashboard to visualize various datasets using TypeScript and popular data visualization libraries.",
+            "rationale": "This project will help you understand how to handle and visualize data effectively using TypeScript, building on the foundational knowledge from the provided books.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "TypeScript"
+            ],
+            "first_milestone": "Set up the project and import initial data",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:11795a2dd8d1610b",
+                "generated_connection": "The foundational knowledge from 'Designing Data-Intensive Applications' will be useful for handling and structuring data."
+              }
+            ]
+          },
+          {
+            "title": "Real-time Data Visualization Tool",
+            "summary": "Create a tool that visualizes real-time data streams using TypeScript and WebSockets.",
+            "rationale": "This project will enhance your skills in handling real-time data and visualizing it dynamically, building on the data handling concepts from the provided books.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "TypeScript"
+            ],
+            "first_milestone": "Set up WebSocket connection and initial data visualization",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:1f690346d2dc504f",
+                "generated_connection": "The concepts from 'Database Design and Implementation' will help in understanding how to manage real-time data streams."
+              }
+            ]
+          },
+          {
+            "title": "Custom Data Visualization Library",
+            "summary": "Build a custom TypeScript library for data visualization that can be used in various projects.",
+            "rationale": "This project will deepen your understanding of data visualization and TypeScript, allowing you to create reusable components.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "TypeScript"
+            ],
+            "first_milestone": "Define the core functionalities of the library",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:cdb9a198c55b3ffd",
+                "generated_connection": "The knowledge from 'Database Design for Mere Mortals' will be useful for structuring the library and its components."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "book:11795a2dd8d1610b",
+        "book:1f690346d2dc504f",
+        "book:cdb9a198c55b3ffd"
+      ],
+      "cited_evidence_ids": [
+        "book:11795a2dd8d1610b",
+        "book:1f690346d2dc504f",
+        "book:cdb9a198c55b3ffd"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "search_catalog",
+          "calls": 2
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 1
+        },
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 30374,
+      "model_latency_ms": 3856,
+      "time_to_first_byte_ms": 1062,
+      "token_usage": {
+        "input_tokens": 1302,
+        "output_tokens": 628,
+        "total_tokens": 4502,
+        "cache_read_input_tokens": 2572,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 2,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.4
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 4,
+        "matched_count": 1,
+        "precision_at_k": 0.3333333333333333,
+        "expected_evidence_coverage": 0.25,
+        "reciprocal_rank": 1.0
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 1839,
+            "output_tokens": 151,
+            "total_tokens": 1990,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2203,
+            "output_tokens": 319,
+            "total_tokens": 2522,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 2,
+          "score_count": 2,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 2829,
+            "output_tokens": 645,
+            "total_tokens": 3474,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-03-cpp-game-history",
+      "category": "constrained",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "Advanced C++ Game Engine",
+            "summary": "Develop a more advanced game engine that incorporates modern C++ features and optimizations.",
+            "rationale": "Building on the knowledge from 'Game Engine Architecture', this project will focus on enhancing performance and scalability.",
+            "estimated_scope": "multi-month",
+            "technologies": [
+              "C++"
+            ],
+            "first_milestone": "Complete initial engine architecture design",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:5d67434fe1f04b6c",
+                "generated_connection": "Building on the foundational knowledge from 'Game Engine Architecture', this project will focus on enhancing performance and scalability."
+              }
+            ]
+          },
+          {
+            "title": "Retro Game Modernization",
+            "summary": "Modernize a classic game from the ZX Spectrum era using contemporary graphics and audio techniques.",
+            "rationale": "Using the techniques from 'ZX Spectrum Games Code Club', this project will update the game with modern graphics and audio, while preserving the original gameplay.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "C++"
+            ],
+            "first_milestone": "Complete initial game modernization plan",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:2f7dccfd363293a9",
+                "generated_connection": "Using the techniques from 'ZX Spectrum Games Code Club', this project will update the game with modern graphics and audio, while preserving the original gameplay."
+              }
+            ]
+          },
+          {
+            "title": "C64 Game Expansion",
+            "summary": "Expand a classic C64 game with new levels, characters, and features.",
+            "rationale": "Building on the knowledge from 'Retro Game Dev: C64 Edition', this project will add new content to an existing game, enhancing the player experience.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "C++"
+            ],
+            "first_milestone": "Complete initial game expansion plan",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:5c99d51ba8a7e754",
+                "generated_connection": "Building on the knowledge from 'Retro Game Dev: C64 Edition', this project will add new content to an existing game, enhancing the player experience."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "book:2f7dccfd363293a9",
+        "book:5c99d51ba8a7e754",
+        "book:5d67434fe1f04b6c"
+      ],
+      "cited_evidence_ids": [
+        "book:2f7dccfd363293a9",
+        "book:5c99d51ba8a7e754",
+        "book:5d67434fe1f04b6c"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "search_catalog",
+          "calls": 2
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 1
+        },
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 32260,
+      "model_latency_ms": 4172,
+      "time_to_first_byte_ms": 993,
+      "token_usage": {
+        "input_tokens": 1413,
+        "output_tokens": 608,
+        "total_tokens": 4519,
+        "cache_read_input_tokens": 2498,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 2,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.4
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 5,
+        "matched_count": 1,
+        "precision_at_k": 0.3333333333333333,
+        "expected_evidence_coverage": 0.2,
+        "reciprocal_rank": 0.3333333333333333
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 1869,
+            "output_tokens": 240,
+            "total_tokens": 2109,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2233,
+            "output_tokens": 339,
+            "total_tokens": 2572,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 2,
+          "score_count": 2,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 2865,
+            "output_tokens": 832,
+            "total_tokens": 3697,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-04-electronics-printing",
+      "category": "straightforward",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "Smart Desk Organizer",
+            "summary": "Design and build a smart desk organizer that uses sensors to detect items and alerts the user via an LED display. The organizer will be 3D printed for a custom fit.",
+            "rationale": "Combines electronics for sensor integration and 3D printing for a custom-fit organizer.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "Arduino"
+            ],
+            "first_milestone": "Design the circuit and 3D model.",
+            "evidence_citations": [
+              {
+                "evidence_id": "byte:b5f3a364eb401b25",
+                "generated_connection": "The 'Desk Small Tray' project demonstrates proficiency in 3D printing, which is essential for creating a custom-fit organizer."
+              }
+            ]
+          },
+          {
+            "title": "Interactive Whiteboard Holder",
+            "summary": "Create an interactive whiteboard holder that uses a microcontroller to control LED lights for different modes. The holder will be 3D printed for a sleek design.",
+            "rationale": "Integrates electronics for interactive features and 3D printing for a modern design.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "Raspberry Pi"
+            ],
+            "first_milestone": "Prototype the circuit and 3D print the holder.",
+            "evidence_citations": [
+              {
+                "evidence_id": "byte:e8cb41b4881c1343",
+                "generated_connection": "The 'Small Whiteboard Holder' project showcases the ability to 3D print functional objects, which is crucial for this interactive design."
+              }
+            ]
+          },
+          {
+            "title": "Electronic Component Organizer",
+            "summary": "Build an electronic component organizer that uses a microcontroller to sort and display components. The organizer will be 3D printed for a compact and organized setup.",
+            "rationale": "Combines electronics for sorting and 3D printing for a compact design.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "Arduino"
+            ],
+            "first_milestone": "Design the sorting mechanism and 3D print the organizer.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:1ee9c9cf7a7c154d",
+                "generated_connection": "The 'The Art of Electronics' book provides the necessary background knowledge for integrating electronics into the organizer."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "byte:b5f3a364eb401b25",
+        "byte:e8cb41b4881c1343",
+        "book:1ee9c9cf7a7c154d"
+      ],
+      "cited_evidence_ids": [
+        "book:1ee9c9cf7a7c154d",
+        "byte:b5f3a364eb401b25",
+        "byte:e8cb41b4881c1343"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "search_catalog",
+          "calls": 2
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 1
+        },
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 30611,
+      "model_latency_ms": 3509,
+      "time_to_first_byte_ms": 801,
+      "token_usage": {
+        "input_tokens": 1500,
+        "output_tokens": 562,
+        "total_tokens": 4565,
+        "cache_read_input_tokens": 2503,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 2,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.4
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 5,
+        "matched_count": 1,
+        "precision_at_k": 0.3333333333333333,
+        "expected_evidence_coverage": 0.2,
+        "reciprocal_rank": 0.3333333333333333
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 2019,
+            "output_tokens": 157,
+            "total_tokens": 2176,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2377,
+            "output_tokens": 286,
+            "total_tokens": 2663,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 2,
+          "score_count": 2,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 3109,
+            "output_tokens": 681,
+            "total_tokens": 3790,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-05-museum-education",
+      "category": "straightforward",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "Interactive History of Computing Timeline",
+            "summary": "Create an interactive web-based timeline that visually represents the history of computing, highlighting key milestones and figures.",
+            "rationale": "The book 'The Universal History of Computing' provides a comprehensive history of computing that can be transformed into an engaging web-based timeline.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "HTML, CSS, JavaScript"
+            ],
+            "first_milestone": "Design the timeline layout and select key milestones",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:176299d06329f6d4",
+                "generated_connection": "Inspired by the comprehensive history of computing in 'The Universal History of Computing'."
+              }
+            ]
+          },
+          {
+            "title": "Quantum Computing Interactive Simulator",
+            "summary": "Develop a web-based interactive simulator that allows users to explore the principles of quantum computing.",
+            "rationale": "The book 'Quantum Computing Since Democritus' provides a foundational understanding of quantum computing that can be used to create an interactive simulator.",
+            "estimated_scope": "multi-month",
+            "technologies": [
+              "Python, JavaScript"
+            ],
+            "first_milestone": "Design the simulator interface and implement basic quantum gates",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:23033c2dd9ae38cd",
+                "generated_connection": "Inspired by the foundational principles of quantum computing in 'Quantum Computing Since Democritus'."
+              }
+            ]
+          },
+          {
+            "title": "Jacquard Loom Educational Module",
+            "summary": "Create a web-based educational module that teaches users about the Jacquard loom and its significance in the history of computing.",
+            "rationale": "The book 'Jacquard's Web' provides detailed information about the Jacquard loom, which can be used to create an educational module.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "HTML, CSS, JavaScript"
+            ],
+            "first_milestone": "Research and outline the content for the educational module",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:393e99d588cbed42",
+                "generated_connection": "Inspired by the detailed information about the Jacquard loom in 'Jacquard's Web'."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "book:176299d06329f6d4",
+        "book:23033c2dd9ae38cd",
+        "book:393e99d588cbed42"
+      ],
+      "cited_evidence_ids": [
+        "book:176299d06329f6d4",
+        "book:23033c2dd9ae38cd",
+        "book:393e99d588cbed42"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "search_catalog",
+          "calls": 2
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 1
+        },
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 38415,
+      "model_latency_ms": 3802,
+      "time_to_first_byte_ms": 1150,
+      "token_usage": {
+        "input_tokens": 1279,
+        "output_tokens": 590,
+        "total_tokens": 4439,
+        "cache_read_input_tokens": 2570,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 2,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.4
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 4,
+        "matched_count": 1,
+        "precision_at_k": 0.3333333333333333,
+        "expected_evidence_coverage": 0.25,
+        "reciprocal_rank": 1.0
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 1843,
+            "output_tokens": 253,
+            "total_tokens": 2096,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2205,
+            "output_tokens": 345,
+            "total_tokens": 2550,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 2,
+          "score_count": 2,
+          "average_score": 0.5,
+          "labels": [
+            "No",
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 2784,
+            "output_tokens": 716,
+            "total_tokens": 3500,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-06-rust-systems",
+      "category": "straightforward",
+      "succeeded": false,
+      "candidates": null,
+      "retrieved_evidence_ids": [],
+      "cited_evidence_ids": [],
+      "local_tool_calls": [],
+      "model_tool_calls": [],
+      "wall_latency_ms": 10003,
+      "model_latency_ms": null,
+      "time_to_first_byte_ms": null,
+      "token_usage": null,
+      "cycle_count": null,
+      "quality": {
+        "structured_output_valid": false,
+        "citations_grounded": false,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.0
+      },
+      "retrieval_relevance": null,
+      "citation_support": null,
+      "agentcore_evaluations": [],
+      "error_type": "RuntimeSmokeError",
+      "error_message": "signed AgentCore Runtime invocation failed"
+    },
+    {
+      "case_id": "project-07-security-python",
+      "category": "straightforward",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "Concurrent Security Simulation",
+            "summary": "Develop a Python-based simulation to model concurrent security scenarios, such as race conditions and deadlocks, to understand and mitigate security risks in concurrent systems.",
+            "rationale": "Building on the concurrent programming experience from the Seaport-Project, this project will focus on security aspects.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Define security scenarios and requirements",
+            "evidence_citations": [
+              {
+                "evidence_id": "project:225ec6523e626127",
+                "generated_connection": "Adapting the Seaport-Project to focus on security in concurrent systems."
+              }
+            ]
+          },
+          {
+            "title": "Python-based CTF Challenge",
+            "summary": "Create a set of Capture The Flag (CTF) challenges that focus on Python programming and security concepts, such as buffer overflows and SQL injection.",
+            "rationale": "Leveraging the user's interest in CTFs, this project will provide a practical way to apply security knowledge.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Design and implement the first CTF challenge",
+            "evidence_citations": [
+              {
+                "evidence_id": "project:225ec6523e626127",
+                "generated_connection": "Building on the user's interest in CTFs and concurrent programming."
+              }
+            ]
+          },
+          {
+            "title": "Security Analysis Tool",
+            "summary": "Develop a Python tool to analyze and report on security vulnerabilities in Python code, such as those found in the OWASP Top Ten.",
+            "rationale": "This project will allow the user to apply their Python skills to a real-world security problem.",
+            "estimated_scope": "multi-month",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Identify and document security vulnerabilities",
+            "evidence_citations": [
+              {
+                "evidence_id": "project:225ec6523e626127",
+                "generated_connection": "Building on the user's interest in security and Python programming."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "project:225ec6523e626127",
+        "book:bd75c8cea990f0f9",
+        "book:176299d06329f6d4"
+      ],
+      "cited_evidence_ids": [
+        "project:225ec6523e626127"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "search_catalog",
+          "calls": 4
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 1
+        },
+        {
+          "tool": "search_catalog",
+          "calls": 3
+        }
+      ],
+      "wall_latency_ms": 50981,
+      "model_latency_ms": 10863,
+      "time_to_first_byte_ms": 957,
+      "token_usage": {
+        "input_tokens": 4799,
+        "output_tokens": 740,
+        "total_tokens": 10097,
+        "cache_read_input_tokens": 4558,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 4,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.4
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 4,
+        "matched_count": 0,
+        "precision_at_k": 0.0,
+        "expected_evidence_coverage": 0.0,
+        "reciprocal_rank": 0.0
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 2528,
+            "output_tokens": 232,
+            "total_tokens": 2760,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2889,
+            "output_tokens": 342,
+            "total_tokens": 3231,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 4,
+          "score_count": 4,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 7084,
+            "output_tokens": 1252,
+            "total_tokens": 8336,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-08-unspecified-weekend",
+      "category": "ambiguous",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "Simple Malware Detection Tool",
+            "summary": "Develop a basic malware detection tool using Python to analyze and flag suspicious files.",
+            "rationale": "The book 'Malware Data Science: Attack Detection and Attribution' provides a solid foundation in cyber security and Python programming, making this project feasible.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Complete initial setup and data collection.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:311ed258ec5dd060",
+                "generated_connection": "Leveraging knowledge from 'Malware Data Science: Attack Detection and Attribution' to create a practical tool."
+              }
+            ]
+          },
+          {
+            "title": "Basic RPG Program",
+            "summary": "Create a simple RPG program to process data on a mainframe.",
+            "rationale": "The book 'Free-Format RPG IV' offers insights into RPG programming on mainframes, which is directly relevant to this project.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "RPG"
+            ],
+            "first_milestone": "Write and compile the first RPG program.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:3a247f7db1e82a85",
+                "generated_connection": "Utilizing concepts from 'Free-Format RPG IV' to develop a basic RPG program."
+              }
+            ]
+          },
+          {
+            "title": "Stepper Motor Automation",
+            "summary": "Build a small project using stepper motors to automate a simple task.",
+            "rationale": "The book 'Motors for Makers: A Guide to Steppers, Servos, and Other Electrical Machines' provides the necessary background on stepper motors and electrical engineering.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Assemble the motor and control circuit.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:4d72e635a346be22",
+                "generated_connection": "Applying knowledge from 'Motors for Makers' to automate a task using stepper motors."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "book:311ed258ec5dd060",
+        "book:3a247f7db1e82a85",
+        "book:4d72e635a346be22"
+      ],
+      "cited_evidence_ids": [
+        "book:311ed258ec5dd060",
+        "book:3a247f7db1e82a85",
+        "book:4d72e635a346be22"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "score_project_candidates",
+          "calls": 1
+        },
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 1
+        },
+        {
+          "tool": "score_project_candidates",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 28214,
+      "model_latency_ms": 4238,
+      "time_to_first_byte_ms": 1543,
+      "token_usage": {
+        "input_tokens": 1744,
+        "output_tokens": 672,
+        "total_tokens": 4866,
+        "cache_read_input_tokens": 2450,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 2,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.4
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 3,
+        "matched_count": 0,
+        "precision_at_k": 0.0,
+        "expected_evidence_coverage": 0.0,
+        "reciprocal_rank": 0.0
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 2045,
+            "output_tokens": 133,
+            "total_tokens": 2178,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2408,
+            "output_tokens": 185,
+            "total_tokens": 2593,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 2,
+          "score_count": 2,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 3299,
+            "output_tokens": 631,
+            "total_tokens": 3930,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-09-evening-no-hardware",
+      "category": "constrained",
+      "succeeded": false,
+      "candidates": null,
+      "retrieved_evidence_ids": [],
+      "cited_evidence_ids": [],
+      "local_tool_calls": [],
+      "model_tool_calls": [],
+      "wall_latency_ms": 19118,
+      "model_latency_ms": null,
+      "time_to_first_byte_ms": null,
+      "token_usage": null,
+      "cycle_count": null,
+      "quality": {
+        "structured_output_valid": false,
+        "citations_grounded": false,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.0
+      },
+      "retrieval_relevance": null,
+      "citation_support": null,
+      "agentcore_evaluations": [],
+      "error_type": "RuntimeSmokeError",
+      "error_message": "signed AgentCore Runtime invocation failed"
+    },
+    {
+      "case_id": "project-10-impossible-scale",
+      "category": "infeasible",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "Social Network Design Overview",
+            "summary": "An introductory project to understand the basics of social network design.",
+            "rationale": "Based on the user's interest in networking (evidence_id: book:6142d9c04c080337).",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "Networking concepts"
+            ],
+            "first_milestone": "Understand basic social network architecture.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:6142d9c04c080337",
+                "generated_connection": "The user's interest in networking provides a foundational understanding for social network design."
+              }
+            ]
+          },
+          {
+            "title": "Basic Social Network Prototype",
+            "summary": "Develop a basic prototype of a social network.",
+            "rationale": "Building on the foundational knowledge from the first project.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "Web development"
+            ],
+            "first_milestone": "Create a simple user registration and profile system.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:6142d9c04c080337",
+                "generated_connection": "The user's interest in networking and web development can be leveraged to create a basic social network prototype."
+              }
+            ]
+          },
+          {
+            "title": "Scalable Social Network Architecture",
+            "summary": "Design a scalable architecture for a social network.",
+            "rationale": "Based on the user's interest in networking and the need for scalability.",
+            "estimated_scope": "multi-month",
+            "technologies": [
+              "Cloud computing and distributed systems"
+            ],
+            "first_milestone": "Design a scalable database and server architecture.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:6142d9c04c080337",
+                "generated_connection": "The user's interest in networking and the need for scalability suggest a focus on cloud computing and distributed systems."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "book:4956f52e49ccf039",
+        "book:6142d9c04c080337",
+        "book:89e93f4b287f3996"
+      ],
+      "cited_evidence_ids": [
+        "book:6142d9c04c080337"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 3
+        }
+      ],
+      "wall_latency_ms": 39630,
+      "model_latency_ms": 7052,
+      "time_to_first_byte_ms": 1738,
+      "token_usage": {
+        "input_tokens": 3610,
+        "output_tokens": 1063,
+        "total_tokens": 8530,
+        "cache_read_input_tokens": 3857,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 4,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": true,
+        "expected_trajectory_met": true,
+        "concrete_first_milestones": false,
+        "score": 0.8
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 3,
+        "matched_count": 2,
+        "precision_at_k": 0.6666666666666666,
+        "expected_evidence_coverage": 0.6666666666666666,
+        "reciprocal_rank": 0.5
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 2310,
+            "output_tokens": 346,
+            "total_tokens": 2656,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2662,
+            "output_tokens": 252,
+            "total_tokens": 2914,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 3,
+          "score_count": 3,
+          "average_score": 0.6666666666666666,
+          "labels": [
+            "No",
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 5096,
+            "output_tokens": 992,
+            "total_tokens": 6088,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-11-compiler-backend",
+      "category": "straightforward",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "Explore LLVM's Code Generation",
+            "summary": "Implement a simple compiler backend using LLVM to understand its code generation process.",
+            "rationale": "Leverage the user's interest in compiler backends and the available evidence on LLVM.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "LLVM"
+            ],
+            "first_milestone": "Implement a basic LLVM backend.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:0f5ba253568e4836",
+                "generated_connection": "The user is interested in learning about compiler backends, and the evidence suggests a strong overlap with LLVM."
+              }
+            ]
+          },
+          {
+            "title": "Analyze GCC's Backend",
+            "summary": "Study GCC's backend to understand its machine code generation process.",
+            "rationale": "The user's interest in compiler backends aligns with the evidence on GCC.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "GCC"
+            ],
+            "first_milestone": "Analyze GCC's backend code.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:1a243cc49c0803c6",
+                "generated_connection": "The user's interest in compiler backends and the evidence on GCC suggest a good fit for this project."
+              }
+            ]
+          },
+          {
+            "title": "Build a Custom Compiler Backend in Rust",
+            "summary": "Create a custom compiler backend in Rust to understand machine code generation.",
+            "rationale": "The user's interest in compiler backends and the evidence on Rust suggest a good fit for this project.",
+            "estimated_scope": "multi-month",
+            "technologies": [
+              "Rust"
+            ],
+            "first_milestone": "Design the custom compiler backend.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:22b55557e3c236b5",
+                "generated_connection": "The user's interest in compiler backends and the evidence on Rust suggest a good fit for this project."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "book:0f5ba253568e4836",
+        "book:1a243cc49c0803c6",
+        "book:22b55557e3c236b5"
+      ],
+      "cited_evidence_ids": [
+        "book:0f5ba253568e4836",
+        "book:1a243cc49c0803c6",
+        "book:22b55557e3c236b5"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "score_project_candidates",
+          "calls": 1
+        },
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 1
+        },
+        {
+          "tool": "score_project_candidates",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 30071,
+      "model_latency_ms": 3741,
+      "time_to_first_byte_ms": 1394,
+      "token_usage": {
+        "input_tokens": 1700,
+        "output_tokens": 611,
+        "total_tokens": 4788,
+        "cache_read_input_tokens": 2477,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 2,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": true,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.6
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 3,
+        "matched_count": 2,
+        "precision_at_k": 0.6666666666666666,
+        "expected_evidence_coverage": 0.6666666666666666,
+        "reciprocal_rank": 1.0
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 2018,
+            "output_tokens": 268,
+            "total_tokens": 2286,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2374,
+            "output_tokens": 212,
+            "total_tokens": 2586,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 2,
+          "score_count": 2,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 3321,
+            "output_tokens": 717,
+            "total_tokens": 4038,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-12-electric-motors",
+      "category": "straightforward",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "Electric Motor Simulation Project",
+            "summary": "Develop a simulation of an electric motor using principles from 'Motors for Makers: A Guide to Steppers, Servos, and Other Electrical Machines'. This project will involve creating a virtual model of a motor and simulating its operation under various conditions.",
+            "rationale": "The book provides a comprehensive guide to different types of motors and their applications, making it an excellent resource for understanding the principles of electric motors.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Complete a basic simulation of a DC motor",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:4d72e635a346be22",
+                "generated_connection": "This project is grounded in the book 'Motors for Makers', which covers the practical aspects of electric motors and their simulations."
+              }
+            ]
+          },
+          {
+            "title": "Alternating Current Motor Simulation",
+            "summary": "Create a simulation of an electric motor powered by alternating current, using concepts from 'Alternating Current Electricity'. This project will explore how AC motors work and how they differ from DC motors.",
+            "rationale": "The book 'Alternating Current Electricity' provides a detailed understanding of AC principles, which is essential for simulating AC motors.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "MATLAB"
+            ],
+            "first_milestone": "Develop a basic AC motor simulation",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:00ce1152ed2d321b",
+                "generated_connection": "This project leverages the knowledge from 'Alternating Current Electricity' to simulate AC motors."
+              }
+            ]
+          },
+          {
+            "title": "Electromagnetic Motor Simulation",
+            "summary": "Build a simulation of an electromagnetic motor, incorporating concepts from 'Molecular Electromagnetism'. This project will focus on the electromagnetic forces involved in motor operation.",
+            "rationale": "The book 'Molecular Electromagnetism' provides insights into the electromagnetic forces that drive motors, making it a valuable resource for this simulation project.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Simulate the electromagnetic forces in a simple motor",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:046d99d90f97cb43",
+                "generated_connection": "This project is grounded in the principles of electromagnetism from 'Molecular Electromagnetism'."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "book:4d72e635a346be22",
+        "book:00ce1152ed2d321b",
+        "book:046d99d90f97cb43"
+      ],
+      "cited_evidence_ids": [
+        "book:00ce1152ed2d321b",
+        "book:046d99d90f97cb43",
+        "book:4d72e635a346be22"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "search_catalog",
+          "calls": 2
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 1
+        },
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 32562,
+      "model_latency_ms": 4280,
+      "time_to_first_byte_ms": 1196,
+      "token_usage": {
+        "input_tokens": 1384,
+        "output_tokens": 686,
+        "total_tokens": 4622,
+        "cache_read_input_tokens": 2552,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 2,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": true,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.6
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 3,
+        "matched_count": 1,
+        "precision_at_k": 0.3333333333333333,
+        "expected_evidence_coverage": 0.3333333333333333,
+        "reciprocal_rank": 1.0
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 1994,
+            "output_tokens": 218,
+            "total_tokens": 2212,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2354,
+            "output_tokens": 296,
+            "total_tokens": 2650,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 2,
+          "score_count": 2,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 2927,
+            "output_tokens": 690,
+            "total_tokens": 3617,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-13-ibmi-automation",
+      "category": "straightforward",
+      "succeeded": false,
+      "candidates": null,
+      "retrieved_evidence_ids": [],
+      "cited_evidence_ids": [],
+      "local_tool_calls": [],
+      "model_tool_calls": [],
+      "wall_latency_ms": 17206,
+      "model_latency_ms": null,
+      "time_to_first_byte_ms": null,
+      "token_usage": null,
+      "cycle_count": null,
+      "quality": {
+        "structured_output_valid": false,
+        "citations_grounded": false,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.0
+      },
+      "retrieval_relevance": null,
+      "citation_support": null,
+      "agentcore_evaluations": [],
+      "error_type": "RuntimeSmokeError",
+      "error_message": "signed AgentCore Runtime invocation failed"
+    },
+    {
+      "case_id": "project-14-retro-emulator",
+      "category": "straightforward",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "FORTRAN Interpreter Emulator",
+            "summary": "Develop a simple emulator for the FORTRAN programming language, inspired by the history of FORTRAN as detailed in the book 'Abstracting Away the Machine'.",
+            "rationale": "The book provides a historical context and technical details of FORTRAN, which can guide the design of the emulator.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Complete a basic interpreter for a subset of FORTRAN syntax.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:ae07d258f7147d19",
+                "generated_connection": "The book 'Abstracting Away the Machine' offers insights into the language's design and usage, which can be applied to the emulator."
+              }
+            ]
+          },
+          {
+            "title": "IBM 360 Assembly Language Simulator",
+            "summary": "Create a simulator for the IBM 360 assembly language, using the book 'Machine, Assembly, and Systems Programming For the IBM 360' as a reference.",
+            "rationale": "The book contains detailed information on the IBM 360's assembly language and system programming, which is essential for building an accurate simulator.",
+            "estimated_scope": "multi-month",
+            "technologies": [
+              "C"
+            ],
+            "first_milestone": "Implement a basic assembler for the IBM 360 instruction set.",
+            "evidence_citations": [
+              {
+                "evidence_id": "project:225ec6523e626127",
+                "generated_connection": "The book provides a comprehensive guide to the IBM 360's programming model, which is crucial for the simulator's development."
+              }
+            ]
+          },
+          {
+            "title": "Vintage Computer Operating System Emulator",
+            "summary": "Design an emulator for an early computer operating system, drawing from the historical context provided in 'Computer: A History of the Information Machine'.",
+            "rationale": "The book offers a broad overview of the evolution of computer systems, which can inspire the choice of an operating system to emulate.",
+            "estimated_scope": "multi-month",
+            "technologies": [
+              "C++"
+            ],
+            "first_milestone": "Develop a basic file system and process management for the emulated OS.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:ecdda6ceb5795cdd",
+                "generated_connection": "The book's historical perspective can help in selecting an operating system that represents a significant milestone in computing."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "book:ae07d258f7147d19",
+        "book:ecdda6ceb5795cdd",
+        "project:225ec6523e626127"
+      ],
+      "cited_evidence_ids": [
+        "book:ae07d258f7147d19",
+        "book:ecdda6ceb5795cdd",
+        "project:225ec6523e626127"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "search_catalog",
+          "calls": 2
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 1
+        },
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 32205,
+      "model_latency_ms": 4352,
+      "time_to_first_byte_ms": 988,
+      "token_usage": {
+        "input_tokens": 1626,
+        "output_tokens": 685,
+        "total_tokens": 4782,
+        "cache_read_input_tokens": 2471,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 2,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.4
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 4,
+        "matched_count": 0,
+        "precision_at_k": 0.0,
+        "expected_evidence_coverage": 0.0,
+        "reciprocal_rank": 0.0
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 2098,
+            "output_tokens": 317,
+            "total_tokens": 2415,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2451,
+            "output_tokens": 293,
+            "total_tokens": 2744,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 2,
+          "score_count": 2,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 3169,
+            "output_tokens": 739,
+            "total_tokens": 3908,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-15-personal-data-visualization",
+      "category": "straightforward",
+      "succeeded": false,
+      "candidates": null,
+      "retrieved_evidence_ids": [],
+      "cited_evidence_ids": [],
+      "local_tool_calls": [],
+      "model_tool_calls": [],
+      "wall_latency_ms": 10649,
+      "model_latency_ms": null,
+      "time_to_first_byte_ms": null,
+      "token_usage": null,
+      "cycle_count": null,
+      "quality": {
+        "structured_output_valid": false,
+        "citations_grounded": false,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.0
+      },
+      "retrieval_relevance": null,
+      "citation_support": null,
+      "agentcore_evaluations": [],
+      "error_type": "RuntimeSmokeError",
+      "error_message": "signed AgentCore Runtime invocation failed"
+    },
+    {
+      "case_id": "project-16-accessible-typescript",
+      "category": "constrained",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "Simple To-Do List",
+            "summary": "A basic web application to manage tasks using TypeScript and React.",
+            "rationale": "This project is simple and can be completed in a weekend.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "TypeScript"
+            ],
+            "first_milestone": "Set up project structure and basic UI.",
+            "evidence_citations": [
+              {
+                "evidence_id": "project:141da829c3725a57",
+                "generated_connection": "No evidence found, but a simple web project fits the request."
+              }
+            ]
+          },
+          {
+            "title": "Weather Dashboard",
+            "summary": "A web application to display current weather using TypeScript and a weather API.",
+            "rationale": "This project is moderately complex and can be completed in a week.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "TypeScript"
+            ],
+            "first_milestone": "Fetch and display weather data.",
+            "evidence_citations": [
+              {
+                "evidence_id": "project:225ec6523e626127",
+                "generated_connection": "No evidence found, but a web project using an API fits the request."
+              }
+            ]
+          },
+          {
+            "title": "Blog Platform",
+            "summary": "A web platform to create, edit, and publish blog posts using TypeScript and a backend API.",
+            "rationale": "This project is more complex and can be completed in a multi-week timeframe.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "TypeScript"
+            ],
+            "first_milestone": "Set up user authentication and blog post CRUD operations.",
+            "evidence_citations": [
+              {
+                "evidence_id": "project:29f2536d8e6f0a7b",
+                "generated_connection": "No evidence found, but a web project with user management fits the request."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "project:141da829c3725a57",
+        "project:225ec6523e626127",
+        "project:29f2536d8e6f0a7b"
+      ],
+      "cited_evidence_ids": [
+        "project:141da829c3725a57",
+        "project:225ec6523e626127",
+        "project:29f2536d8e6f0a7b"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "search_catalog",
+          "calls": 2
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 3
+        },
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 39456,
+      "model_latency_ms": 6729,
+      "time_to_first_byte_ms": 869,
+      "token_usage": {
+        "input_tokens": 4090,
+        "output_tokens": 1036,
+        "total_tokens": 9862,
+        "cache_read_input_tokens": 4736,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 4,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.4
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 3,
+        "matched_count": 0,
+        "precision_at_k": 0.0,
+        "expected_evidence_coverage": 0.0,
+        "reciprocal_rank": 0.0
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 0.0,
+          "labels": [
+            "No"
+          ],
+          "token_usage": {
+            "input_tokens": 2494,
+            "output_tokens": 150,
+            "total_tokens": 2644,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 0.5,
+          "labels": [
+            "Partially Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2851,
+            "output_tokens": 338,
+            "total_tokens": 3189,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 4,
+          "score_count": 4,
+          "average_score": 0.5,
+          "labels": [
+            "No",
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 6751,
+            "output_tokens": 1334,
+            "total_tokens": 8085,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-17-circuit-simulation",
+      "category": "constrained",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "Circuit Simulation Software",
+            "summary": "Develop a software tool for simulating linear circuits using time domain, phasor, and Laplace transform approaches.",
+            "rationale": "Based on the book 'Linear Circuit Analysis: Time Domain, Phasor, and Laplace Transform Approaches' by DeCarlo and Lin, this project will allow you to practice circuit analysis by simulating circuits in software.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Complete the simulation of a simple RC circuit",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:4657b77112f27ea4",
+                "generated_connection": "This project is grounded in the book 'Linear Circuit Analysis: Time Domain, Phasor, and Laplace Transform Approaches' by DeCarlo and Lin, which provides the theoretical foundation for circuit analysis."
+              }
+            ]
+          },
+          {
+            "title": "VLSI Circuit Design Simulator",
+            "summary": "Create a software tool for simulating VLSI circuits, focusing on the physical principles and design of electronic circuits.",
+            "rationale": "Based on the book 'Electronic Circuits: Physical Principles, Analysis, And Design' by Chirlian, this project will allow you to practice circuit analysis by simulating VLSI circuits in software.",
+            "estimated_scope": "multi-month",
+            "technologies": [
+              "Verilog"
+            ],
+            "first_milestone": "Complete the simulation of a basic AND gate",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:4956f52e49ccf039",
+                "generated_connection": "This project is grounded in the book 'Electronic Circuits: Physical Principles, Analysis, And Design' by Chirlian, which provides the theoretical foundation for VLSI circuit design."
+              }
+            ]
+          },
+          {
+            "title": "Silicon VLSI Technology Simulator",
+            "summary": "Develop a software tool for simulating silicon VLSI technology, focusing on the fundamentals, practice, and modeling of VLSI circuits.",
+            "rationale": "Based on the book 'Silicon VLSI Technology: Fundamentals, Practice and Modeling' by Plummer, Deal, and Griffin, this project will allow you to practice circuit analysis by simulating silicon VLSI technology in software.",
+            "estimated_scope": "multi-month",
+            "technologies": [
+              "MATLAB"
+            ],
+            "first_milestone": "Complete the simulation of a basic MOSFET",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:b0a768b51675cc8b",
+                "generated_connection": "This project is grounded in the book 'Silicon VLSI Technology: Fundamentals, Practice and Modeling' by Plummer, Deal, and Griffin, which provides the theoretical foundation for silicon VLSI technology simulation."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "book:4657b77112f27ea4",
+        "book:b0a768b51675cc8b",
+        "book:4956f52e49ccf039"
+      ],
+      "cited_evidence_ids": [
+        "book:4657b77112f27ea4",
+        "book:4956f52e49ccf039",
+        "book:b0a768b51675cc8b"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "search_catalog",
+          "calls": 2
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 1
+        },
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 29537,
+      "model_latency_ms": 3746,
+      "time_to_first_byte_ms": 822,
+      "token_usage": {
+        "input_tokens": 1390,
+        "output_tokens": 644,
+        "total_tokens": 4552,
+        "cache_read_input_tokens": 2518,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 2,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": true,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.6
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 4,
+        "matched_count": 1,
+        "precision_at_k": 0.3333333333333333,
+        "expected_evidence_coverage": 0.25,
+        "reciprocal_rank": 0.3333333333333333
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 2119,
+            "output_tokens": 172,
+            "total_tokens": 2291,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2483,
+            "output_tokens": 198,
+            "total_tokens": 2681,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 2,
+          "score_count": 2,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 2978,
+            "output_tokens": 800,
+            "total_tokens": 3778,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-18-linux-tracing",
+      "category": "constrained",
+      "succeeded": false,
+      "candidates": null,
+      "retrieved_evidence_ids": [],
+      "cited_evidence_ids": [],
+      "local_tool_calls": [],
+      "model_tool_calls": [],
+      "wall_latency_ms": 8652,
+      "model_latency_ms": null,
+      "time_to_first_byte_ms": null,
+      "token_usage": null,
+      "cycle_count": null,
+      "quality": {
+        "structured_output_valid": false,
+        "citations_grounded": false,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.0
+      },
+      "retrieval_relevance": null,
+      "citation_support": null,
+      "agentcore_evaluations": [],
+      "error_type": "RuntimeSmokeError",
+      "error_message": "signed AgentCore Runtime invocation failed"
+    },
+    {
+      "case_id": "project-19-defensive-security",
+      "category": "constrained",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "Local Security Audit Tool",
+            "summary": "Develop a Python tool that performs a local security audit on a system, checking for common vulnerabilities and misconfigurations without scanning external systems.",
+            "rationale": "Based on the concepts in 'CompTIA Security+ Study Guide Exam SY0-701', this project will focus on local security practices.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Define the scope and requirements of the audit tool.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:04593c31d47c8dd3",
+                "generated_connection": "This project is grounded in the concepts of local security practices as discussed in 'CompTIA Security+ Study Guide Exam SY0-701'."
+              }
+            ]
+          },
+          {
+            "title": "Local Credential Manager",
+            "summary": "Create a Python application to securely manage local user credentials, ensuring they are stored and accessed securely within the system.",
+            "rationale": "Inspired by the security practices outlined in 'The Hardware Hacking Handbook: Breaking Embedded Security with Hardware Attacks', this project will focus on local credential management.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Design the credential storage and access mechanisms.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:4c7e8540e4e047e0",
+                "generated_connection": "This project is inspired by the local security practices discussed in 'The Hardware Hacking Handbook: Breaking Embedded Security with Hardware Attacks'."
+              }
+            ]
+          },
+          {
+            "title": "Local Network Traffic Analyzer",
+            "summary": "Build a Python tool to analyze local network traffic for suspicious activities, helping to detect potential security threats within the local network.",
+            "rationale": "Drawing from the defensive security practices in 'CompTIA Security+ Practice Tests: Exam SY0-701', this project will focus on local network traffic analysis.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Set up the network traffic capture and analysis framework.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:957babfd11fb3709",
+                "generated_connection": "This project is grounded in the defensive security practices discussed in 'CompTIA Security+ Practice Tests: Exam SY0-701'."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "book:04593c31d47c8dd3",
+        "book:4c7e8540e4e047e0",
+        "book:957babfd11fb3709"
+      ],
+      "cited_evidence_ids": [
+        "book:04593c31d47c8dd3",
+        "book:4c7e8540e4e047e0",
+        "book:957babfd11fb3709"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "search_catalog",
+          "calls": 2
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 1
+        },
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 30320,
+      "model_latency_ms": 3826,
+      "time_to_first_byte_ms": 996,
+      "token_usage": {
+        "input_tokens": 1389,
+        "output_tokens": 642,
+        "total_tokens": 4562,
+        "cache_read_input_tokens": 2531,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 2,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.4
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 4,
+        "matched_count": 1,
+        "precision_at_k": 0.3333333333333333,
+        "expected_evidence_coverage": 0.25,
+        "reciprocal_rank": 1.0
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 1946,
+            "output_tokens": 209,
+            "total_tokens": 2155,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2301,
+            "output_tokens": 296,
+            "total_tokens": 2597,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 2,
+          "score_count": 2,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 2885,
+            "output_tokens": 719,
+            "total_tokens": 3604,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-20-printed-repair",
+      "category": "constrained",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "3D-printed Keychain Repair",
+            "summary": "Create a 3D-printed replacement part for a broken keychain",
+            "rationale": "The 3D-printed keychain project involves creating a keychain, which can be adapted to repair a broken one",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "3D printing"
+            ],
+            "first_milestone": "Design the replacement part",
+            "evidence_citations": [
+              {
+                "evidence_id": "project:2b064d6a395aacb7",
+                "generated_connection": "The 3D-printed keychain project involves creating a keychain, which can be adapted to repair a broken one."
+              }
+            ]
+          },
+          {
+            "title": "3D-printed Tool Handle Repair",
+            "summary": "Design and print a new handle for a tool with a broken one",
+            "rationale": "The 3D-printed keychain project demonstrates the ability to create functional 3D-printed objects, which can be applied to repairing a tool handle",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "3D printing"
+            ],
+            "first_milestone": "Design the new tool handle",
+            "evidence_citations": [
+              {
+                "evidence_id": "project:2b064d6a395aacb7",
+                "generated_connection": "The 3D-printed keychain project demonstrates the ability to create functional 3D-printed objects, which can be applied to repairing a tool handle."
+              }
+            ]
+          },
+          {
+            "title": "3D-printed Furniture Repair",
+            "summary": "Create a 3D-printed replacement part for a broken piece of furniture",
+            "rationale": "The 3D-printed keychain project shows the potential to create custom 3D-printed parts, which can be used to repair furniture",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "3D printing"
+            ],
+            "first_milestone": "Assess the broken furniture piece and design the replacement part",
+            "evidence_citations": [
+              {
+                "evidence_id": "project:2b064d6a395aacb7",
+                "generated_connection": "The 3D-printed keychain project shows the potential to create custom 3D-printed parts, which can be used to repair furniture."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "project:2b064d6a395aacb7",
+        "project:225ec6523e626127",
+        "book:2508fb2bb5d4fde2"
+      ],
+      "cited_evidence_ids": [
+        "project:2b064d6a395aacb7"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 30566,
+      "model_latency_ms": 3016,
+      "time_to_first_byte_ms": 3066,
+      "token_usage": {
+        "input_tokens": 509,
+        "output_tokens": 510,
+        "total_tokens": 2359,
+        "cache_read_input_tokens": 1340,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 1,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": true,
+        "concrete_first_milestones": false,
+        "score": 0.6
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 4,
+        "matched_count": 0,
+        "precision_at_k": 0.0,
+        "expected_evidence_coverage": 0.0,
+        "reciprocal_rank": 0.0
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 1652,
+            "output_tokens": 214,
+            "total_tokens": 1866,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2001,
+            "output_tokens": 309,
+            "total_tokens": 2310,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 1484,
+            "output_tokens": 383,
+            "total_tokens": 1867,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-21-outside-comfort-zone",
+      "category": "ambiguous",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "Web Application with PHP, MySQL, and JavaScript",
+            "summary": "Build a web application using PHP, MySQL, and JavaScript with jQuery, CSS, and HTML5. This project will allow you to learn new technologies and apply them in a practical setting.",
+            "rationale": "Based on the catalog evidence, you have a book on Learning PHP, MySQL & JavaScript. This project will help you apply what you've learned and expand your skills.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "PHP, MySQL, JS, jQuery, CSS, HTML5"
+            ],
+            "first_milestone": "Set up the development environment and create the project structure",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:c1816b3127cdad17",
+                "generated_connection": "Project 1 has a high overlap score with your catalog evidence, indicating a good match."
+              }
+            ]
+          },
+          {
+            "title": "Planetarium Application",
+            "summary": "Explore the concepts of astronomy and cosmology by building a simple planetarium application. This project will introduce you to a new field and help you learn new concepts.",
+            "rationale": "Based on the catalog evidence, you have a book on Astronomy and Cosmology. This project will allow you to apply what you've learned and explore a new field.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "Astronomy, Cosmology"
+            ],
+            "first_milestone": "Research and understand the basic concepts of astronomy and cosmology",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:09e5441f8885929c",
+                "generated_connection": "Project 2 has a lower overlap score, but it introduces you to a new field."
+              }
+            ]
+          },
+          {
+            "title": "Digital Encyclopedia of Japanese Yokai",
+            "summary": "Create a digital encyclopedia of Japanese Yokai creatures. This project will allow you to explore Japanese folklore and mythology and learn about the cultural significance of these creatures.",
+            "rationale": "Based on the catalog evidence, you have a book on The Book of Yokai. This project will allow you to apply what you've learned and explore a new cultural topic.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "Japanese Folklore, Mythology"
+            ],
+            "first_milestone": "Research and understand the different types of Yokai and their cultural significance",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:1b35cd6e35a6db08",
+                "generated_connection": "Project 3 has no overlap with your catalog evidence, but it introduces you to a new cultural topic."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "book:c1816b3127cdad17",
+        "book:09e5441f8885929c",
+        "book:1b35cd6e35a6db08"
+      ],
+      "cited_evidence_ids": [
+        "book:09e5441f8885929c",
+        "book:1b35cd6e35a6db08",
+        "book:c1816b3127cdad17"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "score_project_candidates",
+          "calls": 1
+        },
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 2
+        },
+        {
+          "tool": "score_project_candidates",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 35834,
+      "model_latency_ms": 7797,
+      "time_to_first_byte_ms": 1521,
+      "token_usage": {
+        "input_tokens": 3667,
+        "output_tokens": 1337,
+        "total_tokens": 8429,
+        "cache_read_input_tokens": 3425,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 3,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.4
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 3,
+        "matched_count": 0,
+        "precision_at_k": 0.0,
+        "expected_evidence_coverage": 0.0,
+        "reciprocal_rank": 0.0
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 2872,
+            "output_tokens": 191,
+            "total_tokens": 3063,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 3229,
+            "output_tokens": 259,
+            "total_tokens": 3488,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 3,
+          "score_count": 3,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 6042,
+            "output_tokens": 1002,
+            "total_tokens": 7044,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-22-use-a-book",
+      "category": "ambiguous",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "Molecular Simulation Software",
+            "summary": "Develop a software tool for molecular simulation based on the algorithms and applications discussed in the book. This project will involve implementing scientific computing techniques and creating a user-friendly interface.",
+            "rationale": "The book provides a comprehensive overview of molecular simulation algorithms and their applications, making it a suitable foundation for developing a practical software tool.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Implement basic molecular simulation algorithms",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:1235aba83f8b0f9b",
+                "generated_connection": "The book 'Understanding Molecular Simulation: From Algorithms to Applications' provides the necessary algorithms and applications to develop a molecular simulation software."
+              }
+            ]
+          },
+          {
+            "title": "Molecular Simulation Research Paper",
+            "summary": "Write a research paper exploring the latest advancements in molecular simulation techniques and their applications. This project will involve extensive literature review and analysis of current research trends.",
+            "rationale": "The book covers a wide range of topics in molecular simulation, making it an excellent resource for a research paper on recent advancements.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "LaTeX"
+            ],
+            "first_milestone": "Conduct a literature review on molecular simulation techniques",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:1235aba83f8b0f9b",
+                "generated_connection": "The book 'Understanding Molecular Simulation: From Algorithms to Applications' offers a detailed exploration of molecular simulation techniques, ideal for a research paper."
+              }
+            ]
+          },
+          {
+            "title": "Molecular Simulation Workshop",
+            "summary": "Organize a workshop for students and researchers to learn about molecular simulation techniques and their applications. This project will involve preparing presentation materials and conducting hands-on sessions.",
+            "rationale": "The book provides a solid foundation for teaching molecular simulation techniques, making it suitable for a workshop.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "Presentation Software"
+            ],
+            "first_milestone": "Prepare workshop presentation materials",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:1235aba83f8b0f9b",
+                "generated_connection": "The book 'Understanding Molecular Simulation: From Algorithms to Applications' is an excellent resource for teaching molecular simulation techniques in a workshop setting."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "book:1235aba83f8b0f9b",
+        "book:18a27430b7ab1bed",
+        "book:1b35cd6e35a6db08"
+      ],
+      "cited_evidence_ids": [
+        "book:1235aba83f8b0f9b"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 25959,
+      "model_latency_ms": 3531,
+      "time_to_first_byte_ms": 3582,
+      "token_usage": {
+        "input_tokens": 536,
+        "output_tokens": 505,
+        "total_tokens": 2364,
+        "cache_read_input_tokens": 1323,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 1,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": true,
+        "concrete_first_milestones": false,
+        "score": 0.6
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 4,
+        "matched_count": 0,
+        "precision_at_k": 0.0,
+        "expected_evidence_coverage": 0.0,
+        "reciprocal_rank": 0.0
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 1733,
+            "output_tokens": 169,
+            "total_tokens": 1902,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2095,
+            "output_tokens": 229,
+            "total_tokens": 2324,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 1541,
+            "output_tokens": 335,
+            "total_tokens": 1876,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-23-use-the-museum",
+      "category": "ambiguous",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "Interactive History of Computing Web App",
+            "summary": "Develop an interactive web application to explore the history of computing using the book 'The Universal History of Computing'.",
+            "rationale": "The book provides a comprehensive history of computing, making it a valuable resource for creating an engaging educational tool.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "JavaScript"
+            ],
+            "first_milestone": "Design the user interface and data model",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:176299d06329f6d4",
+                "generated_connection": "Leveraging the rich history in 'The Universal History of Computing' to create an engaging educational tool."
+              }
+            ]
+          },
+          {
+            "title": "Quantum Computing Simulator",
+            "summary": "Create a quantum computing simulator based on the principles outlined in 'Quantum Computing Since Democritus'.",
+            "rationale": "The book offers a deep dive into quantum computing, providing a solid foundation for building a simulator.",
+            "estimated_scope": "multi-month",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Implement basic quantum gates and algorithms",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:23033c2dd9ae38cd",
+                "generated_connection": "Using the principles from 'Quantum Computing Since Democritus' to build a functional quantum computing simulator."
+              }
+            ]
+          },
+          {
+            "title": "Numerical Algorithms Implementation",
+            "summary": "Implement numerical algorithms from 'Numerical Recipes in C: The Art of Scientific Computing, Second Edition' in a modern programming language.",
+            "rationale": "The book contains a wealth of numerical algorithms that can be implemented in a modern language for practical use.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Select and implement the first algorithm",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:5a80ded476aedcde",
+                "generated_connection": "Translating the numerical algorithms from 'Numerical Recipes in C' into a modern programming language for practical application."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "book:176299d06329f6d4",
+        "book:23033c2dd9ae38cd",
+        "book:5a80ded476aedcde"
+      ],
+      "cited_evidence_ids": [
+        "book:176299d06329f6d4",
+        "book:23033c2dd9ae38cd",
+        "book:5a80ded476aedcde"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "score_project_candidates",
+          "calls": 1
+        },
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 1
+        },
+        {
+          "tool": "score_project_candidates",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 29918,
+      "model_latency_ms": 4630,
+      "time_to_first_byte_ms": 1738,
+      "token_usage": {
+        "input_tokens": 1839,
+        "output_tokens": 718,
+        "total_tokens": 4980,
+        "cache_read_input_tokens": 2423,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 2,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.4
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 3,
+        "matched_count": 0,
+        "precision_at_k": 0.0,
+        "expected_evidence_coverage": 0.0,
+        "reciprocal_rank": 0.0
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 2081,
+            "output_tokens": 241,
+            "total_tokens": 2322,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2440,
+            "output_tokens": 240,
+            "total_tokens": 2680,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 2,
+          "score_count": 2,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 3387,
+            "output_tokens": 665,
+            "total_tokens": 4052,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-24-revisit-old-project",
+      "category": "ambiguous",
+      "succeeded": false,
+      "candidates": null,
+      "retrieved_evidence_ids": [],
+      "cited_evidence_ids": [],
+      "local_tool_calls": [],
+      "model_tool_calls": [],
+      "wall_latency_ms": 6634,
+      "model_latency_ms": null,
+      "time_to_first_byte_ms": null,
+      "token_usage": null,
+      "cycle_count": null,
+      "quality": {
+        "structured_output_valid": false,
+        "citations_grounded": false,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.0
+      },
+      "retrieval_relevance": null,
+      "citation_support": null,
+      "agentcore_evaluations": [],
+      "error_type": "RuntimeSmokeError",
+      "error_message": "signed AgentCore Runtime invocation failed"
+    },
+    {
+      "case_id": "project-25-something-with-data",
+      "category": "ambiguous",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "League of Legends Data Visualization",
+            "summary": "Create two basic data visualizations for League of Legends using R and SQL.",
+            "rationale": "The user has expressed interest in building something involving data, and this project involves creating visualizations, which is a common data-related task.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "R"
+            ],
+            "first_milestone": "Complete the first visualization",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:0824d3176e5482c6",
+                "generated_connection": "The user's interest in data aligns with the task of creating visualizations."
+              }
+            ]
+          },
+          {
+            "title": "STIX/ATT&CK Data Chatbot",
+            "summary": "Develop an agentic RAG chatbot for handling STIX/ATT&CK data using Python, JavaScript, HTML, and CSS.",
+            "rationale": "This project involves working with data in a more complex and interactive way, which could be appealing to the user.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Set up the chatbot framework",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:085b69a38da879ed",
+                "generated_connection": "The user's interest in data can be extended to building a chatbot for data handling."
+              }
+            ]
+          },
+          {
+            "title": "COBOL Data Reports",
+            "summary": "Write a small COBOL program to generate basic data reports.",
+            "rationale": "This project offers a different perspective on data handling, using a legacy language like COBOL.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "COBOL"
+            ],
+            "first_milestone": "Write the initial COBOL code",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:3203a9cfce9c9b65",
+                "generated_connection": "The user's interest in data can be explored through a historical programming language."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "book:0824d3176e5482c6",
+        "book:085b69a38da879ed",
+        "book:3203a9cfce9c9b65"
+      ],
+      "cited_evidence_ids": [
+        "book:0824d3176e5482c6",
+        "book:085b69a38da879ed",
+        "book:3203a9cfce9c9b65"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "search_catalog",
+          "calls": 2
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 1
+        },
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 26868,
+      "model_latency_ms": 3349,
+      "time_to_first_byte_ms": 924,
+      "token_usage": {
+        "input_tokens": 1510,
+        "output_tokens": 497,
+        "total_tokens": 4510,
+        "cache_read_input_tokens": 2503,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 2,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.4
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 3,
+        "matched_count": 0,
+        "precision_at_k": 0.0,
+        "expected_evidence_coverage": 0.0,
+        "reciprocal_rank": 0.0
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 1883,
+            "output_tokens": 158,
+            "total_tokens": 2041,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2243,
+            "output_tokens": 243,
+            "total_tokens": 2486,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 2,
+          "score_count": 2,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 3052,
+            "output_tokens": 642,
+            "total_tokens": 3694,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-26-weekend-cpu",
+      "category": "infeasible",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "Explore CPU Design Principles",
+            "summary": "Study and simulate a simple CPU component using the concepts from 'The Elements of Computing Systems'.",
+            "rationale": "Based on the book 'The Elements of Computing Systems', this project will allow you to understand the fundamental principles of CPU design.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "Simulation Software"
+            ],
+            "first_milestone": "Complete a simple CPU component simulation.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:35032befbe25d56b",
+                "generated_connection": "This project is grounded in the user's catalog evidence of a book on building a modern computer from first principles."
+              }
+            ]
+          },
+          {
+            "title": "Build a Basic Logic Gate",
+            "summary": "Construct a basic logic gate using individual transistors as a stepping stone to understanding CPU design.",
+            "rationale": "Building a logic gate is a fundamental step in understanding how transistors work, which is essential for CPU design.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "Transistors, Breadboard"
+            ],
+            "first_milestone": "Successfully build and test a basic logic gate.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:35032befbe25d56b",
+                "generated_connection": "This project is a foundational step towards understanding CPU design, as it involves working with transistors."
+              }
+            ]
+          },
+          {
+            "title": "Create a Simple Microcontroller",
+            "summary": "Design and simulate a simple microcontroller using the principles from 'The Elements of Computing Systems'.",
+            "rationale": "A microcontroller is a simpler version of a CPU and can be designed and simulated within a weekend.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "Simulation Software"
+            ],
+            "first_milestone": "Complete the design and simulation of a simple microcontroller.",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:35032befbe25d56b",
+                "generated_connection": "This project is grounded in the user's catalog evidence and is a practical application of the concepts from the book."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "book:35032befbe25d56b",
+        "book:6f77b1d30449654b",
+        "book:8a1d7e33bf133454"
+      ],
+      "cited_evidence_ids": [
+        "book:35032befbe25d56b"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "search_catalog",
+          "calls": 2
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 1
+        },
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 34083,
+      "model_latency_ms": 4236,
+      "time_to_first_byte_ms": 1382,
+      "token_usage": {
+        "input_tokens": 1384,
+        "output_tokens": 635,
+        "total_tokens": 4537,
+        "cache_read_input_tokens": 2518,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 2,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.4
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 4,
+        "matched_count": 0,
+        "precision_at_k": 0.0,
+        "expected_evidence_coverage": 0.0,
+        "reciprocal_rank": 0.0
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 1807,
+            "output_tokens": 214,
+            "total_tokens": 2021,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2154,
+            "output_tokens": 367,
+            "total_tokens": 2521,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 2,
+          "score_count": 2,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 2795,
+            "output_tokens": 723,
+            "total_tokens": 3518,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-27-laptop-frontier-model",
+      "category": "infeasible",
+      "succeeded": true,
+      "candidates": {
+        "candidates": [
+          {
+            "title": "Build a Frontier-Scale Language Model",
+            "summary": "Develop a frontier-scale language model from scratch using Python and machine learning techniques.",
+            "rationale": "This project leverages the user's interest in AI and Data Science, as evidenced by the book 'Build a Large Language Model (From Scratch)'. It is achievable within the given timeframe and aligns with the user's goal of creating a large language model.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Complete initial data preprocessing and model architecture design",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:45dfc383b767a701",
+                "generated_connection": "This project aligns with the user's interest in AI and Data Science, as evidenced by the book 'Build a Large Language Model (From Scratch)'."
+              }
+            ]
+          },
+          {
+            "title": "Develop a Large Language Model from Concept to Production",
+            "summary": "Create a large language model from concept to production using Python and deep learning frameworks.",
+            "rationale": "This project is based on the book 'LLM Engineer's Handbook: Master the art of engineering Large Language Models from concept to production'. It is achievable within the given timeframe and aligns with the user's goal of creating a large language model.",
+            "estimated_scope": "multi-week",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Complete model training and initial evaluation",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:bcbd2cb10137d4a3",
+                "generated_connection": "This project aligns with the user's interest in AI and Data Science, as evidenced by the book 'LLM Engineer's Handbook: Master the art of engineering Large Language Models from concept to production'."
+              }
+            ]
+          },
+          {
+            "title": "Create a Domain-Specific Language Model",
+            "summary": "Develop a domain-specific language model using Python and natural language processing techniques.",
+            "rationale": "This project is based on the user's interest in natural language processing, as evidenced by the book 'Language Implementation Patterns: Create Your Own Domain-Specific and General Programming Languages'. It is achievable within the given timeframe and aligns with the user's goal of creating a large language model.",
+            "estimated_scope": "weekend",
+            "technologies": [
+              "Python"
+            ],
+            "first_milestone": "Complete data collection and preprocessing",
+            "evidence_citations": [
+              {
+                "evidence_id": "book:3b4332b414a78aac",
+                "generated_connection": "This project aligns with the user's interest in natural language processing, as evidenced by the book 'Language Implementation Patterns: Create Your Own Domain-Specific and General Programming Languages'."
+              }
+            ]
+          }
+        ]
+      },
+      "retrieved_evidence_ids": [
+        "book:45dfc383b767a701",
+        "book:bcbd2cb10137d4a3",
+        "book:3b4332b414a78aac"
+      ],
+      "cited_evidence_ids": [
+        "book:3b4332b414a78aac",
+        "book:45dfc383b767a701",
+        "book:bcbd2cb10137d4a3"
+      ],
+      "local_tool_calls": [
+        {
+          "tool": "score_project_candidates",
+          "calls": 1
+        },
+        {
+          "tool": "search_catalog",
+          "calls": 1
+        }
+      ],
+      "model_tool_calls": [
+        {
+          "tool": "GatewayCandidateOutput",
+          "calls": 1
+        },
+        {
+          "tool": "score_project_candidates",
+          "calls": 1
+        }
+      ],
+      "wall_latency_ms": 34213,
+      "model_latency_ms": 5415,
+      "time_to_first_byte_ms": 1695,
+      "token_usage": {
+        "input_tokens": 1791,
+        "output_tokens": 843,
+        "total_tokens": 5071,
+        "cache_read_input_tokens": 2437,
+        "cache_write_input_tokens": 0
+      },
+      "cycle_count": 2,
+      "quality": {
+        "structured_output_valid": true,
+        "citations_grounded": true,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.4
+      },
+      "retrieval_relevance": {
+        "retrieved_count": 3,
+        "curated_relevant_count": 3,
+        "matched_count": 0,
+        "precision_at_k": 0.0,
+        "expected_evidence_coverage": 0.0,
+        "reciprocal_rank": 0.0
+      },
+      "citation_support": {
+        "claim_count": 3,
+        "resolved_citation_count": 3,
+        "supported_claim_count": 3,
+        "unsupported_claim_count": 0,
+        "citation_correctness_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "agentcore_evaluations": [
+        {
+          "evaluator_id": "Builtin.GoalSuccessRate",
+          "level": "SESSION",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 0.0,
+          "labels": [
+            "No"
+          ],
+          "token_usage": {
+            "input_tokens": 2390,
+            "output_tokens": 281,
+            "total_tokens": 2671,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.Correctness",
+          "level": "TRACE",
+          "status": "completed",
+          "result_count": 1,
+          "score_count": 1,
+          "average_score": 1.0,
+          "labels": [
+            "Perfectly Correct"
+          ],
+          "token_usage": {
+            "input_tokens": 2745,
+            "output_tokens": 381,
+            "total_tokens": 3126,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        },
+        {
+          "evaluator_id": "Builtin.ToolSelectionAccuracy",
+          "level": "TOOL_CALL",
+          "status": "completed",
+          "result_count": 2,
+          "score_count": 2,
+          "average_score": 1.0,
+          "labels": [
+            "Yes"
+          ],
+          "token_usage": {
+            "input_tokens": 3531,
+            "output_tokens": 780,
+            "total_tokens": 4311,
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0
+          },
+          "error_code": null
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "case_id": "project-28-launch-satellite",
+      "category": "infeasible",
+      "succeeded": false,
+      "candidates": null,
+      "retrieved_evidence_ids": [],
+      "cited_evidence_ids": [],
+      "local_tool_calls": [],
+      "model_tool_calls": [],
+      "wall_latency_ms": 15570,
+      "model_latency_ms": null,
+      "time_to_first_byte_ms": null,
+      "token_usage": null,
+      "cycle_count": null,
+      "quality": {
+        "structured_output_valid": false,
+        "citations_grounded": false,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.0
+      },
+      "retrieval_relevance": null,
+      "citation_support": null,
+      "agentcore_evaluations": [],
+      "error_type": "RuntimeSmokeError",
+      "error_message": "signed AgentCore Runtime invocation failed"
+    },
+    {
+      "case_id": "project-29-quantum-dot-battery",
+      "category": "infeasible",
+      "succeeded": false,
+      "candidates": null,
+      "retrieved_evidence_ids": [],
+      "cited_evidence_ids": [],
+      "local_tool_calls": [],
+      "model_tool_calls": [],
+      "wall_latency_ms": 11757,
+      "model_latency_ms": null,
+      "time_to_first_byte_ms": null,
+      "token_usage": null,
+      "cycle_count": null,
+      "quality": {
+        "structured_output_valid": false,
+        "citations_grounded": false,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.0
+      },
+      "retrieval_relevance": null,
+      "citation_support": null,
+      "agentcore_evaluations": [],
+      "error_type": "RuntimeSmokeError",
+      "error_message": "signed AgentCore Runtime invocation failed"
+    },
+    {
+      "case_id": "project-30-clinical-diagnosis",
+      "category": "infeasible",
+      "succeeded": false,
+      "candidates": null,
+      "retrieved_evidence_ids": [],
+      "cited_evidence_ids": [],
+      "local_tool_calls": [],
+      "model_tool_calls": [],
+      "wall_latency_ms": 8213,
+      "model_latency_ms": null,
+      "time_to_first_byte_ms": null,
+      "token_usage": null,
+      "cycle_count": null,
+      "quality": {
+        "structured_output_valid": false,
+        "citations_grounded": false,
+        "expected_evidence_met": false,
+        "expected_trajectory_met": false,
+        "concrete_first_milestones": false,
+        "score": 0.0
+      },
+      "retrieval_relevance": null,
+      "citation_support": null,
+      "agentcore_evaluations": [],
+      "error_type": "RuntimeSmokeError",
+      "error_message": "signed AgentCore Runtime invocation failed"
+    }
+  ]
+}

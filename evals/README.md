@@ -85,6 +85,45 @@ The deployed command reads its model and image identity from the immutable
 Runtime version served by the endpoint. `RUNTIME_EVAL_TRACE_TIMEOUT_SECONDS`
 changes the per-case trace wait.
 
+Check a sanitized result artifact against the reviewed regression policy with:
+
+```shell
+make eval-check
+make eval-regression
+make eval-regression REGRESSION_RESULT=path/to/result.json
+```
+
+`eval-check` is the single offline entry point for evaluation fixture schemas,
+cross-file alignment, deterministic scoring behavior, and the accepted baseline.
+It requires only locked repository dependencies and performs no network calls,
+so it is suitable for local development and CI. The repository-wide `make check`
+also enforces the accepted baseline regression gate.
+
+`eval-regression` defaults to the accepted Nova Pro baseline. The versioned policy in
+`project-recommendations/regression-thresholds.json` requires at least 27 of 30
+successful cases, preserves citation provenance as an absolute invariant, and
+sets bounded quality, retrieval, latency, token, and managed-evaluator gates.
+This command is offline and never invokes AWS or a model.
+
+Run the offline DSPy instruction comparison with:
+
+```shell
+make eval-dspy-instructions
+```
+
+The command uses MIPROv2 to optimize a zero-shot instruction over the fixed
+15-case training and five-case validation partitions in
+`project-recommendations/dspy-split.json`. It then evaluates the maintained and
+optimized instructions against the same ten untouched held-out cases. Both
+variants use Nova Lite, the same retrieved evidence, the same
+`ProjectCandidateSet` output contract, and deterministic checks for schema
+validity, citation grounding, curated evidence coverage, and concrete first
+milestones. DSPy is an offline development dependency; the command records a
+comparison artifact and never changes the production instruction automatically.
+The optimization and comparison make multiple metered Bedrock requests and are
+therefore not part of `make check` or a deployed smoke suite. Override
+`DSPY_MODEL_ID` only for an explicitly labeled model experiment.
+
 `project-briefs/cases.json` is the versioned five-scenario brief-quality seed.
 It covers straightforward, constrained, and infeasible selected ideas,
 including a speculative quantum-materials project. Its separate expectations

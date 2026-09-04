@@ -33,14 +33,14 @@ This roadmap is the source of truth for the project's intended scope and current
 - AWS region: `us-east-1` (US East, N. Virginia)
 - Initial model: Amazon Nova Micro using on-demand inference
 - Initial model ID: `amazon.nova-micro-v1:0`
-- Current default model: Amazon Nova Lite (`amazon.nova-lite-v1:0`)
+- Current default model: Amazon Nova Pro (`amazon.nova-pro-v1:0`)
 - Deployment posture: temporary development environments, destroyed when the project is inactive or complete
 
 ### Model strategy
 
-Amazon Nova Lite is the default model because the deployed baseline showed materially better reliability and quality than Nova Micro.
-Keep the model ID in configuration rather than application code. Use expanded evaluation results in Phase 8 to decide whether particular
-workflows require another model change; do not change the default without measured evidence.
+Amazon Nova Pro is the default model because a controlled 30-case deployment comparison showed materially better reliability and quality
+than Nova Lite at similar latency. Keep the model ID in configuration rather than application code, retain Lite and Micro as measured
+rollback models, and do not change the default without new evaluation evidence.
 
 Use in-region inference in `us-east-1` initially. Cross-region inference can be evaluated later if throughput or 
 availability becomes a demonstrated problem.
@@ -360,10 +360,10 @@ Definition of done: the complete application is usable from a browser.
 - [x] Compare different retrieval limits
 - [x] Confirm conversation summarization is unnecessary for bounded one-shot model invocations
 - [x] Add prompt caching where repeated context qualifies
-- [ ] Compare DSPy-optimized instructions with the maintained baseline on a held-out evaluation set
-- [ ] Repeat the default-model versus stronger-model comparison
-- [ ] Establish regression thresholds
-- [ ] Make evaluation repeatable locally or in CI
+- [x] Compare DSPy-optimized instructions with the maintained baseline on a held-out evaluation set
+- [x] Repeat the default-model versus stronger-model comparison
+- [x] Establish regression thresholds
+- [x] Make evaluation repeatable locally or in CI
 
 Definition of done: measurements show that cost or latency improved without a material reduction in quality.
 

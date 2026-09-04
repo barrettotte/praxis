@@ -14,6 +14,7 @@ from time import perf_counter
 from praxis.agent.planner import ProjectPlanningRun, invoke_project_candidates_with_trace
 from praxis.catalog import InMemoryCatalog
 from praxis.config import AgentSettings
+from praxis.domain import ProjectCandidateSet
 from praxis.evaluation.models import (
     CaseExpectation,
     EvaluationCategory,
@@ -57,6 +58,7 @@ DATASET_FILES = ("books.json", "projects.json", "bytes.json", "museum.json")
 SOURCE_PATHS = (
     Path("backend/src/praxis"),
     Path("evals/project-recommendations/business-assertions.json"),
+    Path("evals/project-recommendations/dspy-split.json"),
     Path("evals/project-recommendations/prompts.json"),
     Path("evals/project-recommendations/expectations.json"),
     Path("pyproject.toml"),
@@ -75,7 +77,8 @@ def _hash_files(files: Iterable[Path], *, relative_to: Path) -> str:
     return digest.hexdigest()
 
 
-def _dataset_identity(directory: Path, catalog: InMemoryCatalog) -> DatasetIdentity:
+def dataset_identity(directory: Path, catalog: InMemoryCatalog) -> DatasetIdentity:
+    """Identify the exact authoritative catalog used by an evaluation."""
     paths = [directory / name for name in DATASET_FILES]
     return DatasetIdentity(
         label="authoritative-sibling-catalog",
@@ -110,7 +113,8 @@ def _git_output(repository: Path, *arguments: str) -> str:
     return completed.stdout.strip()
 
 
-def _source_identity(repository: Path) -> SourceIdentity:
+def source_identity(repository: Path) -> SourceIdentity:
+    """Identify the repository revision and evaluation-relevant source content."""
     revision = _git_output(repository, "rev-parse", "HEAD")
     dirty = bool(_git_output(repository, "status", "--short", "--untracked-files=all"))
     return SourceIdentity(
@@ -133,8 +137,9 @@ def _trajectory_met(expectation: CaseExpectation, observed: Iterable[str]) -> bo
     )
 
 
-def _concrete_milestones(run: ProjectPlanningRun) -> bool:
-    for candidate in run.candidates.candidates:
+def has_concrete_first_milestones(candidates: ProjectCandidateSet) -> bool:
+    """Return whether every candidate starts with an independently testable action."""
+    for candidate in candidates.candidates:
         words = candidate.first_milestone.casefold().replace("-", " ").split()
         normalized_words = {word.strip(".,:;!?()[]{}") for word in words}
         if len(words) < 6 or not normalized_words & ACTION_WORDS:
@@ -160,7 +165,7 @@ def _quality(run: ProjectPlanningRun, expectation: CaseExpectation) -> QualityRe
         cited_ids <= set(run.retrieved_evidence_ids),
         expected_evidence_met,
         _trajectory_met(expectation, run.local_tool_calls),
-        _concrete_milestones(run),
+        has_concrete_first_milestones(run.candidates),
     )
     return QualityResult(
         structured_output_valid=checks[0],
@@ -399,8 +404,8 @@ def run_baseline(
             generated_at=datetime.now(UTC),
             model_id=settings.model_id,
             region=settings.region,
-            dataset=_dataset_identity(catalog_directory, catalog),
-            source=_source_identity(repository),
+            dataset=dataset_identity(catalog_directory, catalog),
+            source=source_identity(repository),
             deployment=deployment,
         ),
         summary=_summary(results),
@@ -410,7 +415,10 @@ def run_baseline(
 
 __all__ = [
     "PlanningInvoker",
+    "dataset_identity",
+    "has_concrete_first_milestones",
     "measure_citation_support",
     "measure_retrieval_relevance",
     "run_baseline",
+    "source_identity",
 ]

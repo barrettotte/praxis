@@ -2,9 +2,10 @@
 locals {
   agentcore_runtime_name          = replace("${local.name_prefix}-agent", "-", "_")
   agentcore_runtime_container_uri = "${aws_ecr_repository.deployable["agent"].repository_url}@${var.agent_image_digest}"
-  # Keep the measured Micro fallback callable alongside the configured default.
+  # Keep the default and measured fallback callable while staging a comparison model.
   agentcore_runtime_model_ids = distinct([
     "amazon.nova-micro-v1:0",
+    "amazon.nova-lite-v1:0",
     var.agent_model_id,
   ])
   agentcore_runtime_environment = {
