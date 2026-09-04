@@ -5,9 +5,8 @@ from dataclasses import dataclass
 from typing import Protocol, cast
 
 from strands import Agent
-from strands.types.exceptions import EventLoopException, StructuredOutputException
+from strands.types.exceptions import StructuredOutputException
 
-from praxis.agent.budget import ToolCallBudgetError
 from praxis.agent.factory import create_agent
 from praxis.catalog import (
     CatalogEntry,
@@ -89,12 +88,6 @@ class StrandsCandidateGenerator:
         """Invoke Strands structured output and narrow the validated result type."""
         try:
             result = self.agent(prompt, structured_output_model=ProjectCandidateSet)
-        except ToolCallBudgetError as error:
-            raise CandidatePlanningError(str(error)) from error
-        except EventLoopException as error:
-            if isinstance(error.original_exception, ToolCallBudgetError):
-                raise CandidatePlanningError(str(error.original_exception)) from error
-            raise
         except StructuredOutputException as error:
             message = "Strands could not produce structured project candidates"
             raise CandidatePlanningError(message) from error

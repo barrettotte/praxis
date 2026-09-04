@@ -102,6 +102,12 @@ resource "aws_apigatewayv2_stage" "default" {
     throttling_rate_limit  = 0.1
   }
 
+  route_settings {
+    route_key              = "POST /v1/projects/{candidateId}/select"
+    throttling_burst_limit = 1
+    throttling_rate_limit  = 0.1
+  }
+
   tags = {
     Name    = "${local.name_prefix}-api-default"
     Purpose = "Application HTTP API deployment"

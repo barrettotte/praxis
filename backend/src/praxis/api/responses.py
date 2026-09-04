@@ -30,6 +30,7 @@ class ApiErrorCode(StrEnum):
     """Stable machine-readable codes exposed by the application boundary."""
 
     INVALID_REQUEST = "invalid_request"
+    NOT_FOUND = "not_found"
     PAYLOAD_TOO_LARGE = "payload_too_large"
     SERVICE_UNAVAILABLE = "service_unavailable"
 
@@ -58,6 +59,7 @@ class _LambdaProxyResponse(ResponseModel):
 
 _ERROR_DEFINITIONS: dict[ApiErrorCode, tuple[int, str]] = {
     ApiErrorCode.INVALID_REQUEST: (400, "Invalid request."),
+    ApiErrorCode.NOT_FOUND: (404, "Requested recommendation session was not found."),
     ApiErrorCode.PAYLOAD_TOO_LARGE: (413, "Request payload is too large."),
     ApiErrorCode.SERVICE_UNAVAILABLE: (
         503,

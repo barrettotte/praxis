@@ -4,7 +4,7 @@
   "candidate_count": 3,
   "client": "Boto3 AgentCore Runtime",
   "endpoint_qualifier": "stable",
-  "endpoint_version": "12",
+  "endpoint_version": "32",
   "evidence_ids": [
     "book:0f5ba253568e4836",
     "book:1a243cc49c0803c6",
@@ -15,6 +15,10 @@
   "response_content_type": "application/json",
   "runtime_session_id_length": 36,
   "tool_calls": [
+    {
+      "count": 1,
+      "name": "score_project_candidates"
+    },
     {
       "count": 1,
       "name": "search_catalog"

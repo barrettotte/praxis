@@ -2,13 +2,22 @@ from pathlib import Path
 
 from pydantic import TypeAdapter
 
-from praxis.evaluation import EvaluationExpectations, EvaluationSet
+from praxis.evaluation import (
+    BriefEvaluationExpectations,
+    BriefEvaluationSet,
+    EvaluationExpectations,
+    EvaluationSet,
+)
 
 EVALUATION_SET_PATH = (
     Path(__file__).parents[2] / "evals" / "project-recommendations" / "prompts.json"
 )
 EXPECTATIONS_PATH = (
     Path(__file__).parents[2] / "evals" / "project-recommendations" / "expectations.json"
+)
+BRIEF_CASES_PATH = Path(__file__).parents[2] / "evals" / "project-briefs" / "cases.json"
+BRIEF_EXPECTATIONS_PATH = (
+    Path(__file__).parents[2] / "evals" / "project-briefs" / "expectations.json"
 )
 
 
@@ -70,3 +79,23 @@ def test_history_aware_cases_expect_project_comparison() -> None:
 
     assert "compare_project_history" in tools_by_case["project-03-cpp-game-history"]
     assert "compare_project_history" in tools_by_case["project-07-security-python"]
+
+
+def test_project_brief_evaluation_set_covers_feasible_and_infeasible_ideas() -> None:
+    cases = TypeAdapter(BriefEvaluationSet).validate_json(BRIEF_CASES_PATH.read_bytes())
+
+    assert len(cases.cases) == 5
+    assert {case.category for case in cases.cases} >= {"straightforward", "infeasible"}
+    assert [case.id[:8] for case in cases.cases] == [f"brief-{number:02}" for number in range(1, 6)]
+
+
+def test_project_brief_expectations_align_and_require_complete_rubric() -> None:
+    cases = TypeAdapter(BriefEvaluationSet).validate_json(BRIEF_CASES_PATH.read_bytes())
+    expectations = TypeAdapter(BriefEvaluationExpectations).validate_json(
+        BRIEF_EXPECTATIONS_PATH.read_bytes()
+    )
+
+    assert expectations.cases_version == cases.version
+    assert [item.case_id for item in expectations.expectations] == [case.id for case in cases.cases]
+    assert all(len(set(item.dimensions)) == 5 for item in expectations.expectations)
+    assert sum(item.requires_feasibility_reframe for item in expectations.expectations) == 2

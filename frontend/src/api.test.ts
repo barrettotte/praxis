@@ -6,6 +6,7 @@ import type { AuthClient } from "./auth";
 const validResponse = {
   data: {
     candidates: [1, 2, 3].map((number) => ({
+      candidateId: `candidate_${number.toString()}`,
       estimated_scope: "weekend",
       evidence_citations: [
         {
@@ -31,6 +32,54 @@ const validResponse = {
       },
     ],
     sessionId: "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4",
+  },
+};
+
+const validSelectionResponse = {
+  data: {
+    brief: {
+      acceptance_criteria: [1, 2, 3].map((number) => ({
+        criterion: `Criterion ${number.toString()} has a measurable result.`,
+        verification: `Verification method ${number.toString()}.`,
+      })),
+      assumptions: ["Python is available.", "A local test runner is available."],
+      deliverables: ["A documented input model.", "A tested instruction selector."],
+      milestones: [1, 2, 3].map((number) => ({
+        deliverable: `Deliverable ${number.toString()}`,
+        title: `Milestone ${number.toString()}`,
+        verification: `Milestone verification ${number.toString()}`,
+      })),
+      objective: "Build a compact compiler backend.",
+      out_of_scope: ["Register allocation.", "Multiple target architectures."],
+      risks: [1, 2].map((number) => ({
+        mitigation: `Mitigation ${number.toString()}`,
+        risk: `Risk ${number.toString()}`,
+      })),
+      scope: "Implement one expression-lowering path.",
+      technical_approach: [
+        "Define a JSON expression model and validate sample inputs.",
+        "Lower each expression into a target-instruction list.",
+        "Execute the instruction list and compare its numeric result.",
+      ],
+    },
+    candidate: validResponse.data.candidates[1],
+    candidateId: "candidate_2",
+    evidence: validResponse.data.evidence,
+    sessionId: validResponse.data.sessionId,
+  },
+};
+
+const pendingResponse = {
+  data: {
+    sessionId: validResponse.data.sessionId,
+    status: "pending",
+  },
+};
+
+const readyResponse = {
+  data: {
+    ...validResponse.data,
+    status: "ready",
   },
 };
 
@@ -62,26 +111,130 @@ describe("readApiConfiguration", () => {
 });
 
 describe("createApiClient", () => {
-  it("sends an authenticated create-session request and validates the response", async () => {
+  it("starts and polls an authenticated session until candidates are ready", async () => {
     const getAccessToken = vi.fn().mockResolvedValue("access-token");
-    const request = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(validResponse), {
-        headers: { "content-type": "application/json" },
-        status: 201,
-      }),
-    );
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(pendingResponse), { status: 202 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(pendingResponse), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(readyResponse), { status: 200 }));
+    const wait = vi.fn().mockResolvedValue(undefined);
     const client = createApiClient(
       { baseUrl: "https://api.example.com" },
       createAuthClient(getAccessToken),
       request,
+      wait,
     );
 
     await expect(client.createSession("Learn compiler backends")).resolves.toEqual(
       validResponse.data,
     );
     expect(getAccessToken).toHaveBeenCalledOnce();
-    expect(request).toHaveBeenCalledWith("https://api.example.com/v1/sessions", {
+    expect(request).toHaveBeenNthCalledWith(1, "https://api.example.com/v1/sessions", {
       body: JSON.stringify({ goal: "Learn compiler backends" }),
+      credentials: "omit",
+      headers: {
+        authorization: "Bearer access-token",
+        "content-type": "application/json",
+      },
+      method: "POST",
+    });
+    expect(request).toHaveBeenNthCalledWith(
+      2,
+      `https://api.example.com/v1/sessions/${validResponse.data.sessionId}`,
+      {
+        credentials: "omit",
+        headers: { authorization: "Bearer access-token" },
+        method: "GET",
+      },
+    );
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(wait).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects malformed success responses", async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(pendingResponse), { status: 202 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { candidates: [], sessionId: "invalid" } }), {
+          status: 200,
+        }),
+      );
+    const client = createApiClient(
+      { baseUrl: "https://api.example.com" },
+      createAuthClient(),
+      request,
+      vi.fn().mockResolvedValue(undefined),
+    );
+
+    await expect(client.createSession("Learn compiler backends")).rejects.toThrow(
+      "Invalid session-status response",
+    );
+  });
+
+  it("rejects candidate citations that do not resolve to returned evidence", async () => {
+    const malformedResponse = structuredClone(readyResponse);
+    const evidence = malformedResponse.data.evidence[0];
+    if (evidence === undefined) {
+      throw new Error("Expected evidence fixture");
+    }
+    evidence.evidence_id = "book:0000000000000001";
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(pendingResponse), { status: 202 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(malformedResponse), { status: 200 }));
+    const client = createApiClient(
+      { baseUrl: "https://api.example.com" },
+      createAuthClient(),
+      request,
+      vi.fn().mockResolvedValue(undefined),
+    );
+
+    await expect(client.createSession("Learn compiler backends")).rejects.toThrow(
+      "Invalid create-session response",
+    );
+  });
+
+  it("rejects a safely failed background session", async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(pendingResponse), { status: 202 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: { sessionId: validResponse.data.sessionId, status: "failed" },
+          }),
+          { status: 200 },
+        ),
+      );
+    const client = createApiClient(
+      { baseUrl: "https://api.example.com" },
+      createAuthClient(),
+      request,
+      vi.fn().mockResolvedValue(undefined),
+    );
+
+    await expect(client.createSession("Learn compiler backends")).rejects.toThrow(
+      "Recommendation session failed",
+    );
+  });
+
+  it("sends an authenticated selection request and validates the project brief", async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(validSelectionResponse), { status: 200 }));
+    const client = createApiClient(
+      { baseUrl: "https://api.example.com" },
+      createAuthClient(),
+      request,
+    );
+
+    await expect(
+      client.selectCandidate(validResponse.data.sessionId, "candidate_2"),
+    ).resolves.toEqual(validSelectionResponse.data);
+    expect(request).toHaveBeenCalledWith("https://api.example.com/v1/projects/candidate_2/select", {
+      body: JSON.stringify({ sessionId: validResponse.data.sessionId }),
       credentials: "omit",
       headers: {
         authorization: "Bearer access-token",
@@ -91,41 +244,21 @@ describe("createApiClient", () => {
     });
   });
 
-  it("rejects malformed success responses", async () => {
-    const request = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ data: { candidates: [], sessionId: "invalid" } }), {
-        status: 201,
-      }),
-    );
+  it("rejects a malformed project brief response", async () => {
+    const malformedResponse = structuredClone(validSelectionResponse);
+    malformedResponse.data.brief.milestones = [];
     const client = createApiClient(
       { baseUrl: "https://api.example.com" },
       createAuthClient(),
-      request,
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(malformedResponse), {
+          status: 200,
+        }),
+      ),
     );
 
-    await expect(client.createSession("Learn compiler backends")).rejects.toThrow(
-      "Invalid create-session response",
-    );
-  });
-
-  it("rejects candidate citations that do not resolve to returned evidence", async () => {
-    const malformedResponse = structuredClone(validResponse);
-    const evidence = malformedResponse.data.evidence[0];
-    if (evidence === undefined) {
-      throw new Error("Expected evidence fixture");
-    }
-    evidence.evidence_id = "book:0000000000000001";
-    const request = vi
-      .fn()
-      .mockResolvedValue(new Response(JSON.stringify(malformedResponse), { status: 201 }));
-    const client = createApiClient(
-      { baseUrl: "https://api.example.com" },
-      createAuthClient(),
-      request,
-    );
-
-    await expect(client.createSession("Learn compiler backends")).rejects.toThrow(
-      "Invalid create-session response",
-    );
+    await expect(
+      client.selectCandidate(validResponse.data.sessionId, "candidate_2"),
+    ).rejects.toThrow("Invalid select-candidate response");
   });
 });

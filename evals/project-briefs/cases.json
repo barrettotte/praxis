@@ -1,0 +1,41 @@
+{
+  "suite": "project-brief-quality",
+  "version": 1,
+  "cases": [
+    {
+      "id": "brief-01-quantum-battery",
+      "goal": "I want to learn about the electromagnetism involved with electric motors.",
+      "selected_idea": "Design a Quantum Dot Battery",
+      "category": "infeasible",
+      "tags": ["electromagnetism", "scientific-premise", "feasibility"]
+    },
+    {
+      "id": "brief-02-weekend-scale",
+      "goal": "Design a production social network for one million users that I can finish this weekend.",
+      "selected_idea": "Build a Production Social Network",
+      "category": "infeasible",
+      "tags": ["conflicting-constraints", "scale", "time-boxed"]
+    },
+    {
+      "id": "brief-03-compiler-weekend",
+      "goal": "Help me understand compiler backends by building something over a weekend.",
+      "selected_idea": "Build a Small Instruction Selector",
+      "category": "straightforward",
+      "tags": ["compiler", "implementation", "time-boxed"]
+    },
+    {
+      "id": "brief-04-motor-no-hardware",
+      "goal": "Teach me how a brushed DC motor works without requiring me to buy hardware.",
+      "selected_idea": "Simulate a Brushed DC Motor",
+      "category": "constrained",
+      "tags": ["electric-motor", "no-hardware", "simulation"]
+    },
+    {
+      "id": "brief-05-museum-education",
+      "goal": "Create an accessible web project based on one item in my computing museum.",
+      "selected_idea": "Build an Interactive Museum Exhibit",
+      "category": "straightforward",
+      "tags": ["accessibility", "museum", "web"]
+    }
+  ]
+}

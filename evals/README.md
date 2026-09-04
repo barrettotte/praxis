@@ -41,3 +41,11 @@ operation on opposite sides of the Gateway boundary.
 The deployed command reads its model and image identity from the immutable
 Runtime version served by the endpoint. `RUNTIME_EVAL_TRACE_TIMEOUT_SECONDS`
 changes the per-case trace wait.
+
+`project-briefs/cases.json` is the versioned five-scenario brief-quality seed.
+It covers straightforward, constrained, and infeasible selected ideas,
+including a speculative quantum-materials project. Its separate expectations
+require goal alignment, feasibility, specificity, testability, and evidence
+discipline, and record claims that must not appear. Keep these inputs separate
+from measured results so future prompt or model comparisons use the same
+scenarios and rubric.

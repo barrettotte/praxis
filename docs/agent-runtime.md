@@ -74,16 +74,37 @@ sets these non-negotiable behaviors:
 The prompt establishes model behavior; schema validation, grounding checks, and
 tool budgets remain independent enforcement boundaries.
 
+## Project-brief generation
+
+Candidate selection uses a separate tool-free Strands invocation. The API
+resolves the normalized original goal, selected candidate, and cited catalog
+facts from the one-hour application session; the browser cannot replace any of
+that context. The brief generator preserves the learning intent while treating
+the candidate's estimated scope as a hard budget. Ideas that require specialist
+facilities, unsafe work, novel materials, or an unverified premise are reframed
+as a simulation, design study, measurement exercise, or safe demonstrator.
+
+The strict brief contract requires an ordered technical approach naming
+accessible tools or methods and observable outputs, assumptions, explicit
+exclusions, named deliverables, milestone artifacts with self-service
+verification methods, project-specific risks, and measurable acceptance
+criteria with verification methods. Subjective completion claims and
+verification that depends on an unspecified expert are rejected.
+Comparative claims must define a baseline, metric, and measurement procedure.
+The brief path receives no Gateway tools and cannot add catalog facts beyond the
+already resolved evidence.
+
 ## Invocation budgets
 
 Each invocation may execute at most four model-selected catalog tool calls by
-default. A Strands pre-tool hook raises a domain error before a fifth call can
-reach Gateway. The internal `GatewayCandidateOutput` structured-output tool does
-not consume this budget, nor does the deterministic initial Gateway search that
-precedes model execution. `PRAXIS_MAX_TOOL_CALLS` can lower or raise the positive
-integer limit when an evaluation demonstrates a different need.
-Strands model turns are capped at the catalog tool-call budget plus one final
-response turn so structured-output retries cannot create an unbounded loop.
+default. A Strands pre-tool hook cancels excess calls before they reach Gateway
+and returns a safe error directing the model to use evidence already retrieved.
+The internal `GatewayCandidateOutput` structured-output tool does not consume
+this budget, nor does the deterministic initial Gateway search that precedes
+model execution. `PRAXIS_MAX_TOOL_CALLS` can lower or raise the positive integer
+limit when an evaluation demonstrates a different need. Strands model turns are
+capped at the catalog tool-call budget plus two response turns so a canceled
+call can recover without creating an unbounded loop.
 
 Successful catalog responses may contribute at most 20 evidence records per
 invocation by default. Search results, item lookups, experience matches, and
@@ -189,6 +210,10 @@ authenticated API derives `actor_id`; clients must not select another user's
 Memory scope. The single-user deployment reads that actor from API Lambda
 configuration; the Cognito boundary will derive it from authenticated claims
 without changing the Runtime payload contract.
+
+The private project-brief operation accepts the actor ID, normalized original
+goal, server-selected candidate, and its cited evidence. It returns one
+validated brief and is not a public client contract.
 
 Build and verify the service contract without invoking AWS:
 

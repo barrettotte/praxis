@@ -1,18 +1,12 @@
 from pathlib import Path
-from typing import cast
-from unittest.mock import MagicMock
 
 import pytest
 from pydantic import ValidationError
-from strands import Agent
-from strands.types.exceptions import EventLoopException
 
 from praxis.agent import planner
-from praxis.agent.budget import ToolCallBudgetError
 from praxis.agent.planner import (
     CandidateGeneration,
     CandidatePlanningError,
-    StrandsCandidateGenerator,
     plan_project_candidates,
     plan_project_candidates_with_trace,
 )
@@ -154,14 +148,6 @@ def test_plan_project_candidates_rejects_conflicting_local_evidence(
             InMemoryCatalog.from_directory(FIXTURE_DIRECTORY),
             StubCandidateGenerator(candidate_set(evidence_id)),
         )
-
-
-def test_strands_generator_reports_exhausted_tool_call_budget() -> None:
-    budget_error = ToolCallBudgetError("budget exhausted")
-    agent = cast("Agent", MagicMock(side_effect=EventLoopException(budget_error)))
-
-    with pytest.raises(CandidatePlanningError, match="budget exhausted"):
-        StrandsCandidateGenerator(agent).generate("Recommend a project")
 
 
 @pytest.mark.parametrize("candidate_count", [2, 4])

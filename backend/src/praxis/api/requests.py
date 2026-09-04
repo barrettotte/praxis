@@ -25,7 +25,7 @@ type SessionId = Annotated[
 ]
 type CandidateId = Annotated[
     str,
-    Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$"),
+    Field(pattern=r"^candidate_[1-3]$"),
 ]
 
 

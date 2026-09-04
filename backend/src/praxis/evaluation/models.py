@@ -7,6 +7,13 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 type EvaluationCategory = Literal["straightforward", "ambiguous", "constrained", "infeasible"]
 type EvidenceKind = Literal["book", "byte", "museum", "project"]
 type LocalToolName = Literal["search_catalog", "get_catalog_item", "compare_project_history"]
+type BriefQualityDimension = Literal[
+    "evidence-discipline",
+    "feasibility",
+    "goal-alignment",
+    "specificity",
+    "testability",
+]
 
 
 class EvaluationModel(BaseModel):
@@ -149,4 +156,72 @@ class EvaluationExpectations(EvaluationModel):
         if len(case_ids) != len(set(case_ids)):
             message = "expectation case IDs must be unique"
             raise ValueError(message)
+        return self
+
+
+class BriefEvaluationCase(EvaluationModel):
+    """One selected-idea scenario used to assess project-brief quality."""
+
+    id: Annotated[str, Field(pattern=r"^brief-[0-9]{2}-[a-z0-9-]+$")]
+    goal: Annotated[str, Field(min_length=1, max_length=1_000)]
+    selected_idea: Annotated[str, Field(min_length=1, max_length=200)]
+    category: EvaluationCategory
+    tags: Annotated[
+        list[Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9-]*$")]],
+        Field(min_length=1),
+    ]
+
+
+class BriefEvaluationSet(EvaluationModel):
+    """Versioned scenarios for feasibility and implementation-detail evaluation."""
+
+    suite: Literal["project-brief-quality"]
+    version: Literal[1]
+    cases: Annotated[list[BriefEvaluationCase], Field(min_length=5, max_length=5)]
+
+    @model_validator(mode="after")
+    def require_unique_cases(self) -> Self:
+        """Reject duplicate case IDs or selected goal-and-idea pairs."""
+        ids = [case.id for case in self.cases]
+        scenarios = [(case.goal.casefold(), case.selected_idea.casefold()) for case in self.cases]
+        if len(ids) != len(set(ids)):
+            raise ValueError("brief evaluation case IDs must be unique")
+        if len(scenarios) != len(set(scenarios)):
+            raise ValueError("brief evaluation scenarios must be unique")
+        return self
+
+
+class BriefCaseExpectation(EvaluationModel):
+    """Required quality dimensions and unsafe claims for one brief case."""
+
+    case_id: Annotated[str, Field(pattern=r"^brief-[0-9]{2}-[a-z0-9-]+$")]
+    dimensions: Annotated[list[BriefQualityDimension], Field(min_length=5, max_length=5)]
+    minimum_dimension_score: Literal[4, 5]
+    requires_feasibility_reframe: bool
+    forbidden_claims: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
+        default_factory=list[str]
+    )
+
+    @model_validator(mode="after")
+    def require_complete_rubric(self) -> Self:
+        """Require every quality dimension exactly once."""
+        if len(self.dimensions) != len(set(self.dimensions)):
+            raise ValueError("brief quality dimensions must be unique")
+        return self
+
+
+class BriefEvaluationExpectations(EvaluationModel):
+    """Curated quality requirements aligned with the project-brief cases."""
+
+    suite: Literal["project-brief-quality"]
+    cases_version: Literal[1]
+    version: Literal[1]
+    expectations: Annotated[list[BriefCaseExpectation], Field(min_length=5, max_length=5)]
+
+    @model_validator(mode="after")
+    def require_unique_case_ids(self) -> Self:
+        """Require exactly one expectation per stable brief case ID."""
+        case_ids = [expectation.case_id for expectation in self.expectations]
+        if len(case_ids) != len(set(case_ids)):
+            raise ValueError("brief expectation case IDs must be unique")
         return self

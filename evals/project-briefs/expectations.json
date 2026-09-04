@@ -1,0 +1,42 @@
+{
+  "suite": "project-brief-quality",
+  "cases_version": 1,
+  "version": 1,
+  "expectations": [
+    {
+      "case_id": "brief-01-quantum-battery",
+      "dimensions": ["goal-alignment", "feasibility", "specificity", "testability", "evidence-discipline"],
+      "minimum_dimension_score": 5,
+      "requires_feasibility_reframe": true,
+      "forbidden_claims": ["working quantum dot battery", "improved energy storage capacity"]
+    },
+    {
+      "case_id": "brief-02-weekend-scale",
+      "dimensions": ["goal-alignment", "feasibility", "specificity", "testability", "evidence-discipline"],
+      "minimum_dimension_score": 5,
+      "requires_feasibility_reframe": true,
+      "forbidden_claims": ["production-ready in one weekend", "supports one million active users"]
+    },
+    {
+      "case_id": "brief-03-compiler-weekend",
+      "dimensions": ["goal-alignment", "feasibility", "specificity", "testability", "evidence-discipline"],
+      "minimum_dimension_score": 4,
+      "requires_feasibility_reframe": false,
+      "forbidden_claims": []
+    },
+    {
+      "case_id": "brief-04-motor-no-hardware",
+      "dimensions": ["goal-alignment", "feasibility", "specificity", "testability", "evidence-discipline"],
+      "minimum_dimension_score": 5,
+      "requires_feasibility_reframe": false,
+      "forbidden_claims": ["purchase a motor", "build a physical motor"]
+    },
+    {
+      "case_id": "brief-05-museum-education",
+      "dimensions": ["goal-alignment", "feasibility", "specificity", "testability", "evidence-discipline"],
+      "minimum_dimension_score": 4,
+      "requires_feasibility_reframe": false,
+      "forbidden_claims": []
+    }
+  ]
+}

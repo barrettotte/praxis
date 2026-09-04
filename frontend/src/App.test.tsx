@@ -8,6 +8,7 @@ import type { AuthClient } from "./auth";
 function createApiClient(): ApiClient {
   return {
     createSession: vi.fn(),
+    selectCandidate: vi.fn(),
   };
 }
 
@@ -33,6 +34,20 @@ async function enterCredentials() {
 }
 
 describe("App", () => {
+  it("announces session restoration as a busy status", () => {
+    render(
+      <App
+        api={createApiClient()}
+        auth={createAuthClient({
+          restoreSession: vi.fn().mockReturnValue(new Promise<boolean>(() => undefined)),
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("status")).toHaveTextContent("Checking your session…");
+  });
+
   it("introduces the workflow and presents an accessible sign-in form", async () => {
     render(<App api={createApiClient()} auth={createAuthClient()} />);
 
@@ -58,6 +73,18 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "You’re signed in." })).toBeVisible();
     expect(screen.getByRole("heading", { name: "What would you like to explore?" })).toBeVisible();
     expect(signIn).toHaveBeenCalledWith("person@example.com", "TemporaryPassword1!");
+  });
+
+  it("disables credentials and announces progress while sign-in is pending", async () => {
+    const signIn = vi.fn().mockReturnValue(new Promise<"signed_in">(() => undefined));
+    render(<App api={createApiClient()} auth={createAuthClient({ signIn })} />);
+
+    await enterCredentials();
+
+    expect(screen.getByLabelText("Email")).toBeDisabled();
+    expect(screen.getByLabelText("Password")).toBeDisabled();
+    expect(screen.getByLabelText("Email").closest("form")).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("status")).toHaveTextContent("Signing in…");
   });
 
   it("completes the required-new-password challenge", async () => {
@@ -105,9 +132,10 @@ describe("App", () => {
     render(<App api={createApiClient()} auth={auth} />);
     await enterCredentials();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Sign-in failed. Check your credentials and try again.",
-    );
+    const error = await screen.findByRole("alert");
+    expect(error).toHaveTextContent("Sign-in failed. Check your credentials and try again.");
+    expect(screen.getByLabelText("Email")).toHaveAttribute("aria-describedby", error.id);
+    expect(screen.getByLabelText("Password")).toHaveAttribute("aria-describedby", error.id);
     expect(screen.queryByText("User does not exist")).not.toBeInTheDocument();
   });
 });

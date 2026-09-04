@@ -1,10 +1,12 @@
 """Amazon Bedrock AgentCore Runtime entry point."""
 
 from collections.abc import Callable, Mapping, Sequence
-from typing import Protocol, cast
+from typing import Annotated, Protocol, cast
 
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
+from pydantic import Field, TypeAdapter, ValidationError
 
+from praxis.agent.brief import invoke_project_brief as generate_project_brief
 from praxis.agent.gateway import GatewayAgentRun, invoke_gateway_agent
 from praxis.agent.memory import (
     AgentCoreMemoryStore,
@@ -13,9 +15,18 @@ from praxis.agent.memory import (
     memory_prompt_context,
 )
 from praxis.config import load_gateway_settings, load_memory_settings, load_settings
+from praxis.domain import ProjectCandidate
+from praxis.domain.briefs import ProjectBrief
+from praxis.tools.contracts import Evidence
 
 RuntimeInvoker = Callable[[str, Sequence[str]], GatewayAgentRun]
+BriefInvoker = Callable[[str, ProjectCandidate, Sequence[Evidence]], ProjectBrief]
 RuntimeHandler = Callable[[dict[str, object]], dict[str, object]]
+type BriefGoal = Annotated[str, Field(min_length=1, max_length=4_000)]
+_EVIDENCE_LIST_ADAPTER = TypeAdapter[Annotated[list[Evidence], Field(min_length=1, max_length=3)]](
+    Annotated[list[Evidence], Field(min_length=1, max_length=3)]
+)
+_BRIEF_GOAL_ADAPTER: TypeAdapter[str] = TypeAdapter(BriefGoal)
 
 
 class RuntimeApplication(Protocol):
@@ -59,8 +70,29 @@ def invoke_runtime(
     payload: Mapping[str, object],
     invoke_agent: RuntimeInvoker | None = None,
     memory: RuntimeMemory | None = None,
+    invoke_brief: BriefInvoker | None = None,
 ) -> dict[str, object]:
-    """Validate one request and return buffered, evidence-backed candidates."""
+    """Validate one request and return a buffered recommendation or project brief."""
+    if payload.get("operation") == "create_project_brief":
+        _actor_from_payload(payload)
+        if set(payload) != {"actor_id", "candidate", "evidence", "goal", "operation"}:
+            raise RuntimeRequestError("request contains unsupported fields")
+        try:
+            goal = _BRIEF_GOAL_ADAPTER.validate_python(payload.get("goal"), strict=True)
+            candidate = ProjectCandidate.model_validate(payload.get("candidate"))
+            evidence = _EVIDENCE_LIST_ADAPTER.validate_python(payload.get("evidence"), strict=True)
+        except ValidationError as error:
+            raise RuntimeRequestError("project brief input is invalid") from error
+        cited_ids = {citation.evidence_id for citation in candidate.evidence_citations}
+        if not cited_ids <= {item.evidence_id for item in evidence}:
+            raise RuntimeRequestError("project brief evidence is unavailable")
+        if invoke_brief is None:
+            settings = load_settings()
+            brief = generate_project_brief(goal, candidate, evidence, settings)
+        else:
+            brief = invoke_brief(goal, candidate, evidence)
+        return {"brief": brief.model_dump(mode="json")}
+
     prompt = _prompt_from_payload(payload)
     actor_id = _actor_from_payload(payload)
     if set(payload) != {"actor_id", "prompt"}:

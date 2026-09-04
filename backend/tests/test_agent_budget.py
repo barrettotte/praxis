@@ -10,7 +10,6 @@ from strands.types.tools import ToolResult
 from praxis.agent.budget import (
     CatalogResultBudget,
     ToolCallBudget,
-    ToolCallBudgetError,
     seed_catalog_budgets,
 )
 
@@ -66,8 +65,14 @@ def test_tool_call_budget_stops_before_executing_beyond_limit() -> None:
     budget.before_tool_call(tool_event("search_catalog", invocation_state))
     budget.before_tool_call(tool_event("search_catalog", invocation_state))
 
-    with pytest.raises(ToolCallBudgetError, match="maximum 2 calls"):
-        budget.before_tool_call(tool_event("search_catalog", invocation_state))
+    rejected = tool_event("search_catalog", invocation_state)
+    budget.before_tool_call(rejected)
+
+    assert rejected.cancel_tool == (
+        "Catalog tool-call budget exhausted: maximum 2 calls per invocation. Use the catalog "
+        "evidence already returned and produce the required structured response without another "
+        "catalog call."
+    )
 
 
 def test_tool_call_budget_excludes_internal_structured_output_tool() -> None:
@@ -95,8 +100,11 @@ def test_seeded_catalog_call_counts_against_model_budget() -> None:
     seed_catalog_budgets(invocation_state, tool_calls=1, result_count=3)
     budget = ToolCallBudget(maximum_calls=1, tool_names=frozenset({"search_catalog"}))
 
-    with pytest.raises(ToolCallBudgetError, match="maximum 1 calls"):
-        budget.before_tool_call(tool_event("search_catalog", invocation_state))
+    rejected = tool_event("search_catalog", invocation_state)
+    budget.before_tool_call(rejected)
+
+    assert isinstance(rejected.cancel_tool, str)
+    assert "maximum 1 calls" in rejected.cancel_tool
 
 
 @pytest.mark.parametrize(

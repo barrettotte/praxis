@@ -1,21 +1,36 @@
 """Tests for the API Lambda's bounded AgentCore Runtime adapter."""
 
 import json
-from typing import cast
+from typing import Protocol, cast
 
 import pytest
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
+from praxis.api import runtime as api_runtime
 from praxis.api.runtime import (
     ApiRuntimeError,
     ApiRuntimeSettings,
+    SessionCandidate,
+    create_runtime_client,
+    create_worker_runtime_client,
+    invoke_project_brief_runtime,
     invoke_runtime,
     load_runtime_settings,
 )
+from praxis.tools.contracts import BookEvidence
 
 RUNTIME_ARN = "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/example-runtime"
 SESSION_ID = "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4"
 CORRELATION_ID = "51f4a405-8835-411d-9821-5980d73f51f6"
+
+
+class ObservedRuntimeConfig(Protocol):
+    """Botocore options inspected at the Runtime client boundary."""
+
+    connect_timeout: int
+    read_timeout: int
+    retries: dict[str, object]
 
 
 class FakeBody:
@@ -86,6 +101,64 @@ def valid_response() -> dict[str, object]:
     }
 
 
+def valid_brief_response() -> dict[str, object]:
+    """Return a buffered Runtime response containing one strict project brief."""
+    return {
+        "contentType": "application/json",
+        "response": FakeBody(
+            json.dumps(
+                {
+                    "brief": {
+                        "objective": "Build a small compiler backend.",
+                        "scope": "Implement one expression-lowering path over a weekend.",
+                        "technical_approach": [
+                            "Define a JSON expression model and validate sample inputs.",
+                            "Lower expressions into target instructions with Python.",
+                            "Execute the instructions and compare their numeric result.",
+                        ],
+                        "assumptions": [
+                            "Python and a local test runner are available.",
+                            "One expression form is enough for the exercise.",
+                        ],
+                        "out_of_scope": [
+                            "Register allocation is outside this project.",
+                            "Multiple target architectures are outside this project.",
+                        ],
+                        "deliverables": [
+                            "A documented input representation for expressions.",
+                            "A tested instruction selector with example output.",
+                        ],
+                        "milestones": [
+                            {
+                                "title": f"Milestone {number}",
+                                "deliverable": "A concrete implementation artifact.",
+                                "verification": "An automated check validates the artifact.",
+                            }
+                            for number in range(1, 4)
+                        ],
+                        "risks": [
+                            {
+                                "risk": f"Risk {number}",
+                                "mitigation": "Use a bounded fallback.",
+                            }
+                            for number in range(1, 3)
+                        ],
+                        "acceptance_criteria": [
+                            {
+                                "criterion": f"Criterion {number} has a measurable result.",
+                                "verification": "An automated test records the expected result.",
+                            }
+                            for number in range(1, 4)
+                        ],
+                    }
+                }
+            ).encode()
+        ),
+        "runtimeSessionId": SESSION_ID,
+        "statusCode": 200,
+    }
+
+
 def settings() -> ApiRuntimeSettings:
     return ApiRuntimeSettings(
         runtime_arn=RUNTIME_ARN,
@@ -123,6 +196,33 @@ def test_rejects_invalid_runtime_settings(environment: dict[str, str]) -> None:
         load_runtime_settings(environment)
 
 
+def test_runtime_client_stops_before_the_api_lambda_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: dict[str, object] = {}
+    expected_client = FakeRuntimeClient(valid_response())
+
+    class FakeSession:
+        def client(self, service_name: str, *, config: Config) -> FakeRuntimeClient:
+            observed.update(service_name=service_name, config=config)
+            return expected_client
+
+    monkeypatch.setattr(api_runtime, "Session", FakeSession)
+
+    assert create_runtime_client() is expected_client
+    assert observed["service_name"] == "bedrock-agentcore"
+    config = cast("ObservedRuntimeConfig", observed["config"])
+    assert config.connect_timeout == 3
+    assert config.read_timeout == 25
+    assert config.retries == {"mode": "standard", "total_max_attempts": 1}
+
+    assert create_worker_runtime_client() is expected_client
+    worker_config = cast("ObservedRuntimeConfig", observed["config"])
+    assert worker_config.connect_timeout == 3
+    assert worker_config.read_timeout == 90
+    assert worker_config.retries == {"mode": "standard", "total_max_attempts": 1}
+
+
 def test_invokes_runtime_and_returns_only_public_session_data() -> None:
     client = FakeRuntimeClient(valid_response())
 
@@ -145,7 +245,9 @@ def test_invokes_runtime_and_returns_only_public_session_data() -> None:
     }
     assert result.model_dump(mode="json", by_alias=True) == {
         "sessionId": SESSION_ID,
-        "candidates": [candidate(number) for number in range(1, 4)],
+        "candidates": [
+            {"candidateId": f"candidate_{number}", **candidate(number)} for number in range(1, 4)
+        ],
         "evidence": [
             {
                 "evidence_id": "book:0f5ba253568e4836",
@@ -158,6 +260,47 @@ def test_invokes_runtime_and_returns_only_public_session_data() -> None:
             }
         ],
     }
+
+
+def test_invokes_runtime_for_selected_candidate_brief() -> None:
+    client = FakeRuntimeClient(valid_brief_response())
+    selected = SessionCandidate.model_validate(
+        {"candidate_id": "candidate_2", **candidate(2)},
+    )
+    evidence = BookEvidence(
+        evidence_id="book:0f5ba253568e4836",
+        kind="book",
+        title="Compiler Backend Development",
+        author="Quentin Colombet",
+        year=2025,
+        category="Compilers",
+        tags=[],
+    )
+
+    result = invoke_project_brief_runtime(
+        client,
+        settings(),
+        SESSION_ID,
+        "Learn compiler backends over a weekend",
+        selected,
+        [evidence],
+        CORRELATION_ID,
+    )
+
+    assert client.request is not None
+    payload = json.loads(cast("bytes", client.request["payload"]))
+    assert payload == {
+        "actor_id": "praxis-single-user",
+        "operation": "create_project_brief",
+        "goal": "Learn compiler backends over a weekend",
+        "candidate": candidate(2),
+        "evidence": [evidence.model_dump(mode="json")],
+    }
+    assert result.session_id == SESSION_ID
+    assert result.candidate_id == "candidate_2"
+    assert result.candidate == selected
+    assert len(result.brief.milestones) == 3
+    assert result.evidence == [evidence]
 
 
 def test_rejects_citations_without_a_matching_fact_record() -> None:

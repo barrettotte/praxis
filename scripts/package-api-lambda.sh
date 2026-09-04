@@ -30,10 +30,12 @@ cp "${praxis_repo_root}/backend/src/praxis/functions/__init__.py" \
   "${praxis_package_dir}/package/praxis/functions/"
 cp "${praxis_repo_root}/backend/src/praxis/functions/api.py" \
   "${praxis_package_dir}/package/praxis/functions/"
+cp "${praxis_repo_root}/backend/src/praxis/functions/recommendation_worker.py" \
+  "${praxis_package_dir}/package/praxis/functions/"
 
 # Catch missing transitive application modules before publishing the ZIP.
 PYTHONPATH="${praxis_package_dir}/package" uv run --frozen python -c \
-  'import praxis.functions.api'
+  'import praxis.functions.api; import praxis.functions.recommendation_worker'
 
 # Normalize contents, timestamps, ordering, and ZIP metadata for a stable hash.
 find "${praxis_package_dir}/package" -type d -name __pycache__ -prune -exec rm -rf {} +

@@ -1,11 +1,12 @@
-import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { CandidateCards } from "./CandidateCards";
 import type { ProjectCandidate, SupportingEvidence } from "./api";
 
 const candidates: [ProjectCandidate, ProjectCandidate, ProjectCandidate] = [
   {
+    candidateId: "candidate_1",
     estimated_scope: "weekend",
     evidence_citations: [
       {
@@ -20,6 +21,7 @@ const candidates: [ProjectCandidate, ProjectCandidate, ProjectCandidate] = [
     title: "Electromagnet field mapper",
   },
   {
+    candidateId: "candidate_2",
     estimated_scope: "multi-week",
     evidence_citations: [
       {
@@ -34,6 +36,7 @@ const candidates: [ProjectCandidate, ProjectCandidate, ProjectCandidate] = [
     title: "Rotating-field visualizer",
   },
   {
+    candidateId: "candidate_3",
     estimated_scope: "multi-month",
     evidence_citations: [
       {
@@ -84,7 +87,15 @@ const scopeLabels: Record<ProjectCandidate["estimated_scope"], string> = {
 
 describe("CandidateCards", () => {
   it("renders the same comparison fields for all three candidates", () => {
-    render(<CandidateCards candidates={candidates} evidence={evidence} />);
+    render(
+      <CandidateCards
+        candidates={candidates}
+        evidence={evidence}
+        selectedCandidateIndex={null}
+        selectionPending={false}
+        onSelect={vi.fn()}
+      />,
+    );
 
     expect(screen.getByRole("heading", { name: "Compare project candidates" })).toBeVisible();
     const cards = screen.getAllByRole("article");
@@ -102,6 +113,13 @@ describe("CandidateCards", () => {
       expect(card.getByText(candidate.first_milestone)).toBeVisible();
       expect(card.getByText(scopeLabels[candidate.estimated_scope])).toBeVisible();
       expect(card.getByText(candidate.technologies.join(", "))).toBeVisible();
+      expect(card.getByText("AI-generated recommendation")).toBeVisible();
+      expect(card.getByText("Generated connection")).toBeVisible();
+      const citation = candidate.evidence_citations[0];
+      if (citation === undefined) {
+        throw new Error("Expected one evidence citation per candidate");
+      }
+      expect(card.getByText(citation.generated_connection)).toBeVisible();
       const supportingRecord = evidence[index];
       if (supportingRecord === undefined) {
         throw new Error("Expected one supporting record per candidate");
@@ -110,6 +128,34 @@ describe("CandidateCards", () => {
         supportingRecord.kind === "book" ? supportingRecord.title : supportingRecord.name;
       expect(card.getByText(title)).toBeVisible();
       expect(card.getByText(supportingRecord.evidence_id)).toBeVisible();
+      expect(card.getByText(/^Catalog evidence · /)).toBeVisible();
     }
+  });
+
+  it("reports the selected candidate and exposes the controlled selection state", () => {
+    const onSelect = vi.fn();
+    render(
+      <CandidateCards
+        candidates={candidates}
+        evidence={evidence}
+        selectedCandidateIndex={1}
+        selectionPending={false}
+        onSelect={onSelect}
+      />,
+    );
+
+    const cards = screen.getAllByRole("article");
+    const selectedCard = cards[1];
+    const firstCard = cards[0];
+    if (selectedCard === undefined || firstCard === undefined) {
+      throw new Error("Expected candidate cards");
+    }
+    expect(within(selectedCard).getByRole("button", { name: "Selected project" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    const firstButton = within(firstCard).getByRole("button", { name: "Select this project" });
+    fireEvent.click(firstButton);
+    expect(onSelect).toHaveBeenCalledWith(0);
   });
 });

@@ -1,9 +1,11 @@
 # Infrastructure operations
 
 Praxis separates durable bootstrap resources from the disposable development
-environment. The user must run every apply and teardown command manually after
-inspecting its saved plan; coding agents may run only read-only checks and
-plans.
+environment. A coding agent may apply the exact saved plan it generated,
+reviewed, and summarized. Configuration or state changes require a regenerated
+plan and another review. Teardown and other destructive operations require
+explicit user approval for each run; other AWS mutations remain manual unless
+the user explicitly requests them.
 
 ## Prerequisites
 
@@ -91,12 +93,46 @@ and mutating operations visibly separate:
 | `make smoke-dev` | Fast API configuration, Cognito, and Runtime authorization | No |
 | `make smoke-dev SUITE=access-logs` | Eventually consistent API access-log delivery | No |
 | `make smoke-dev SUITE=tools` | Catalog Lambda and AgentCore Gateway tools | No |
-| `PRAXIS_ACCESS_TOKEN=... make smoke-dev SUITE=api` | JWT API through AgentCore Runtime | Yes |
+| `make smoke-dev SUITE=api` | JWT API through AgentCore Runtime; requires an exported access token | Yes |
 | `make smoke-dev SUITE=agent` | Local Strands agent through Gateway | Yes |
 | `make smoke-dev SUITE=runtime` | Stable AgentCore Runtime endpoint | Yes |
 | `make smoke-dev SUITE=runtime-sessions` | Runtime session isolation | Yes, twice |
 | `make smoke-dev SUITE=runtime-traces` | Runtime response and trace delivery | Yes |
 | `make smoke-memory-dev CONFIRM=smoke-memory-dev` | Typed Memory records | May write records |
+
+To obtain the short-lived Cognito access token, sign in through the Praxis
+frontend, open the browser developer console, and run:
+
+```javascript
+const tokenKey = Object.keys(sessionStorage).find(
+  (key) =>
+    key.startsWith("CognitoIdentityServiceProvider.") && key.endsWith(".accessToken"),
+);
+if (!tokenKey) throw new Error("Sign in to Praxis before retrieving a token.");
+copy(sessionStorage.getItem(tokenKey));
+```
+
+Load the copied token into the shell without placing it in command history. For
+zsh:
+
+```zsh
+read -rs 'PRAXIS_ACCESS_TOKEN?Cognito access token: '
+printf '\n'
+export PRAXIS_ACCESS_TOKEN
+```
+
+For Bash:
+
+```bash
+read -rsp "Cognito access token: " PRAXIS_ACCESS_TOKEN
+printf '\n'
+export PRAXIS_ACCESS_TOKEN
+```
+
+Run `make smoke-dev SUITE=api`, then remove the token with
+`unset PRAXIS_ACCESS_TOKEN`. Use the Cognito access token rather than the ID
+token. Access tokens expire after one hour; sign in again when the token is no
+longer accepted. Do not store a token in `.env` or commit it.
 
 Run `./scripts/smoke/smoke-dev.sh --help` for the same suite list. Narrow
 scripts in `scripts/smoke/` remain available for diagnosing one failed check,
@@ -114,9 +150,10 @@ JSON request/raw response body sizes for each successful tool call are recorded
 in `docs/evidence/gateway-tool-metrics.json`.
 
 The API Gateway check reads `PRAXIS_ACCESS_TOKEN`, requires an unauthenticated
-request to fail before Lambda invocation, and validates one complete buffered
-Runtime response without recording candidate or session content. The bearer
-token is kept out of process arguments and evidence. The access-log check
+request to fail before Lambda invocation, and validates one asynchronous
+pending-to-ready session plus its complete buffered Runtime response without
+recording candidate or session content. The bearer token is kept out of process
+arguments and evidence. The access-log check
 verifies the stage's privacy-safe JSON schema and seven-day retention, then
 correlates an unauthenticated 401 request with its delivered CloudWatch record
 without invoking Lambda. Initial log delivery can

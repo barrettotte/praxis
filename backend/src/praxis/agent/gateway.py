@@ -21,9 +21,9 @@ from strands import Agent
 from strands.agent.agent_result import AgentResult
 from strands.tools.mcp import MCPAgentTool, MCPClient, MCPTransport
 from strands.types.content import Message
-from strands.types.exceptions import EventLoopException, StructuredOutputException
+from strands.types.exceptions import StructuredOutputException
 
-from praxis.agent.budget import ToolCallBudgetError, seed_catalog_budgets
+from praxis.agent.budget import seed_catalog_budgets
 from praxis.agent.evidence import (
     EvidenceState,
     catalog_result_payload,
@@ -49,7 +49,8 @@ EXPECTED_CATALOG_TOOLS = (
     "search_catalog",
     "summarize_experience",
 )
-FINAL_RESPONSE_TURNS = 1
+FINAL_RESPONSE_TURNS = 2
+MAX_GENERATED_CONNECTION_LENGTH = 240
 EvidenceIndex = Literal[
     1,
     2,
@@ -112,7 +113,22 @@ class GatewayCandidateDraft(BaseModel):
     primary_technology: Annotated[str, Field(min_length=1, max_length=40)]
     first_milestone: Annotated[str, Field(min_length=1, max_length=300)]
     evidence_index: EvidenceIndex
-    generated_connection: Annotated[str, Field(min_length=1, max_length=240)]
+    generated_connection: Annotated[
+        str,
+        Field(min_length=1, max_length=MAX_GENERATED_CONNECTION_LENGTH),
+    ]
+
+    @field_validator("generated_connection", mode="before")
+    @classmethod
+    def bound_generated_connection(cls, value: object) -> object:
+        """Shorten verbose model analysis at a word boundary before strict validation."""
+        if not isinstance(value, str) or len(value) <= MAX_GENERATED_CONNECTION_LENGTH:
+            return value
+        prefix = value[: MAX_GENERATED_CONNECTION_LENGTH + 1]
+        word_boundary = prefix.rfind(" ")
+        if word_boundary <= 0:
+            return value[:MAX_GENERATED_CONNECTION_LENGTH]
+        return prefix[:word_boundary].rstrip()
 
 
 class GatewayCandidateDraftSet(BaseModel):
@@ -137,7 +153,8 @@ class GatewayCandidateOutput(BaseModel):
                 "JSON object with a candidates array of exactly three objects. Each candidate "
                 "must contain title, summary, rationale, estimated_scope, primary_technology, "
                 "first_milestone, evidence_index, and generated_connection. estimated_scope "
-                "must be exactly weekend, multi-week, or multi-month."
+                "must be exactly weekend, multi-week, or multi-month. generated_connection "
+                "must be no more than 240 characters."
             ),
         ),
     ]
@@ -436,12 +453,6 @@ def invoke_gateway_agent(
                 structured_output_model=GatewayCandidateOutput,
                 limits={"turns": agent_settings.max_tool_calls + FINAL_RESPONSE_TURNS},
             )
-        except ToolCallBudgetError as error:
-            raise GatewayAgentError(str(error)) from error
-        except EventLoopException as error:
-            if isinstance(error.original_exception, ToolCallBudgetError):
-                raise GatewayAgentError(str(error.original_exception)) from error
-            raise
         except StructuredOutputException as error:
             raise GatewayAgentError(
                 "Strands could not produce structured project candidates"

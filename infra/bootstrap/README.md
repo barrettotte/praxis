@@ -3,9 +3,9 @@
 This independent OpenTofu root owns the durable resources required before the
 temporary development environment can use remote state. It starts with local
 state because the remote-state resources do not exist yet. Do not apply it
-until `tofu plan` has been reviewed explicitly. Provisioning and teardown are
-always run manually by the user; coding agents may plan and inspect but must not
-execute those operations.
+until `tofu plan` has been reviewed explicitly. A coding agent may apply only
+the exact saved plan it generated, reviewed, and summarized. Teardown requires
+explicit user approval for each run.
 
 Application resources do not belong in this stack. Bootstrap resources must be
 documented before they are preserved during development-environment teardown.
@@ -48,5 +48,5 @@ make tofu-plan-bootstrap
 make tofu-apply-bootstrap CONFIRM=apply-bootstrap
 ```
 
-Notifications fire at 50% and 100% of actual annual spend. The user must run
-the apply target manually.
+Notifications fire at 50% and 100% of actual annual spend. Apply the saved plan
+only after its budget address and resource actions have been reviewed.

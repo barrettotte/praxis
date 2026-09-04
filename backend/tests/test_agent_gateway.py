@@ -11,13 +11,17 @@ from strands import Agent
 from strands.agent.agent_result import AgentResult
 from strands.hooks import BeforeToolCallEvent
 from strands.tools.mcp import MCPAgentTool, MCPClient, MCPTransport
-from strands.types.exceptions import EventLoopException
 
 from praxis.agent import gateway
-from praxis.agent.budget import ToolCallBudget, ToolCallBudgetError
+from praxis.agent.budget import ToolCallBudget
 from praxis.agent.evidence import EvidenceState
 from praxis.config import AgentSettings, GatewaySettings
-from praxis.domain import EvidenceCitation, ProjectCandidate, ProjectCandidateSet
+from praxis.domain import (
+    EvidenceCitation,
+    ProjectCandidate,
+    ProjectCandidateSet,
+    validate_candidate_output,
+)
 
 
 def gateway_settings() -> GatewaySettings:
@@ -202,6 +206,18 @@ def test_gateway_candidate_schema_reports_safe_inner_field_errors() -> None:
     assert "Small" not in str(error.value)
 
 
+def test_gateway_candidate_schema_bounds_verbose_generated_connections() -> None:
+    records = gateway_candidate_records()
+    records[0]["generated_connection"] = "relevant motor evidence " * 20
+
+    output = gateway_candidate_output(records)
+    candidates = validate_candidate_output(output.as_payload(("book:0f5ba253568e4836",)))
+    connection = candidates.candidates[0].evidence_citations[0].generated_connection
+
+    assert len(connection) <= gateway.MAX_GENERATED_CONNECTION_LENGTH
+    assert connection.endswith("evidence")
+
+
 def test_gateway_candidate_schema_removes_redundant_closing_braces() -> None:
     encoded = json.dumps({"candidates": gateway_candidate_records()})
 
@@ -316,7 +332,7 @@ def test_invoke_gateway_agent_keeps_session_open_during_model_invocation() -> No
     assert "user-authored preferences and prior decisions" in generation_prompt
     assert "Prefer weekend scope" in generation_prompt
     assert fake_agent.call_args.kwargs["structured_output_model"] is gateway.GatewayCandidateOutput
-    assert fake_agent.call_args.kwargs["limits"] == {"turns": 5}
+    assert fake_agent.call_args.kwargs["limits"] == {"turns": 6}
     assert result.candidates == candidate_set()
     assert result.tool_calls == (("search_catalog", 1),)
     assert [item.model_dump(mode="json") for item in result.evidence] == [
@@ -395,22 +411,6 @@ def test_validate_gateway_candidate_result_rejects_unavailable_evidence_position
         gateway.validate_gateway_candidate_result(
             result,
             evidence_state("book:0f5ba253568e4836"),
-        )
-
-
-def test_invoke_gateway_agent_reports_exhausted_tool_call_budget() -> None:
-    budget_error = ToolCallBudgetError("budget exhausted")
-    fake_agent = MagicMock(side_effect=EventLoopException(budget_error))
-    session, _client = stub_gateway_session(fake_agent)
-
-    with (
-        patch.object(gateway, "gateway_agent_session", return_value=session),
-        pytest.raises(gateway.GatewayAgentError, match="budget exhausted"),
-    ):
-        gateway.invoke_gateway_agent(
-            "Recommend a compiler project",
-            AgentSettings(model_id="amazon.nova-micro-v1:0", region="us-east-1"),
-            gateway_settings(),
         )
 
 

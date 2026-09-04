@@ -1,10 +1,15 @@
 {
   "all_candidates_cited": true,
+  "asynchronous_session": true,
   "authenticated_direct_invocation": true,
+  "brief_generated": true,
   "buffered_response": true,
   "candidate_count": 3,
   "correlation_id_propagated": true,
-  "handler_status": 201,
+  "handler_status": 202,
   "runtime_invoked": true,
+  "selection_status": 200,
+  "server_authoritative_selection": true,
+  "status_polling": true,
   "supporting_evidence_resolved": true
 }

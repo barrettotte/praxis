@@ -58,3 +58,15 @@ policy intentionally rejects other hosts and ports. Sign in with the emailed
 temporary password and choose a permanent password that satisfies the displayed
 policy. Auth tokens use browser session storage and are cleared when the tab
 closes or the user signs out.
+
+Recommendation submission returns a pending session immediately. The browser
+polls the authenticated session route for up to two minutes while retaining the
+visible and assistive-technology progress state. Ready sessions render the
+three validated candidates; failed or expired sessions show the fixed retryable
+message without dependency details.
+
+Selecting a candidate renders a feasibility-aware project brief with a concrete
+technical approach, explicit assumptions and exclusions, deliverables,
+self-service milestone verification, risks, and measurable acceptance checks.
+The API derives the original goal, candidate, and evidence from the expiring
+server session; the browser sends only the session and candidate identifiers.

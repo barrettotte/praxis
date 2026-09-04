@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verify JWT-authenticated Runtime requests and anonymous API rejection.
+# Verify JWT-authenticated asynchronous recommendations and anonymous API rejection.
 set -euo pipefail
 umask 077
 
@@ -26,7 +26,7 @@ jq -nr --arg header "authorization: Bearer ${praxis_access_token}" \
   '"--header " + ($header | @json)' >"${praxis_work_dir}/curl-jwt.config"
 unset praxis_access_token
 
-# An authenticated declared route must return three cited buffered candidates.
+# An authenticated declared route must accept one pending recommendation session.
 praxis_known_status="$(
   curl --config "${praxis_work_dir}/curl-jwt.config" \
     --silent --show-error --max-time 35 \
@@ -43,28 +43,100 @@ praxis_known_response_id="$(
   awk 'tolower($1) == "x-correlation-id:" {gsub("\r", "", $2); print $2}' \
     "${praxis_work_dir}/known-route.headers" | tail -n 1
 )"
-if [[ "${praxis_known_status}" != "201" ]] || \
+if [[ "${praxis_known_status}" != "202" ]] || \
   [[ "${praxis_known_response_id}" != "${praxis_correlation_id}" ]] || \
-  ! jq -e '
-    (.data.evidence | map(.evidence_id)) as $evidence_ids
-    | (.data.sessionId
-      | test("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"))
-    and (.data.candidates | length == 3)
-    and (.data.evidence | length >= 1 and length <= 3)
-    and all(.data.evidence[];
-      (.evidence_id
-        | test("^(book|byte|museum|project):[0-9a-f]{16}$"))
-      and (.score == null))
-    and all(.data.candidates[];
-      (.evidence_citations | length >= 1)
-      and all(.evidence_citations[];
-        (.evidence_id
-          | test("^(book|byte|museum|project):[0-9a-f]{16}$"))
-        and (.evidence_id as $id | $evidence_ids | index($id) != null)))' \
+  ! jq -e '.data.status == "pending"
+    and (.data | keys | sort == ["sessionId", "status"])
+    and (.data.sessionId
+      | test("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"))' \
     "${praxis_work_dir}/known-route.json" >/dev/null; then
   printf 'Declared API route returned an unexpected response (HTTP %s):\n' \
     "${praxis_known_status}" >&2
   jq . "${praxis_work_dir}/known-route.json" >&2 || true
+  exit 1
+fi
+
+praxis_session_id="$(jq -r '.data.sessionId' "${praxis_work_dir}/known-route.json")"
+
+# Poll the authenticated status route until the private worker completes.
+praxis_status_deadline=$((SECONDS + 120))
+while true; do
+  praxis_status_code="$(
+    curl --config "${praxis_work_dir}/curl-jwt.config" \
+      --silent --show-error --max-time 15 \
+      --output "${praxis_work_dir}/known-route.json" \
+      --write-out '%{http_code}' \
+      "${praxis_api_url}/v1/sessions/${praxis_session_id}"
+  )"
+  praxis_session_status="$(
+    if [[ "${praxis_status_code}" == "200" ]]; then
+      jq -r '.data.status // "invalid"' "${praxis_work_dir}/known-route.json"
+    else
+      printf 'http-error'
+    fi
+  )"
+  if [[ "${praxis_session_status}" == "ready" ]]; then
+    break
+  fi
+  if [[ "${praxis_session_status}" != "pending" ]] || ((SECONDS >= praxis_status_deadline)); then
+    printf 'Recommendation session ended with status %s (HTTP %s):\n' \
+      "${praxis_session_status}" "${praxis_status_code}" >&2
+    jq . "${praxis_work_dir}/known-route.json" >&2 || true
+    exit 1
+  fi
+  sleep 2
+done
+
+# Require three candidates whose citations resolve to returned evidence.
+if ! jq -e '
+  (.data.evidence | map(.evidence_id)) as $evidence_ids
+  | .data.status == "ready"
+  and (.data.candidates | length == 3)
+  and ([ .data.candidates[].candidateId ]
+    == ["candidate_1", "candidate_2", "candidate_3"])
+  and (.data.evidence | length >= 1 and length <= 3)
+  and all(.data.evidence[];
+    (.evidence_id | test("^(book|byte|museum|project):[0-9a-f]{16}$"))
+    and (.score == null))
+  and all(.data.candidates[];
+    (.evidence_citations | length >= 1)
+    and all(.evidence_citations[];
+      (.evidence_id | test("^(book|byte|museum|project):[0-9a-f]{16}$"))
+      and (.evidence_id as $id | $evidence_ids | index($id) != null)))' \
+  "${praxis_work_dir}/known-route.json" >/dev/null; then
+  printf 'Ready recommendation session returned invalid candidates:\n' >&2
+  jq . "${praxis_work_dir}/known-route.json" >&2 || true
+  exit 1
+fi
+
+# Use only the returned session and candidate identifiers to request a generated brief.
+praxis_candidate_id="candidate_1"
+praxis_selection_status="$(
+  curl --config "${praxis_work_dir}/curl-jwt.config" \
+    --silent --show-error --max-time 35 \
+    --output "${praxis_work_dir}/selection.json" \
+    --write-out '%{http_code}' \
+    --request POST \
+    --header 'content-type: application/json' \
+    --data "{\"sessionId\":\"${praxis_session_id}\"}" \
+    "${praxis_api_url}/v1/projects/${praxis_candidate_id}/select"
+)"
+if [[ "${praxis_selection_status}" != "200" ]] || \
+  ! jq -e \
+    --arg candidate_id "${praxis_candidate_id}" \
+    --arg session_id "${praxis_session_id}" \
+    '.data.sessionId == $session_id
+      and .data.candidateId == $candidate_id
+      and .data.candidate.candidateId == $candidate_id
+      and (.data.brief.objective | length > 0)
+      and (.data.brief.scope | length > 0)
+      and (.data.brief.milestones | length >= 3 and length <= 5)
+      and (.data.brief.risks | length >= 2 and length <= 4)
+      and (.data.brief.acceptance_criteria | length >= 3 and length <= 6)' \
+    "${praxis_work_dir}/selection.json" >/dev/null; then
+  printf 'Candidate selection returned an unexpected response (HTTP %s):\n' \
+    "${praxis_selection_status}" >&2
+  jq . "${praxis_work_dir}/selection.json" >&2 || true
   exit 1
 fi
 
@@ -130,6 +202,6 @@ fi
 
 mkdir -p "${praxis_evidence_dir}"
 jq -n \
-  '{all_candidates_cited: true, api_gateway_reached: true, buffered_response: true, candidate_count: 3, correlation_id_propagated: true, error_schema_valid: true, handler_status: 201, invalid_request_status: 400, jwt_authenticated: true, runtime_invoked: true, supporting_evidence_resolved: true, unauthenticated_status: 401, unknown_route_status: 404}' \
+  '{all_candidates_cited: true, api_gateway_reached: true, asynchronous_session: true, brief_generated: true, buffered_response: true, candidate_count: 3, correlation_id_propagated: true, error_schema_valid: true, handler_status: 202, invalid_request_status: 400, jwt_authenticated: true, runtime_invoked: true, selection_status: 200, server_authoritative_selection: true, status_polling: true, supporting_evidence_resolved: true, unauthenticated_status: 401, unknown_route_status: 404}' \
   >"${praxis_evidence_dir}/api-gateway.json"
 jq . "${praxis_evidence_dir}/api-gateway.json"

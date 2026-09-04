@@ -5,6 +5,9 @@ import type { ProjectCandidate, SupportingEvidence } from "./api";
 interface CandidateCardsProps {
   candidates: readonly [ProjectCandidate, ProjectCandidate, ProjectCandidate];
   evidence: readonly SupportingEvidence[];
+  onSelect: (index: number) => void;
+  selectedCandidateIndex: number | null;
+  selectionPending: boolean;
 }
 
 const SCOPE_LABELS: Record<ProjectCandidate["estimated_scope"], string> = {
@@ -44,12 +47,18 @@ function evidenceMetadata(evidence: SupportingEvidence): string {
   }
 }
 
-export function CandidateCards({ candidates, evidence }: CandidateCardsProps) {
+export function CandidateCards({
+  candidates,
+  evidence,
+  onSelect,
+  selectedCandidateIndex,
+  selectionPending,
+}: CandidateCardsProps) {
   const headingId = useId();
   const evidenceById = new Map(evidence.map((item) => [item.evidence_id, item]));
 
   return (
-    <section className="candidate-results" aria-labelledby={headingId}>
+    <section className="candidate-results" aria-busy={selectionPending} aria-labelledby={headingId}>
       <div className="candidate-results-heading">
         <p className="eyebrow">Three directions</p>
         <h3 id={headingId}>Compare project candidates</h3>
@@ -57,8 +66,13 @@ export function CandidateCards({ candidates, evidence }: CandidateCardsProps) {
       <ol className="candidate-grid">
         {candidates.map((candidate, index) => (
           <li key={`${candidate.title}-${index.toString()}`}>
-            <article className="candidate-card">
-              <p className="candidate-number">Candidate {(index + 1).toString()}</p>
+            <article
+              className={`candidate-card${selectedCandidateIndex === index ? " candidate-card-selected" : ""}`}
+            >
+              <div className="candidate-labels">
+                <p className="candidate-number">Candidate {(index + 1).toString()}</p>
+                <p className="generated-label">AI-generated recommendation</p>
+              </div>
               <h4>{candidate.title}</h4>
               <p className="candidate-summary">{candidate.summary}</p>
               <dl className="candidate-facts">
@@ -89,15 +103,34 @@ export function CandidateCards({ candidates, evidence }: CandidateCardsProps) {
                     }
                     return (
                       <li key={item.evidence_id}>
-                        <p className="evidence-type">{evidenceType(item)}</p>
+                        <p className="evidence-type">Catalog evidence · {evidenceType(item)}</p>
                         <p className="evidence-title">{evidenceTitle(item)}</p>
                         <p className="evidence-metadata">{evidenceMetadata(item)}</p>
                         <code>{item.evidence_id}</code>
+                        <div className="generated-connection">
+                          <p className="generated-connection-label">Generated connection</p>
+                          <p>{citation.generated_connection}</p>
+                        </div>
                       </li>
                     );
                   })}
                 </ul>
               </div>
+              <button
+                className="button button-secondary candidate-select-button"
+                type="button"
+                aria-pressed={selectedCandidateIndex === index}
+                disabled={selectionPending}
+                onClick={() => {
+                  onSelect(index);
+                }}
+              >
+                {selectionPending && selectedCandidateIndex === index
+                  ? "Creating brief…"
+                  : selectedCandidateIndex === index
+                    ? "Selected project"
+                    : "Select this project"}
+              </button>
             </article>
           </li>
         ))}

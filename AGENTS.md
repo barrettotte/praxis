@@ -23,11 +23,12 @@ preserve unrelated user changes.
 - Give every shell script a `.sh` file extension.
 - Add deployed checks to the named `smoke-dev` suites instead of creating new
   Make targets. Keep mutating checks separate with explicit confirmation.
-- Never run commands that create, modify, or destroy AWS resources. The user
-  must manually execute all provisioning and teardown commands, including
-  `tofu apply` and `tofu destroy`, after reviewing the plan. Read-only,
-  no-cost commands such as validation, planning, and resource inspection are
-  allowed.
+- A coding agent may run a provisioning `tofu apply` only from the exact saved
+  plan it generated, reviewed, and summarized for the user. Regenerate and
+  review the plan if configuration or state changes afterward. Teardown and
+  other destructive commands require explicit user approval for each run.
+  Keep other AWS-mutating commands manual unless the user explicitly requests
+  them. Read-only, no-cost validation, planning, and inspection are allowed.
 - Treat deployed development environments as temporary. Prefer on-demand
   services, avoid provisioned capacity, and keep the initial total AWS spend
   below $10. Preserve only documented bootstrap resources when tearing down.

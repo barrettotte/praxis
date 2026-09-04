@@ -44,6 +44,24 @@ data "aws_iam_policy_document" "api_lambda" {
       aws_bedrockagentcore_agent_runtime_endpoint.stable.agent_runtime_endpoint_arn,
     ]
   }
+
+  statement {
+    sid    = "ManageRecommendationSessions"
+    effect = "Allow"
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem",
+    ]
+    resources = [aws_dynamodb_table.api_sessions.arn]
+  }
+
+  statement {
+    sid       = "QueueRecommendationJobs"
+    effect    = "Allow"
+    actions   = ["sqs:SendMessage"]
+    resources = [aws_sqs_queue.recommendations.arn]
+  }
 }
 
 resource "aws_iam_role_policy" "api_lambda" {
@@ -68,9 +86,11 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      PRAXIS_AGENT_RUNTIME_ARN       = aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn
-      PRAXIS_AGENT_RUNTIME_QUALIFIER = aws_bedrockagentcore_agent_runtime_endpoint.stable.name
-      PRAXIS_API_ACTOR_ID            = "praxis-single-user"
+      PRAXIS_AGENT_RUNTIME_ARN        = aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn
+      PRAXIS_AGENT_RUNTIME_QUALIFIER  = aws_bedrockagentcore_agent_runtime_endpoint.stable.name
+      PRAXIS_API_ACTOR_ID             = "praxis-single-user"
+      PRAXIS_RECOMMENDATION_QUEUE_URL = aws_sqs_queue.recommendations.url
+      PRAXIS_SESSION_TABLE_NAME       = aws_dynamodb_table.api_sessions.name
     }
   }
 

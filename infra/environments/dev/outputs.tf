@@ -66,6 +66,21 @@ output "catalog_table_arn" {
   value       = aws_dynamodb_table.catalog.arn
 }
 
+output "api_session_table_name" {
+  description = "Name of the disposable short-lived recommendation session table."
+  value       = aws_dynamodb_table.api_sessions.name
+}
+
+output "recommendation_queue_name" {
+  description = "Name of the encrypted asynchronous recommendation queue."
+  value       = aws_sqs_queue.recommendations.name
+}
+
+output "recommendation_worker_name" {
+  description = "Name of the private asynchronous recommendation worker Lambda."
+  value       = aws_lambda_function.recommendation_worker.function_name
+}
+
 output "catalog_lambda_name" {
   description = "Name of the private read-only catalog Lambda function."
   value       = aws_lambda_function.catalog.function_name

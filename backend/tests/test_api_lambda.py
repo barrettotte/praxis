@@ -5,6 +5,7 @@ from base64 import b64encode
 
 import pytest
 
+from praxis.api.jobs import ApiJobError
 from praxis.api.requests import (
     MAX_API_BODY_BYTES,
     MAX_API_TEXT_CHARACTERS,
@@ -15,14 +16,32 @@ from praxis.api.requests import (
     SessionMessageRequest,
     validate_api_request,
 )
-from praxis.api.runtime import ApiRuntimeError, CreateSessionData
-from praxis.domain import EvidenceCitation, ProjectCandidate
+from praxis.api.runtime import (
+    CreateSessionData,
+    SelectCandidateData,
+    SessionCandidate,
+)
+from praxis.api.sessions import (
+    ApiSessionError,
+    ApiSessionNotFoundError,
+    FailedSession,
+    PendingSession,
+    StoredSession,
+)
+from praxis.domain import EvidenceCitation
+from praxis.domain.briefs import (
+    ProjectAcceptanceCriterion,
+    ProjectBrief,
+    ProjectMilestone,
+    ProjectRisk,
+)
 from praxis.functions import api as api_function
 from praxis.tools.contracts import BookEvidence
 
 SESSION_ID = "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4"
 CORRELATION_ID = "51f4a405-8835-411d-9821-5980d73f51f6"
 GATEWAY_REQUEST_ID = "MqgCjHCKoAMEPLw="
+GOAL = "Learn compiler backends over a weekend"
 
 
 def http_event(
@@ -54,6 +73,42 @@ def http_event(
     if query_parameters is not None:
         event["queryStringParameters"] = query_parameters
     return event
+
+
+def create_session_data() -> CreateSessionData:
+    """Return one complete recommendation session fixture."""
+    return CreateSessionData(
+        session_id=SESSION_ID,
+        candidates=[
+            SessionCandidate(
+                candidate_id=f"candidate_{number}",
+                title=f"Candidate {number}",
+                summary="Build a focused compiler project.",
+                rationale="The evidence provides relevant implementation context.",
+                estimated_scope="multi-week",
+                technologies=["Python"],
+                first_milestone="Implement one instruction-selection rule.",
+                evidence_citations=[
+                    EvidenceCitation(
+                        evidence_id="book:0f5ba253568e4836",
+                        generated_connection="The evidence supports this learning path.",
+                    )
+                ],
+            )
+            for number in range(1, 4)
+        ],
+        evidence=[
+            BookEvidence(
+                evidence_id="book:0f5ba253568e4836",
+                kind="book",
+                title="Compiler Backend Development",
+                author=None,
+                year=2025,
+                category="Compilers",
+                tags=[],
+            )
+        ],
+    )
 
 
 def test_validates_create_session_request() -> None:
@@ -213,6 +268,11 @@ def test_rejects_text_field_above_character_limit(route_key: str, field: str) ->
             path_parameters={"candidateId": "not/a/candidate"},
         ),
         http_event(
+            "POST /v1/projects/{candidateId}/select",
+            body=json.dumps({"sessionId": SESSION_ID}),
+            path_parameters={"candidateId": "candidate_4"},
+        ),
+        http_event(
             "POST /v1/sessions",
             body="not-base64",
             is_base64_encoded=True,
@@ -235,6 +295,7 @@ def test_rejects_text_field_above_character_limit(route_key: str, field: str) ->
         "invalid-session-id",
         "get-body",
         "invalid-candidate-id",
+        "unknown-candidate-id",
         "invalid-base64",
         "invalid-correlation-id",
     ],
@@ -244,47 +305,21 @@ def test_rejects_invalid_requests(event: object) -> None:
         validate_api_request(event)
 
 
-def test_api_lambda_invokes_runtime_for_valid_create_session(
+def test_api_lambda_accepts_and_queues_valid_create_session(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     marker = "do-not-reflect"
     observed: list[tuple[str, str]] = []
 
-    def create_session(goal: str, correlation_id: str) -> CreateSessionData:
+    def start_session(goal: str, correlation_id: str) -> PendingSession:
         observed.append((goal, correlation_id))
-        return CreateSessionData(
+        return PendingSession(
             session_id=SESSION_ID,
-            candidates=[
-                ProjectCandidate(
-                    title=f"Candidate {number}",
-                    summary="Build a focused compiler project.",
-                    rationale="The evidence provides relevant implementation context.",
-                    estimated_scope="multi-week",
-                    technologies=["Python"],
-                    first_milestone="Implement one instruction-selection rule.",
-                    evidence_citations=[
-                        EvidenceCitation(
-                            evidence_id="book:0f5ba253568e4836",
-                            generated_connection="The evidence supports this learning path.",
-                        )
-                    ],
-                )
-                for number in range(1, 4)
-            ],
-            evidence=[
-                BookEvidence(
-                    evidence_id="book:0f5ba253568e4836",
-                    kind="book",
-                    title="Compiler Backend Development",
-                    author=None,
-                    year=2025,
-                    category="Compilers",
-                    tags=[],
-                )
-            ],
+            expires_at=1_788_235_600,
+            goal=marker,
         )
 
-    monkeypatch.setattr(api_function, "create_session", create_session)
+    monkeypatch.setattr(api_function, "start_session", start_session)
 
     response = api_function.lambda_handler(
         http_event(
@@ -295,7 +330,7 @@ def test_api_lambda_invokes_runtime_for_valid_create_session(
         object(),
     )
 
-    assert response["statusCode"] == 201
+    assert response["statusCode"] == 202
     assert response["headers"] == {
         "cache-control": "no-store",
         "content-type": "application/json",
@@ -304,34 +339,7 @@ def test_api_lambda_invokes_runtime_for_valid_create_session(
     assert json.loads(str(response["body"])) == {
         "data": {
             "sessionId": SESSION_ID,
-            "candidates": [
-                {
-                    "title": f"Candidate {number}",
-                    "summary": "Build a focused compiler project.",
-                    "rationale": "The evidence provides relevant implementation context.",
-                    "estimated_scope": "multi-week",
-                    "technologies": ["Python"],
-                    "first_milestone": "Implement one instruction-selection rule.",
-                    "evidence_citations": [
-                        {
-                            "evidence_id": "book:0f5ba253568e4836",
-                            "generated_connection": "The evidence supports this learning path.",
-                        }
-                    ],
-                }
-                for number in range(1, 4)
-            ],
-            "evidence": [
-                {
-                    "evidence_id": "book:0f5ba253568e4836",
-                    "kind": "book",
-                    "title": "Compiler Backend Development",
-                    "author": None,
-                    "year": 2025,
-                    "category": "Compilers",
-                    "tags": [],
-                }
-            ],
+            "status": "pending",
         }
     }
     assert response["isBase64Encoded"] is False
@@ -339,21 +347,206 @@ def test_api_lambda_invokes_runtime_for_valid_create_session(
 
 
 @pytest.mark.parametrize(
-    "sensitive_detail",
+    "session",
     [
-        "Bedrock model failure: secret provider detail",
-        "Gateway tool failure: secret catalog detail",
+        PendingSession(session_id=SESSION_ID, expires_at=1_788_235_600, goal=GOAL),
+        FailedSession(session_id=SESSION_ID, expires_at=1_788_235_600, goal=GOAL),
     ],
-    ids=["model", "tool"],
 )
-def test_api_lambda_returns_safe_unavailable_for_model_and_tool_failures(
+def test_api_lambda_returns_non_ready_session_status(
     monkeypatch: pytest.MonkeyPatch,
-    sensitive_detail: str,
+    session: PendingSession | FailedSession,
 ) -> None:
-    def fail_create_session(_goal: str, _correlation_id: str) -> CreateSessionData:
-        raise ApiRuntimeError(sensitive_detail)
+    def get_session(_session_id: str) -> PendingSession | FailedSession:
+        return session
 
-    monkeypatch.setattr(api_function, "create_session", fail_create_session)
+    monkeypatch.setattr(api_function, "get_session", get_session)
+
+    response = api_function.lambda_handler(
+        http_event(
+            "GET /v1/sessions/{sessionId}",
+            path_parameters={"sessionId": SESSION_ID},
+            correlation_id=CORRELATION_ID,
+        ),
+        object(),
+    )
+
+    assert response["statusCode"] == 200
+    assert json.loads(str(response["body"])) == {
+        "data": {"sessionId": SESSION_ID, "status": session.status}
+    }
+
+
+def test_api_lambda_returns_ready_session_candidates(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = StoredSession(
+        **create_session_data().model_dump(mode="python"),
+        expires_at=1_788_235_600,
+        goal=GOAL,
+    )
+
+    def get_session(_session_id: str) -> StoredSession:
+        return session
+
+    monkeypatch.setattr(api_function, "get_session", get_session)
+
+    response = api_function.lambda_handler(
+        http_event(
+            "GET /v1/sessions/{sessionId}",
+            path_parameters={"sessionId": SESSION_ID},
+            correlation_id=CORRELATION_ID,
+        ),
+        object(),
+    )
+
+    assert response["statusCode"] == 200
+    payload = json.loads(str(response["body"]))["data"]
+    assert payload["status"] == "ready"
+    assert len(payload["candidates"]) == 3
+    assert len(payload["evidence"]) == 1
+    assert "goal" not in payload
+
+
+def test_api_lambda_returns_generated_brief_for_session_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selected = SessionCandidate(
+        candidate_id="candidate_2",
+        title="Candidate 2",
+        summary="Build a focused compiler project.",
+        rationale="The evidence provides relevant implementation context.",
+        estimated_scope="multi-week",
+        technologies=["Python"],
+        first_milestone="Implement one instruction-selection rule.",
+        evidence_citations=[
+            EvidenceCitation(
+                evidence_id="book:0f5ba253568e4836",
+                generated_connection="The evidence supports this learning path.",
+            )
+        ],
+    )
+    evidence = BookEvidence(
+        evidence_id="book:0f5ba253568e4836",
+        kind="book",
+        title="Compiler Backend Development",
+        author=None,
+        year=2025,
+        category="Compilers",
+        tags=[],
+    )
+    brief = ProjectBrief(
+        objective="Build a small compiler backend.",
+        scope="Implement one expression-lowering path.",
+        technical_approach=[
+            "Define a JSON expression model and validate sample inputs.",
+            "Lower expressions into target instructions with Python.",
+            "Execute the instructions and compare their numeric result.",
+        ],
+        assumptions=[
+            "Python and a local test runner are available.",
+            "One expression form is enough for the exercise.",
+        ],
+        out_of_scope=[
+            "Register allocation is outside this project.",
+            "Multiple target architectures are outside this project.",
+        ],
+        deliverables=[
+            "A documented input representation for expressions.",
+            "A tested instruction selector with example output.",
+        ],
+        milestones=[
+            ProjectMilestone(
+                title=f"Milestone {number}",
+                deliverable="A concrete implementation artifact.",
+                verification="An automated check validates the artifact.",
+            )
+            for number in range(1, 4)
+        ],
+        risks=[
+            ProjectRisk(risk=f"Risk {number}", mitigation="Use a bounded fallback.")
+            for number in range(1, 3)
+        ],
+        acceptance_criteria=[
+            ProjectAcceptanceCriterion(
+                criterion=f"Criterion {number} has a measurable result.",
+                verification="An automated test records the expected result.",
+            )
+            for number in range(1, 4)
+        ],
+    )
+    observed: list[tuple[str, str, str]] = []
+
+    def select_candidate(
+        session_id: str,
+        candidate_id: str,
+        correlation_id: str,
+    ) -> SelectCandidateData:
+        observed.append((session_id, candidate_id, correlation_id))
+        return SelectCandidateData(
+            session_id=session_id,
+            candidate_id=candidate_id,
+            candidate=selected,
+            brief=brief,
+            evidence=[evidence],
+        )
+
+    monkeypatch.setattr(api_function, "select_candidate", select_candidate)
+    response = api_function.lambda_handler(
+        http_event(
+            "POST /v1/projects/{candidateId}/select",
+            body=json.dumps({"sessionId": SESSION_ID}),
+            path_parameters={"candidateId": "candidate_2"},
+            correlation_id=CORRELATION_ID,
+        ),
+        object(),
+    )
+
+    assert response["statusCode"] == 200
+    payload = json.loads(str(response["body"]))["data"]
+    assert payload["sessionId"] == SESSION_ID
+    assert payload["candidateId"] == "candidate_2"
+    assert payload["candidate"]["title"] == "Candidate 2"
+    assert payload["brief"]["acceptance_criteria"][0] == {
+        "criterion": "Criterion 1 has a measurable result.",
+        "verification": "An automated test records the expected result.",
+    }
+    assert observed == [(SESSION_ID, "candidate_2", CORRELATION_ID)]
+
+
+def test_api_lambda_returns_not_found_for_expired_selection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def select_candidate(_session_id: str, _candidate_id: str, _correlation_id: str) -> None:
+        raise ApiSessionNotFoundError("sensitive session detail")
+
+    monkeypatch.setattr(api_function, "select_candidate", select_candidate)
+    response = api_function.lambda_handler(
+        http_event(
+            "POST /v1/projects/{candidateId}/select",
+            body=json.dumps({"sessionId": SESSION_ID}),
+            path_parameters={"candidateId": "candidate_1"},
+            correlation_id=CORRELATION_ID,
+        ),
+        object(),
+    )
+
+    assert response["statusCode"] == 404
+    assert json.loads(str(response["body"])) == {
+        "error": {
+            "code": "not_found",
+            "message": "Requested recommendation session was not found.",
+        }
+    }
+
+
+def test_api_lambda_returns_safe_unavailable_when_job_cannot_be_queued(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sensitive_detail = "sensitive queue detail"
+
+    def fail_start_session(_goal: str, _correlation_id: str) -> PendingSession:
+        raise ApiJobError(sensitive_detail)
+
+    monkeypatch.setattr(api_function, "start_session", fail_start_session)
 
     response = api_function.lambda_handler(
         http_event(
@@ -378,8 +571,27 @@ def test_api_lambda_returns_safe_unavailable_for_model_and_tool_failures(
         "isBase64Encoded": False,
     }
     assert sensitive_detail not in json.dumps(response)
-    assert "Bedrock" not in json.dumps(response)
-    assert "Gateway" not in json.dumps(response)
+    assert "queue" not in json.dumps(response)
+
+
+def test_api_lambda_returns_safe_unavailable_when_session_cannot_be_started(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_start_session(_goal: str, _correlation_id: str) -> PendingSession:
+        raise ApiSessionError("sensitive DynamoDB detail")
+
+    monkeypatch.setattr(api_function, "start_session", fail_start_session)
+    response = api_function.lambda_handler(
+        http_event(
+            "POST /v1/sessions",
+            body=json.dumps({"goal": "compiler"}),
+            correlation_id=CORRELATION_ID,
+        ),
+        object(),
+    )
+
+    assert response["statusCode"] == 503
+    assert "sensitive DynamoDB detail" not in json.dumps(response)
 
 
 def test_api_lambda_returns_safe_bad_request_for_invalid_input() -> None:
@@ -409,10 +621,10 @@ def test_api_lambda_rejects_oversized_payload_before_runtime(
 ) -> None:
     marker = "do-not-reflect"
 
-    def unexpected_create_session(_goal: str, _correlation_id: str) -> CreateSessionData:
-        pytest.fail("oversized request invoked Runtime")
+    def unexpected_start_session(_goal: str, _correlation_id: str) -> PendingSession:
+        pytest.fail("oversized request queued work")
 
-    monkeypatch.setattr(api_function, "create_session", unexpected_create_session)
+    monkeypatch.setattr(api_function, "start_session", unexpected_start_session)
     response = api_function.lambda_handler(
         http_event(
             "POST /v1/sessions",

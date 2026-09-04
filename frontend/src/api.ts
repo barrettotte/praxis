@@ -6,6 +6,7 @@ export interface EvidenceCitation {
 }
 
 export interface ProjectCandidate {
+  candidateId: `candidate_${1 | 2 | 3}`;
   estimated_scope: "multi-month" | "multi-week" | "weekend";
   evidence_citations: EvidenceCitation[];
   first_milestone: string;
@@ -13,6 +14,34 @@ export interface ProjectCandidate {
   summary: string;
   technologies: string[];
   title: string;
+}
+
+export interface ProjectMilestone {
+  deliverable: string;
+  title: string;
+  verification: string;
+}
+
+export interface ProjectRisk {
+  mitigation: string;
+  risk: string;
+}
+
+export interface ProjectAcceptanceCriterion {
+  criterion: string;
+  verification: string;
+}
+
+export interface ProjectBrief {
+  acceptance_criteria: ProjectAcceptanceCriterion[];
+  assumptions: string[];
+  deliverables: string[];
+  milestones: ProjectMilestone[];
+  objective: string;
+  out_of_scope: string[];
+  risks: ProjectRisk[];
+  scope: string;
+  technical_approach: string[];
 }
 
 interface EvidenceRecord {
@@ -60,8 +89,20 @@ export interface CreateSessionResult {
   sessionId: string;
 }
 
+export interface SelectCandidateResult {
+  brief: ProjectBrief;
+  candidate: ProjectCandidate;
+  candidateId: ProjectCandidate["candidateId"];
+  evidence: SupportingEvidence[];
+  sessionId: string;
+}
+
 export interface ApiClient {
   createSession(goal: string): Promise<CreateSessionResult>;
+  selectCandidate(
+    sessionId: string,
+    candidateId: ProjectCandidate["candidateId"],
+  ): Promise<SelectCandidateResult>;
 }
 
 export interface ApiConfiguration {
@@ -69,9 +110,22 @@ export interface ApiConfiguration {
 }
 
 type RequestFunction = (input: string, init: RequestInit) => Promise<Response>;
+type WaitFunction = (milliseconds: number) => Promise<void>;
+
+interface PendingSessionResult {
+  sessionId: string;
+  status: "pending";
+}
+
+type SessionPollResult =
+  | { sessionId: string; status: "failed" | "pending" }
+  | { result: CreateSessionResult; status: "ready" };
 
 const SESSION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const EVIDENCE_ID_PATTERN = /^(book|byte|museum|project):[0-9a-f]{16}$/;
+const CANDIDATE_ID_PATTERN = /^candidate_[1-3]$/;
+const SESSION_POLL_INTERVAL_MS = 2_000;
+const SESSION_POLL_ATTEMPTS = 60;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -98,9 +152,59 @@ function isEvidenceCitation(value: unknown): value is EvidenceCitation {
   );
 }
 
+function isProjectMilestone(value: unknown): value is ProjectMilestone {
+  return (
+    isRecord(value) &&
+    isNonEmptyString(value.title) &&
+    isNonEmptyString(value.deliverable) &&
+    isNonEmptyString(value.verification)
+  );
+}
+
+function isProjectRisk(value: unknown): value is ProjectRisk {
+  return isRecord(value) && isNonEmptyString(value.risk) && isNonEmptyString(value.mitigation);
+}
+
+function isProjectAcceptanceCriterion(value: unknown): value is ProjectAcceptanceCriterion {
+  return (
+    isRecord(value) && isNonEmptyString(value.criterion) && isNonEmptyString(value.verification)
+  );
+}
+
+function isBoundedList<T>(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+  predicate: (item: unknown) => item is T,
+): value is T[] {
+  return (
+    Array.isArray(value) &&
+    value.length >= minimum &&
+    value.length <= maximum &&
+    value.every(predicate)
+  );
+}
+
+function isProjectBrief(value: unknown): value is ProjectBrief {
+  return (
+    isRecord(value) &&
+    isNonEmptyString(value.objective) &&
+    isNonEmptyString(value.scope) &&
+    isBoundedList(value.technical_approach, 3, 6, isNonEmptyString) &&
+    isBoundedList(value.assumptions, 2, 5, isNonEmptyString) &&
+    isBoundedList(value.out_of_scope, 2, 5, isNonEmptyString) &&
+    isBoundedList(value.deliverables, 2, 6, isNonEmptyString) &&
+    isBoundedList(value.milestones, 3, 5, isProjectMilestone) &&
+    isBoundedList(value.risks, 2, 4, isProjectRisk) &&
+    isBoundedList(value.acceptance_criteria, 3, 6, isProjectAcceptanceCriterion)
+  );
+}
+
 function isProjectCandidate(value: unknown): value is ProjectCandidate {
   return (
     isRecord(value) &&
+    isNonEmptyString(value.candidateId) &&
+    CANDIDATE_ID_PATTERN.test(value.candidateId) &&
     isNonEmptyString(value.title) &&
     isNonEmptyString(value.summary) &&
     isNonEmptyString(value.rationale) &&
@@ -229,6 +333,58 @@ function parseCreateSessionResponse(value: unknown): CreateSessionResult {
   };
 }
 
+function parsePendingSessionResponse(value: unknown): PendingSessionResult {
+  if (!isRecord(value) || !isRecord(value.data)) {
+    throw new Error("Invalid API response envelope");
+  }
+  const { sessionId, status } = value.data;
+  if (!isNonEmptyString(sessionId) || !SESSION_ID_PATTERN.test(sessionId) || status !== "pending") {
+    throw new Error("Invalid pending-session response");
+  }
+  return { sessionId, status };
+}
+
+function parseSessionStatusResponse(value: unknown): SessionPollResult {
+  if (!isRecord(value) || !isRecord(value.data)) {
+    throw new Error("Invalid API response envelope");
+  }
+  const { sessionId, status } = value.data;
+  if (!isNonEmptyString(sessionId) || !SESSION_ID_PATTERN.test(sessionId)) {
+    throw new Error("Invalid session-status response");
+  }
+  if (status === "failed" || status === "pending") {
+    return { sessionId, status };
+  }
+  if (status !== "ready") {
+    throw new Error("Invalid session-status response");
+  }
+  return { result: parseCreateSessionResponse(value), status };
+}
+
+function parseSelectCandidateResponse(value: unknown): SelectCandidateResult {
+  if (!isRecord(value) || !isRecord(value.data)) {
+    throw new Error("Invalid API response envelope");
+  }
+  const { brief, candidate, candidateId, evidence, sessionId } = value.data;
+  if (
+    !isNonEmptyString(sessionId) ||
+    !SESSION_ID_PATTERN.test(sessionId) ||
+    !isNonEmptyString(candidateId) ||
+    !CANDIDATE_ID_PATTERN.test(candidateId) ||
+    !isProjectCandidate(candidate) ||
+    candidate.candidateId !== candidateId ||
+    !isProjectBrief(brief) ||
+    !isSupportingEvidenceList(evidence)
+  ) {
+    throw new Error("Invalid select-candidate response");
+  }
+  const evidenceIds = new Set(evidence.map((item) => item.evidence_id));
+  if (candidate.evidence_citations.some((citation) => !evidenceIds.has(citation.evidence_id))) {
+    throw new Error("Invalid select-candidate response");
+  }
+  return { brief, candidate, candidateId, evidence, sessionId };
+}
+
 export function readApiConfiguration(environment: Record<string, unknown>): ApiConfiguration {
   const value = environment.VITE_API_URL;
   if (typeof value !== "string" || value.trim() === "") {
@@ -247,6 +403,10 @@ export function createApiClient(
   configuration: ApiConfiguration,
   auth: AuthClient,
   request: RequestFunction = globalThis.fetch,
+  wait: WaitFunction = (milliseconds) =>
+    new Promise((resolve) => {
+      globalThis.setTimeout(resolve, milliseconds);
+    }),
 ): ApiClient {
   return {
     async createSession(goal) {
@@ -263,7 +423,45 @@ export function createApiClient(
       if (!response.ok) {
         throw new Error(`API request failed with status ${response.status.toString()}`);
       }
-      return parseCreateSessionResponse(await response.json());
+      const pending = parsePendingSessionResponse(await response.json());
+      for (let attempt = 0; attempt < SESSION_POLL_ATTEMPTS; attempt += 1) {
+        await wait(SESSION_POLL_INTERVAL_MS);
+        const statusResponse = await request(
+          `${configuration.baseUrl}/v1/sessions/${pending.sessionId}`,
+          {
+            credentials: "omit",
+            headers: { authorization: `Bearer ${accessToken}` },
+            method: "GET",
+          },
+        );
+        if (!statusResponse.ok) {
+          throw new Error(`API request failed with status ${statusResponse.status.toString()}`);
+        }
+        const status = parseSessionStatusResponse(await statusResponse.json());
+        if (status.status === "ready") {
+          return status.result;
+        }
+        if (status.status === "failed") {
+          throw new Error("Recommendation session failed");
+        }
+      }
+      throw new Error("Recommendation session timed out");
+    },
+    async selectCandidate(sessionId, candidateId) {
+      const accessToken = await auth.getAccessToken();
+      const response = await request(`${configuration.baseUrl}/v1/projects/${candidateId}/select`, {
+        body: JSON.stringify({ sessionId }),
+        credentials: "omit",
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "content-type": "application/json",
+        },
+        method: "POST",
+      });
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status.toString()}`);
+      }
+      return parseSelectCandidateResponse(await response.json());
     },
   };
 }

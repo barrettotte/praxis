@@ -12,9 +12,12 @@ from botocore.exceptions import BotoCoreError, ClientError
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from praxis.domain import ProjectCandidate
+from praxis.domain.briefs import ProjectBrief
 from praxis.tools.contracts import Evidence
 
 JSON_CONTENT_TYPE = "application/json"
+API_RUNTIME_READ_TIMEOUT_SECONDS = 25
+WORKER_RUNTIME_READ_TIMEOUT_SECONDS = 90
 
 
 class ApiRuntimeError(RuntimeError):
@@ -92,6 +95,32 @@ class _RuntimeOutput(BaseModel):
         return self
 
 
+class _RuntimeBriefOutput(BaseModel):
+    """Strict project-brief output accepted from the deployed Runtime."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    brief: ProjectBrief
+
+
+class SessionCandidate(ProjectCandidate):
+    """A generated candidate with an application-assigned session identifier."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        strict=True,
+        str_strip_whitespace=True,
+        validate_by_alias=True,
+        validate_by_name=True,
+    )
+
+    candidate_id: Annotated[
+        str,
+        Field(alias="candidateId", pattern=r"^candidate_[1-3]$"),
+    ]
+
+
 class CreateSessionData(BaseModel):
     """Public data returned after creating a Runtime-backed session."""
 
@@ -110,62 +139,54 @@ class CreateSessionData(BaseModel):
             pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
         ),
     ]
-    candidates: Annotated[list[ProjectCandidate], Field(min_length=3, max_length=3)]
+    candidates: Annotated[list[SessionCandidate], Field(min_length=3, max_length=3)]
     evidence: Annotated[list[Evidence], Field(min_length=1, max_length=3)]
 
 
-def load_runtime_settings(
-    environment: Mapping[str, str] | None = None,
-) -> ApiRuntimeSettings:
-    """Load deployment-owned Runtime settings without accepting client values."""
-    values = environment if environment is not None else os.environ
-    try:
-        return ApiRuntimeSettings(
-            runtime_arn=values.get("PRAXIS_AGENT_RUNTIME_ARN", ""),
-            qualifier=values.get("PRAXIS_AGENT_RUNTIME_QUALIFIER", ""),
-            actor_id=values.get("PRAXIS_API_ACTOR_ID", ""),
-        )
-    except ValidationError as error:
-        raise ApiRuntimeError("invalid Runtime configuration") from error
+class SelectCandidateData(BaseModel):
+    """Public data returned after expanding one server-selected candidate."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        strict=True,
+        validate_by_alias=True,
+        validate_by_name=True,
+    )
+
+    session_id: Annotated[str, Field(alias="sessionId", pattern=r"^[0-9a-f-]{36}$")]
+    candidate_id: Annotated[str, Field(alias="candidateId", pattern=r"^candidate_[1-3]$")]
+    candidate: SessionCandidate
+    brief: ProjectBrief
+    evidence: Annotated[list[Evidence], Field(min_length=1, max_length=3)]
+
+    @model_validator(mode="after")
+    def require_selected_candidate_evidence(self) -> Self:
+        """Require response identity and citations to match the selected session candidate."""
+        if self.candidate.candidate_id != self.candidate_id:
+            raise ValueError("selected candidate ID does not match")
+        cited_ids = {item.evidence_id for item in self.candidate.evidence_citations}
+        if not cited_ids <= {item.evidence_id for item in self.evidence}:
+            raise ValueError("selected candidate evidence is unavailable")
+        return self
 
 
-def create_runtime_client() -> RuntimeClient:
-    """Create an AgentCore client bounded below the API Gateway deadline."""
-    try:
-        return cast(
-            "RuntimeClient",
-            Session().client(  # pyright: ignore[reportUnknownMemberType]
-                "bedrock-agentcore",
-                config=Config(
-                    connect_timeout=3,
-                    read_timeout=25,
-                    retries={"max_attempts": 1, "mode": "standard"},
-                ),
-            ),
-        )
-    except BotoCoreError as error:
-        raise ApiRuntimeError("Runtime client initialization failed") from error
-
-
-def invoke_runtime(
+def _invoke_runtime_payload(
     client: RuntimeClient,
     settings: ApiRuntimeSettings,
-    goal: str,
+    payload: dict[str, object],
     session_id: str,
     correlation_id: str,
-) -> CreateSessionData:
-    """Invoke one Runtime session and return only validated public data."""
-    payload = json.dumps(
-        {"actor_id": settings.actor_id, "prompt": goal.strip()},
-        separators=(",", ":"),
-    ).encode()
+) -> bytes:
+    """Invoke Runtime once and return a validated buffered JSON payload."""
+    encoded_payload = json.dumps(payload, separators=(",", ":")).encode()
     try:
         response = client.invoke_agent_runtime(
             accept=JSON_CONTENT_TYPE,
             agentRuntimeArn=settings.runtime_arn,
             baggage=f"praxis.correlation_id={quote(correlation_id, safe='')}",
             contentType=JSON_CONTENT_TYPE,
-            payload=payload,
+            payload=encoded_payload,
             qualifier=settings.qualifier,
             runtimeSessionId=session_id,
         )
@@ -184,9 +205,73 @@ def invoke_runtime(
         or not hasattr(response_body, "read")
     ):
         raise ApiRuntimeError("Runtime returned an invalid response")
-
     try:
-        output = _RuntimeOutput.model_validate_json(cast("ResponseBody", response_body).read())
+        return cast("ResponseBody", response_body).read()
+    except BotoCoreError as error:
+        raise ApiRuntimeError("Runtime returned an invalid response") from error
+
+
+def load_runtime_settings(
+    environment: Mapping[str, str] | None = None,
+) -> ApiRuntimeSettings:
+    """Load deployment-owned Runtime settings without accepting client values."""
+    values = environment if environment is not None else os.environ
+    try:
+        return ApiRuntimeSettings(
+            runtime_arn=values.get("PRAXIS_AGENT_RUNTIME_ARN", ""),
+            qualifier=values.get("PRAXIS_AGENT_RUNTIME_QUALIFIER", ""),
+            actor_id=values.get("PRAXIS_API_ACTOR_ID", ""),
+        )
+    except ValidationError as error:
+        raise ApiRuntimeError("invalid Runtime configuration") from error
+
+
+def _create_runtime_client(read_timeout_seconds: int) -> RuntimeClient:
+    """Create an AgentCore client with one bounded invocation attempt."""
+    try:
+        return cast(
+            "RuntimeClient",
+            Session().client(  # pyright: ignore[reportUnknownMemberType]
+                "bedrock-agentcore",
+                config=Config(
+                    connect_timeout=3,
+                    read_timeout=read_timeout_seconds,
+                    retries={"mode": "standard", "total_max_attempts": 1},
+                ),
+            ),
+        )
+    except BotoCoreError as error:
+        raise ApiRuntimeError("Runtime client initialization failed") from error
+
+
+def create_runtime_client() -> RuntimeClient:
+    """Create an AgentCore client bounded below the API Gateway deadline."""
+    return _create_runtime_client(API_RUNTIME_READ_TIMEOUT_SECONDS)
+
+
+def create_worker_runtime_client() -> RuntimeClient:
+    """Create an AgentCore client bounded below the worker Lambda deadline."""
+    return _create_runtime_client(WORKER_RUNTIME_READ_TIMEOUT_SECONDS)
+
+
+def invoke_runtime(
+    client: RuntimeClient,
+    settings: ApiRuntimeSettings,
+    goal: str,
+    session_id: str,
+    correlation_id: str,
+) -> CreateSessionData:
+    """Invoke one Runtime session and return only validated public data."""
+    try:
+        output = _RuntimeOutput.model_validate_json(
+            _invoke_runtime_payload(
+                client,
+                settings,
+                {"actor_id": settings.actor_id, "prompt": goal.strip()},
+                session_id,
+                correlation_id,
+            )
+        )
         cited_ids = {
             citation.evidence_id
             for candidate in output.candidates
@@ -195,8 +280,51 @@ def invoke_runtime(
         public_evidence = [item for item in output.evidence if item.evidence_id in cited_ids]
         return CreateSessionData(
             session_id=session_id,
-            candidates=output.candidates,
+            candidates=[
+                SessionCandidate(
+                    candidate_id=f"candidate_{index}",
+                    **candidate.model_dump(mode="python"),
+                )
+                for index, candidate in enumerate(output.candidates, start=1)
+            ],
             evidence=public_evidence,
         )
-    except (BotoCoreError, ValidationError) as error:
+    except ValidationError as error:
+        raise ApiRuntimeError("Runtime returned an invalid response") from error
+
+
+def invoke_project_brief_runtime(
+    client: RuntimeClient,
+    settings: ApiRuntimeSettings,
+    session_id: str,
+    goal: str,
+    candidate: SessionCandidate,
+    evidence: list[Evidence],
+    correlation_id: str,
+) -> SelectCandidateData:
+    """Invoke Runtime with one server-selected candidate and its resolved evidence."""
+    try:
+        output = _RuntimeBriefOutput.model_validate_json(
+            _invoke_runtime_payload(
+                client,
+                settings,
+                {
+                    "actor_id": settings.actor_id,
+                    "operation": "create_project_brief",
+                    "goal": goal.strip(),
+                    "candidate": candidate.model_dump(mode="json", exclude={"candidate_id"}),
+                    "evidence": [item.model_dump(mode="json") for item in evidence],
+                },
+                session_id,
+                correlation_id,
+            )
+        )
+        return SelectCandidateData(
+            session_id=session_id,
+            candidate_id=candidate.candidate_id,
+            candidate=candidate,
+            brief=output.brief,
+            evidence=evidence,
+        )
+    except ValidationError as error:
         raise ApiRuntimeError("Runtime returned an invalid response") from error

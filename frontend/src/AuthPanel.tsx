@@ -93,7 +93,7 @@ export function AuthPanel({ auth, children }: AuthPanelProps) {
 
   if (view === "checking") {
     return (
-      <section className="auth-panel" aria-labelledby="auth-heading" aria-live="polite">
+      <section className="auth-panel" aria-busy="true" aria-labelledby="auth-heading" role="status">
         <p className="eyebrow">Private workspace</p>
         <h2 id="auth-heading">Checking your session…</h2>
       </section>
@@ -102,7 +102,11 @@ export function AuthPanel({ auth, children }: AuthPanelProps) {
 
   if (view === "signed_in") {
     return (
-      <section className="auth-panel auth-panel-workspace" aria-labelledby="auth-heading">
+      <section
+        className="auth-panel auth-panel-workspace"
+        aria-busy={busy}
+        aria-labelledby="auth-heading"
+      >
         <p className="eyebrow">Private workspace</p>
         <h2 id="auth-heading">You’re signed in.</h2>
         <p>Your session is limited to this browser tab.</p>
@@ -111,6 +115,11 @@ export function AuthPanel({ auth, children }: AuthPanelProps) {
             {error}
           </p>
         )}
+        {busy ? (
+          <p className="agent-progress" role="status">
+            Signing out…
+          </p>
+        ) : null}
         <button
           className="button button-secondary"
           type="button"
@@ -144,6 +153,7 @@ export function AuthPanel({ auth, children }: AuthPanelProps) {
             type="password"
             autoComplete="new-password"
             minLength={14}
+            disabled={busy}
             required
             value={newPassword}
             onChange={(event) => {
@@ -157,8 +167,11 @@ export function AuthPanel({ auth, children }: AuthPanelProps) {
             type="password"
             autoComplete="new-password"
             minLength={14}
+            disabled={busy}
             required
             value={confirmedPassword}
+            aria-describedby={error === null ? undefined : "new-password-error"}
+            aria-invalid={error === "The new passwords must match."}
             onChange={(event) => {
               setConfirmedPassword(event.target.value);
             }}
@@ -167,10 +180,15 @@ export function AuthPanel({ auth, children }: AuthPanelProps) {
             Use at least 14 characters with uppercase, lowercase, numeric, and symbol characters.
           </p>
           {error === null ? null : (
-            <p className="form-error" role="alert">
+            <p id="new-password-error" className="form-error" role="alert">
               {error}
             </p>
           )}
+          {busy ? (
+            <p className="agent-progress" role="status">
+              Updating your password…
+            </p>
+          ) : null}
           <button className="button" type="submit" disabled={busy}>
             {busy ? "Updating password…" : "Set password"}
           </button>
@@ -195,8 +213,10 @@ export function AuthPanel({ auth, children }: AuthPanelProps) {
           id="email"
           type="email"
           autoComplete="username"
+          disabled={busy}
           required
           value={email}
+          aria-describedby={error === null ? undefined : "sign-in-error"}
           onChange={(event) => {
             setEmail(event.target.value);
           }}
@@ -206,17 +226,24 @@ export function AuthPanel({ auth, children }: AuthPanelProps) {
           id="password"
           type="password"
           autoComplete="current-password"
+          disabled={busy}
           required
           value={password}
+          aria-describedby={error === null ? undefined : "sign-in-error"}
           onChange={(event) => {
             setPassword(event.target.value);
           }}
         />
         {error === null ? null : (
-          <p className="form-error" role="alert">
+          <p id="sign-in-error" className="form-error" role="alert">
             {error}
           </p>
         )}
+        {busy ? (
+          <p className="agent-progress" role="status">
+            Signing in…
+          </p>
+        ) : null}
         <button className="button" type="submit" disabled={busy}>
           {busy ? "Signing in…" : "Sign in"}
         </button>

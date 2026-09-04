@@ -80,7 +80,9 @@ turns a goal into several differentiated, buildable project candidates.
 2. The agent searches relevant projects, books, bytes, and museum objects.
 3. The agent proposes three candidates and cites supporting personal evidence.
 4. The user compares and selects a candidate.
-5. The agent produces a scoped project brief with milestones, risks, and acceptance criteria.
+5. The agent produces a feasible project brief with a concrete technical
+   approach, explicit boundaries, deliverables, self-verified milestones,
+   risks, and measurable acceptance criteria.
 
 ### Source datasets
 
@@ -104,29 +106,30 @@ turns a goal into several differentiated, buildable project candidates.
 
 ```text
 React + TypeScript application
-      |
-      v
-Amazon Cognito
-      | JWT
-      v
-Amazon API Gateway
-      |
-      v
-API Lambda
-      |
-      v
-AgentCore Runtime
-      |
-      +-- Strands agent
-      +-- Bedrock model
-      +-- AgentCore Memory
-      |
-      v
-AgentCore Gateway
-      +-- Catalog Lambda ---- DynamoDB
-      +-- Research Lambda --- External APIs
+      +-- Authenticate with Amazon Cognito
+      `-- Send JWT requests to Amazon API Gateway
+                                  |
+                                  v
+                              API Lambda
+                              +-- DynamoDB session state
+                              +-- SQS recommendation jobs ---- Worker Lambda
+                              |                                      |
+                              `-- Selected-project briefs            |
+                                           |                         |
+                                           `------------+------------'
+                                                        v
+                                              AgentCore Runtime
+                                              +-- Strands agent
+                                              +-- Bedrock model
+                                              +-- AgentCore Memory
+                                                        |
+                                                        v
+                                              AgentCore Gateway
+                                                        |
+                                                        v
+                                              Catalog Lambda ---- DynamoDB
 
-Source JSON ---- Ingestion Lambda ---- DynamoDB / S3
+Source JSON ---- S3 ---- Ingestion Lambda ---- DynamoDB
 ```
 
 API Gateway is the application boundary. AgentCore Gateway is the agent's secured MCP tool boundary. 
@@ -333,10 +336,10 @@ Definition of done: a client can complete the read-only workflow entirely throug
 - [x] Display agent progress states
 - [x] Display three comparable candidate cards
 - [x] Show supporting projects, books, and bytes
-- [ ] Clearly label generated claims
-- [ ] Let the user select a candidate
-- [ ] Render the resulting project brief
-- [ ] Add accessible loading and error states
+- [x] Clearly label generated claims
+- [x] Let the user select a candidate
+- [x] Render the resulting project brief
+- [x] Add accessible loading and error states
 - [ ] Deploy the frontend to S3 and CloudFront
 - [ ] Prevent unauthenticated access to protected APIs
 

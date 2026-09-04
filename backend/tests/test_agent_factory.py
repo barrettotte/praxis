@@ -20,6 +20,7 @@ def test_system_prompt_defines_the_agent_boundaries() -> None:
         "Separate retrieved facts from generated recommendations",
         "If no relevant evidence is returned",
         "Do not recommend from general knowledge",
+        "do not retry it",
         "Use only the available read-only tools",
         "return exactly three",
     )

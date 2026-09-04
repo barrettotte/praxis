@@ -8,8 +8,18 @@ import pytest
 from praxis.agent.gateway import GatewayAgentRun
 from praxis.agent.memory import MemoryRecord
 from praxis.agent.runtime import RuntimeRequestError, app, invoke_runtime
-from praxis.domain import EvidenceCitation, ProjectCandidate, ProjectCandidateSet
-from praxis.tools.contracts import BookEvidence
+from praxis.domain import (
+    EvidenceCitation,
+    ProjectCandidate,
+    ProjectCandidateSet,
+)
+from praxis.domain.briefs import (
+    ProjectAcceptanceCriterion,
+    ProjectBrief,
+    ProjectMilestone,
+    ProjectRisk,
+)
+from praxis.tools.contracts import BookEvidence, Evidence
 
 
 class RuntimeRoute(Protocol):
@@ -53,6 +63,50 @@ def book_evidence() -> BookEvidence:
         year=2025,
         category="Compilers",
         tags=[],
+    )
+
+
+def project_brief() -> ProjectBrief:
+    """Return one schema-valid generated project brief."""
+    return ProjectBrief(
+        objective="Build a small compiler backend.",
+        scope="Implement one expression-lowering path over a weekend.",
+        technical_approach=[
+            "Define a JSON expression model and validate sample inputs.",
+            "Lower expressions into target instructions with Python.",
+            "Execute the instructions and compare their numeric result.",
+        ],
+        assumptions=[
+            "Python and a local test runner are available.",
+            "One expression form is enough for the exercise.",
+        ],
+        out_of_scope=[
+            "Register allocation is outside this project.",
+            "Multiple target architectures are outside this project.",
+        ],
+        deliverables=[
+            "A documented input representation for expressions.",
+            "A tested instruction selector with example output.",
+        ],
+        milestones=[
+            ProjectMilestone(
+                title=f"Milestone {number}",
+                deliverable="A concrete implementation artifact.",
+                verification="An automated check validates the artifact.",
+            )
+            for number in range(1, 4)
+        ],
+        risks=[
+            ProjectRisk(risk=f"Risk {number}", mitigation="Use a bounded fallback.")
+            for number in range(1, 3)
+        ],
+        acceptance_criteria=[
+            ProjectAcceptanceCriterion(
+                criterion=f"Criterion {number} has a measurable result.",
+                verification="An automated test records the expected result.",
+            )
+            for number in range(1, 4)
+        ],
     )
 
 
@@ -140,3 +194,67 @@ def test_invoke_runtime_passes_only_typed_memory_to_the_agent() -> None:
 
     assert observed_context == [('{"kind":"preference","text":"Prefer weekend scope."}',)]
     assert response["memory"] == {"retrieved_count": 1}
+
+
+def test_invoke_runtime_generates_brief_from_typed_server_context() -> None:
+    selected = candidate_set().candidates[0]
+    assert selected is not None
+    observed: list[tuple[str, ProjectCandidate, tuple[Evidence, ...]]] = []
+
+    def generate(
+        goal: str,
+        candidate: ProjectCandidate,
+        evidence: Sequence[Evidence],
+    ) -> ProjectBrief:
+        observed.append((goal, candidate, tuple(evidence)))
+        return project_brief()
+
+    response = invoke_runtime(
+        {
+            "actor_id": "user-123",
+            "operation": "create_project_brief",
+            "goal": "Learn compiler backends over a weekend",
+            "candidate": selected.model_dump(mode="json"),
+            "evidence": [book_evidence().model_dump(mode="json")],
+        },
+        invoke_brief=generate,
+    )
+
+    assert observed == [("Learn compiler backends over a weekend", selected, (book_evidence(),))]
+    assert response == {"brief": project_brief().model_dump(mode="json")}
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "actor_id": "user-123",
+            "operation": "create_project_brief",
+            "goal": "Learn compiler backends",
+            "candidate": {},
+            "evidence": [book_evidence().model_dump(mode="json")],
+        },
+        {
+            "actor_id": "user-123",
+            "operation": "create_project_brief",
+            "goal": "Learn compiler backends",
+            "candidate": candidate_set().candidates[0].model_dump(mode="json"),
+            "evidence": [],
+        },
+    ],
+)
+def test_invoke_runtime_rejects_invalid_brief_context(payload: dict[str, object]) -> None:
+    with pytest.raises(RuntimeRequestError, match="project brief input is invalid"):
+        invoke_runtime(payload)
+
+
+def test_invoke_runtime_rejects_brief_without_original_goal() -> None:
+    with pytest.raises(RuntimeRequestError, match="unsupported fields"):
+        invoke_runtime(
+            {
+                "actor_id": "user-123",
+                "operation": "create_project_brief",
+                "candidate": candidate_set().candidates[0].model_dump(mode="json"),
+                "evidence": [book_evidence().model_dump(mode="json")],
+            }
+        )

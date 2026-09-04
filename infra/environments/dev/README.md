@@ -9,9 +9,9 @@ make tofu-init-dev
 ```
 
 All resources use the `praxis-dev` name prefix and inherit the required
-`Project`, `Environment`, and `ManagedBy` tags. Coding agents may plan and
-inspect this environment, but the user must run every apply or destroy command
-manually.
+`Project`, `Environment`, and `ManagedBy` tags. A coding agent may apply the
+exact saved plan it generated, reviewed, and summarized. Teardown requires
+explicit user approval for each run.
 
 See `docs/infrastructure-operations.md` for the guarded plan, apply, and
 teardown procedures. Teardown requires a separately reviewed saved destroy plan.
@@ -60,12 +60,14 @@ declared-route requests return 401, and undeclared routes return 404 without
 invoking the function. The Lambda validates the route, path identifiers, content
 type, query parameters, and strict JSON body. It rejects decoded bodies over 16 KiB before
 JSON parsing or Runtime invocation and limits goal and message text to 4,000
-characters. Session creation invokes Runtime with a
-deployment-owned single-user actor, a generated UUIDv4 session, a 25-second SDK
-read deadline, and a 29-second Lambda timeout. It validates the complete Runtime
-response before returning only the session and candidates. Success and error
-payloads use the envelopes documented in `docs/api.md`; fixed machine-readable
-error codes remain separate from safe display text. The Lambda propagates a
+characters. Session creation stores a pending session, sends one validated job
+to an encrypted SQS queue, and returns 202 without waiting for model work. A
+dedicated worker Lambda invokes Runtime with a deployment-owned single-user
+actor, the generated UUIDv4 session, one 90-second SDK attempt, and a 120-second
+Lambda timeout. It validates the complete Runtime response before writing ready
+candidate data or a detail-free failed state. Success and error payloads use the
+envelopes documented in `docs/api.md`; fixed machine-readable error codes remain
+separate from safe display text. The API Lambda propagates a
 valid client UUIDv4 correlation ID or uses API Gateway's request ID, returning
 the selected value as response metadata and forwarding it as tracing baggage
 without placing it in response bodies or prompts. Model, Gateway, tool,

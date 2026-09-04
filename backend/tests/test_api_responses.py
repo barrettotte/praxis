@@ -30,6 +30,11 @@ def test_builds_success_response_envelope() -> None:
     [
         (ApiErrorCode.INVALID_REQUEST, 400, "Invalid request."),
         (
+            ApiErrorCode.NOT_FOUND,
+            404,
+            "Requested recommendation session was not found.",
+        ),
+        (
             ApiErrorCode.PAYLOAD_TOO_LARGE,
             413,
             "Request payload is too large.",

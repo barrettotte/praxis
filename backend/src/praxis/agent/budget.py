@@ -21,10 +21,6 @@ _TOOL_CALL_COUNT_KEY = "praxis.catalog_tool_call_count"
 _CATALOG_RESULT_COUNT_KEY = "praxis.catalog_result_count"
 
 
-class ToolCallBudgetError(RuntimeError):
-    """Raised before a model-selected tool would exceed its invocation budget."""
-
-
 def seed_catalog_budgets(
     invocation_state: dict[str, object],
     *,
@@ -61,11 +57,12 @@ class ToolCallBudget:
 
         calls = int(event.invocation_state.get(_TOOL_CALL_COUNT_KEY, 0))
         if calls >= self.maximum_calls:
-            message = (
+            event.cancel_tool = (
                 f"Catalog tool-call budget exhausted: maximum {self.maximum_calls} calls "
-                "per invocation"
+                "per invocation. Use the catalog evidence already returned and produce the "
+                "required structured response without another catalog call."
             )
-            raise ToolCallBudgetError(message)
+            return
         event.invocation_state[_TOOL_CALL_COUNT_KEY] = calls + 1
 
 

@@ -13,6 +13,10 @@ flowchart TD
     cognito -->|JWT| ui
     ui -->|JWT request| apiGateway[Amazon API Gateway HTTP API]
     apiGateway --> apiLambda[API Lambda]
+    apiLambda -->|Store/read expiring session state| sessions[(DynamoDB sessions<br/>TTL enabled)]
+    apiLambda -->|Queue validated goal| jobs[[Encrypted SQS<br/>recommendation jobs]]
+    jobs --> worker[Recommendation worker Lambda]
+    worker -->|Complete ready or failed state| sessions
 
     subgraph runtime[Amazon Bedrock AgentCore Runtime]
         runtimeEndpoint[stable endpoint<br/>Pinned Runtime version]
@@ -22,7 +26,8 @@ flowchart TD
         agent -->|Read typed preferences and decisions| memory
     end
 
-    apiLambda --> runtimeEndpoint
+    worker -->|Generate candidates| runtimeEndpoint
+    apiLambda -->|Generate selected project brief| runtimeEndpoint
     apiLambda -.->|Explicit approved memory writes| memory
     agent --> bedrock[Amazon Bedrock<br/>Nova Lite]
 

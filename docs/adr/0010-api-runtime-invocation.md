@@ -2,7 +2,8 @@
 
 ## Status
 
-Superseded in part by ADR 0017 for inbound application authorization.
+Superseded in part by ADR 0017 for inbound application authorization and ADR
+0018 for asynchronous recommendation generation.
 
 ## Context
 
@@ -30,14 +31,15 @@ validated goal to Runtime. It forwards the API correlation ID as W3C tracing
 baggage rather than prompt content. It does not send `runtimeUserId`, which
 would require the separate `InvokeAgentRuntimeForUser` permission.
 
-Use a 25-second SDK read timeout and a 29-second Lambda timeout. Read and
-validate the entire Runtime response before constructing a 201 response. Return
-only the session ID and three schema-valid cited candidates; keep Memory and
-tool-call measurements inside the service boundary. Map configuration, SDK,
-HTTP, and response-validation failures to the fixed `service_unavailable`
-response. This includes model-provider and Gateway/tool failures surfaced by
-Runtime; never preserve their service codes, messages, tool output, prompts, or
-stack traces in the public response.
+Use a 25-second SDK read timeout with no SDK retries and a 29-second Lambda
+timeout. A retry could outlive the Lambda deadline and bypass the fixed error
+contract. Read and validate the entire Runtime response before constructing a
+201 response. Return only the session ID and three schema-valid cited
+candidates; keep Memory and tool-call measurements inside the service boundary.
+Map configuration, SDK, HTTP, and response-validation failures to the fixed
+`service_unavailable` response. This includes model-provider and Gateway/tool
+failures surfaced by Runtime; never preserve their service codes, messages,
+tool output, prompts, or stack traces in the public response.
 
 AWS evaluates qualified Runtime calls against both the Runtime and endpoint
 resources, so both ARNs appear in the identity policy, as described in the

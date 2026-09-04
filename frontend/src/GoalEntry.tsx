@@ -1,27 +1,35 @@
 import { useState, type SyntheticEvent } from "react";
 
 import { CandidateCards } from "./CandidateCards";
-import type { ApiClient, CreateSessionResult } from "./api";
+import { ProjectBriefView } from "./ProjectBriefView";
+import type { ApiClient, CreateSessionResult, SelectCandidateResult } from "./api";
 
 const GOAL_MAX_LENGTH = 4_000;
+const GOAL_REQUIRED_ERROR = "Describe what you want to learn or build.";
 
 interface GoalEntryProps {
   api: ApiClient;
 }
 
 type RequestState = "complete" | "failed" | "ready" | "working";
+type SelectionState = "complete" | "failed" | "ready" | "working";
 
 export function GoalEntry({ api }: GoalEntryProps) {
   const [goal, setGoal] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CreateSessionResult | null>(null);
   const [requestState, setRequestState] = useState<RequestState>("ready");
+  const [selectedCandidateIndex, setSelectedCandidateIndex] = useState<number | null>(null);
+  const [selectionError, setSelectionError] = useState<string | null>(null);
+  const [selectionResult, setSelectionResult] = useState<SelectCandidateResult | null>(null);
+  const [selectionState, setSelectionState] = useState<SelectionState>("ready");
+  const interactionBusy = requestState === "working" || selectionState === "working";
 
   async function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalizedGoal = goal.trim();
     if (normalizedGoal === "") {
-      setError("Describe what you want to learn or build.");
+      setError(GOAL_REQUIRED_ERROR);
       setRequestState("ready");
       return;
     }
@@ -29,6 +37,10 @@ export function GoalEntry({ api }: GoalEntryProps) {
     setGoal(normalizedGoal);
     setError(null);
     setResult(null);
+    setSelectedCandidateIndex(null);
+    setSelectionError(null);
+    setSelectionResult(null);
+    setSelectionState("ready");
     setRequestState("working");
     try {
       setResult(await api.createSession(normalizedGoal));
@@ -37,6 +49,28 @@ export function GoalEntry({ api }: GoalEntryProps) {
       setResult(null);
       setError("Recommendations could not be created. Try again.");
       setRequestState("failed");
+    }
+  }
+
+  async function handleCandidateSelect(index: number) {
+    if (result === null) {
+      return;
+    }
+    const candidate = result.candidates[index];
+    if (candidate === undefined) {
+      return;
+    }
+    setSelectedCandidateIndex(index);
+    setSelectionError(null);
+    setSelectionResult(null);
+    setSelectionState("working");
+    try {
+      setSelectionResult(await api.selectCandidate(result.sessionId, candidate.candidateId));
+      setSelectionState("complete");
+    } catch {
+      setSelectedCandidateIndex(null);
+      setSelectionError("The project brief could not be created. Try selecting the project again.");
+      setSelectionState("failed");
     }
   }
 
@@ -52,7 +86,7 @@ export function GoalEntry({ api }: GoalEntryProps) {
       </div>
       <form
         className="goal-form"
-        aria-busy={requestState === "working"}
+        aria-busy={interactionBusy}
         onSubmit={(event) => {
           void handleSubmit(event);
         }}
@@ -63,14 +97,19 @@ export function GoalEntry({ api }: GoalEntryProps) {
           name="goal"
           maxLength={GOAL_MAX_LENGTH}
           rows={6}
-          disabled={requestState === "working"}
+          disabled={interactionBusy}
           required
           value={goal}
-          aria-describedby="goal-help"
+          aria-describedby={error === null ? "goal-help" : "goal-help goal-error"}
+          aria-invalid={error === GOAL_REQUIRED_ERROR}
           onChange={(event) => {
             setGoal(event.target.value);
             setError(null);
             setResult(null);
+            setSelectedCandidateIndex(null);
+            setSelectionError(null);
+            setSelectionResult(null);
+            setSelectionState("ready");
             setRequestState("ready");
           }}
         />
@@ -78,7 +117,7 @@ export function GoalEntry({ api }: GoalEntryProps) {
           {goal.length.toLocaleString()} of {GOAL_MAX_LENGTH.toLocaleString()} characters
         </p>
         {error === null ? null : (
-          <p className="form-error" role="alert">
+          <p id="goal-error" className="form-error" role="alert">
             {error}
           </p>
         )}
@@ -92,13 +131,37 @@ export function GoalEntry({ api }: GoalEntryProps) {
             Three candidates are ready.
           </p>
         ) : null}
-        <button className="button" type="submit" disabled={requestState === "working"}>
+        <button className="button" type="submit" disabled={interactionBusy}>
           {requestState === "working" ? "Finding projects…" : "Find project ideas"}
         </button>
       </form>
       {result === null ? null : (
-        <CandidateCards candidates={result.candidates} evidence={result.evidence} />
+        <CandidateCards
+          candidates={result.candidates}
+          evidence={result.evidence}
+          selectedCandidateIndex={selectedCandidateIndex}
+          selectionPending={selectionState === "working"}
+          onSelect={(index) => {
+            void handleCandidateSelect(index);
+          }}
+        />
       )}
+      {selectionState === "working" ? (
+        <p className="brief-status" role="status">
+          Praxis is turning the selected candidate into a project brief…
+        </p>
+      ) : null}
+      {selectionError === null ? null : (
+        <p className="form-error brief-status" role="alert">
+          {selectionError}
+        </p>
+      )}
+      {selectionState === "complete" && selectionResult !== null ? (
+        <p className="form-success brief-status" role="status">
+          Project brief is ready.
+        </p>
+      ) : null}
+      {selectionResult === null ? null : <ProjectBriefView result={selectionResult} />}
     </section>
   );
 }
