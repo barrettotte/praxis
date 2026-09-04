@@ -16,6 +16,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 from praxis.domain import ProjectCandidateSet
+from praxis.tools.contracts import Evidence
 
 DEFAULT_PROMPT = "compiler"
 DEFAULT_ACTOR_ID = "praxis-smoke"
@@ -60,13 +61,14 @@ class RuntimeMemoryUsage(BaseModel):
 
 
 TOOL_CALLS = TypeAdapter(list[RuntimeToolCall])
+EVIDENCE = TypeAdapter(list[Evidence])
 LOG_EVENTS = TypeAdapter(list[dict[str, object]])
 
 
 class RuntimeTraceScope(BaseModel):
     """OpenTelemetry instrumentation scope stored on one exported span."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="allow")
 
     name: Annotated[str, Field(min_length=1)]
 
@@ -74,7 +76,10 @@ class RuntimeTraceScope(BaseModel):
 class RuntimeTraceSpan(BaseModel):
     """Evaluation-relevant fields from a CloudWatch OpenTelemetry span."""
 
-    model_config = ConfigDict(extra="ignore")
+    # AgentCore Evaluations requires the complete OTEL document. Keep fields that
+    # local smoke checks do not inspect so the trace can be scored without a
+    # second CloudWatch read or a lossy reconstruction.
+    model_config = ConfigDict(extra="allow")
 
     scope: RuntimeTraceScope
     trace_id: Annotated[str, Field(alias="traceId", min_length=1)]
@@ -97,6 +102,7 @@ class RuntimeSmokeResult:
     session_id: str
     content_type: str
     memory_retrieved_count: int
+    retrieved_evidence_ids: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, object]:
         """Return the human-readable smoke result."""
@@ -105,6 +111,7 @@ class RuntimeSmokeResult:
             "content_type": self.content_type,
             "session_id": self.session_id,
             "memory_retrieved_count": self.memory_retrieved_count,
+            "retrieved_evidence_ids": list(self.retrieved_evidence_ids),
             "candidates": self.candidates.model_dump(mode="json")["candidates"],
             "tool_calls": [tool_call.model_dump(mode="json") for tool_call in self.tool_calls],
         }
@@ -238,12 +245,21 @@ def invoke_runtime_endpoint(
     try:
         payload = JSON_OBJECT.validate_json(cast("ResponseBody", response_body).read())
         candidates = ProjectCandidateSet.model_validate({"candidates": payload.get("candidates")})
+        evidence = EVIDENCE.validate_python(payload.get("evidence"))
         memory = RuntimeMemoryUsage.model_validate(payload.get("memory"))
         tool_calls = tuple(TOOL_CALLS.validate_python(payload.get("tool_calls")))
     except ValidationError as error:
         raise RuntimeSmokeError("AgentCore Runtime returned an invalid agent response") from error
     if not tool_calls:
         raise RuntimeSmokeError("AgentCore Runtime returned no Gateway tool calls")
+    retrieved_evidence_ids = tuple(item.evidence_id for item in evidence)
+    cited_evidence_ids = {
+        citation.evidence_id
+        for candidate in candidates.candidates
+        for citation in candidate.evidence_citations
+    }
+    if not cited_evidence_ids <= set(retrieved_evidence_ids):
+        raise RuntimeSmokeError("AgentCore Runtime cited evidence outside its retrieval context")
 
     return RuntimeSmokeResult(
         candidates,
@@ -251,6 +267,7 @@ def invoke_runtime_endpoint(
         session_id,
         content_type,
         memory.retrieved_count,
+        retrieved_evidence_ids,
     )
 
 

@@ -4,7 +4,7 @@ An Amazon Bedrock and AgentCore app that uses personal evidence to recommend wor
 
 ## Architecture
 
-Praxis follows this serverless target architecture:
+Praxis follows this serverless architecture:
 
 ```mermaid
 flowchart TD
@@ -18,6 +18,7 @@ flowchart TD
     apiLambda -->|Store/read expiring session state| sessions[(DynamoDB sessions<br/>TTL enabled)]
     apiLambda -->|Queue validated goal| jobs[[Encrypted SQS<br/>recommendation jobs]]
     jobs --> worker[Recommendation worker Lambda]
+    jobs -.->|Retries exhausted| deadLetter[[Encrypted SQS<br/>dead-letter queue]]
     worker -->|Complete ready or failed state| sessions
 
     subgraph runtime[Amazon Bedrock AgentCore Runtime]
@@ -30,34 +31,41 @@ flowchart TD
 
     worker -->|Generate candidates| runtimeEndpoint
     apiLambda -->|Generate selected project brief| runtimeEndpoint
-    apiLambda -.->|Explicit approved memory writes| memory
     agent --> bedrock[Amazon Bedrock<br/>Nova Lite]
+    agentImage[(Amazon ECR<br/>agent image)] -->|Immutable image digest| agent
 
-    subgraph observability[Agent observability and evaluation]
+    subgraph observability[Application and agent observability]
         apiAccessLogs[CloudWatch Logs<br/>API access metadata]
+        runtimeSpans[CloudWatch Logs<br/>Runtime span stream]
         xray[AWS X-Ray ingest]
         cloudwatch[CloudWatch transaction search]
-        evaluations[AgentCore Evaluations]
-        xray --> cloudwatch --> evaluations
+        xray --> cloudwatch
     end
 
     apiGateway -->|Privacy-safe access records| apiAccessLogs
     agent -->|Strands OTEL spans via ADOT| xray
+    agent -->|Session-correlated OTEL spans| runtimeSpans
+
+    subgraph evaluation[Manual evaluation path]
+        evalRunner[Local evaluation runner]
+        managedEvaluators[AgentCore Evaluations<br/>Managed evaluators]
+        evalRunner -->|OTEL spans + reviewed assertions| managedEvaluators
+    end
+
+    evalRunner -->|Isolated metered sessions| runtimeEndpoint
+    evalRunner -->|Read correlated spans| runtimeSpans
 
     subgraph tools[AgentCore Gateway MCP tool boundary]
         gateway[AgentCore Gateway]
         catalogLambda[Catalog Lambda]
-        researchLambda[Research Lambda]
         gateway --> catalogLambda
-        gateway --> researchLambda
     end
 
     agent -->|IAM-authenticated MCP| gateway
     catalogLambda --> catalog[(DynamoDB catalog)]
-    researchLambda --> external[External APIs]
 
-    sources[Read-only source JSON] -->|Reproducible seed| sourceBucket[(S3 source copies)]
-    sourceBucket --> ingestion[Ingestion Lambda]
+    sources[Read-only source JSON] -->|Manual reproducible seed upload| sourceBucket[(S3 source copies)]
+    sourceBucket -->|Manual invocation reads| ingestion[Ingestion Lambda]
     ingestion --> catalog
 ```
 

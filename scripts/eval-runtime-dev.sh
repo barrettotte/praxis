@@ -17,6 +17,11 @@ for praxis_command in "${praxis_tofu}" aws jq uv; do
   }
 done
 
+praxis_prompt_count="$(
+  jq -er '.cases | length' \
+    "${praxis_repo_root}/evals/project-recommendations/prompts.json"
+)"
+
 # Resolve only reproducibility metadata exposed by the reviewed OpenTofu state.
 praxis_runtime_arn="$(
   AWS_PROFILE="${praxis_profile}" "${praxis_tofu}" \
@@ -61,9 +66,30 @@ if [[ ! "${praxis_trace_timeout_seconds}" =~ ^[1-9][0-9]*$ ]]; then
   exit 2
 fi
 
+# Fail before metered Runtime calls when the Region lacks a required evaluator.
+praxis_evaluator_ids="$(
+  AWS_PROFILE="${praxis_profile}" aws bedrock-agentcore-control list-evaluators \
+    --region "${praxis_region}" \
+    --max-results 100 \
+    --query 'evaluators[].evaluatorId' \
+    --output json
+)"
+for praxis_evaluator_id in \
+  Builtin.GoalSuccessRate \
+  Builtin.Correctness \
+  Builtin.ToolSelectionAccuracy; do
+  if ! jq -e --arg evaluator_id "${praxis_evaluator_id}" \
+    'index($evaluator_id) != null' <<<"${praxis_evaluator_ids}" >/dev/null; then
+    printf 'Required AgentCore evaluator is unavailable: %s\n' \
+      "${praxis_evaluator_id}" >&2
+    exit 2
+  fi
+done
+
 printf 'Evaluating Runtime endpoint %s at version %s with %s.\n' \
   "${praxis_endpoint_name}" "${praxis_endpoint_version}" "${praxis_model_id}" >&2
-printf 'Each of the ten cases invokes a fresh metered Runtime session and waits for its trace.\n' >&2
+printf '%s cases each invoke a fresh metered Runtime session and three managed evaluators.\n' \
+  "${praxis_prompt_count}" >&2
 
 # Keep prompts isolated while recording only sanitized endpoint and image identities.
 UV_CACHE_DIR="${praxis_repo_root}/.cache/uv" uv run --project "${praxis_repo_root}" \

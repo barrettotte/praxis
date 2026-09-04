@@ -14,6 +14,13 @@ type BriefQualityDimension = Literal[
     "specificity",
     "testability",
 ]
+type BusinessAssertionDimension = Literal[
+    "constraint-adherence",
+    "differentiation",
+    "feasibility",
+    "goal-alignment",
+    "safety",
+]
 
 
 class EvaluationModel(BaseModel):
@@ -42,11 +49,11 @@ class EvaluationCase(EvaluationModel):
 
 
 class EvaluationSet(EvaluationModel):
-    """The versioned ten-prompt project-recommendation evaluation suite."""
+    """A versioned project-recommendation evaluation suite."""
 
     suite: Literal["project-recommendation-baseline"]
-    version: Literal[1]
-    cases: Annotated[list[EvaluationCase], Field(min_length=10, max_length=10)]
+    version: Literal[1, 2]
+    cases: Annotated[list[EvaluationCase], Field(min_length=10, max_length=30)]
 
     @model_validator(mode="after")
     def require_unique_cases(self) -> Self:
@@ -58,6 +65,10 @@ class EvaluationSet(EvaluationModel):
             raise ValueError(message)
         if len(prompts) != len(set(prompts)):
             message = "evaluation prompts must be unique"
+            raise ValueError(message)
+        expected_count = {1: 10, 2: 30}[self.version]
+        if len(self.cases) != expected_count:
+            message = f"evaluation set version {self.version} requires {expected_count} cases"
             raise ValueError(message)
         return self
 
@@ -145,9 +156,9 @@ class EvaluationExpectations(EvaluationModel):
     """Curated evidence and trajectories aligned with the project-recommendation prompts."""
 
     suite: Literal["project-recommendation-baseline"]
-    prompts_version: Literal[1]
-    version: Literal[1]
-    expectations: Annotated[list[CaseExpectation], Field(min_length=10, max_length=10)]
+    prompts_version: Literal[1, 2]
+    version: Literal[1, 2]
+    expectations: Annotated[list[CaseExpectation], Field(min_length=10, max_length=30)]
 
     @model_validator(mode="after")
     def require_unique_case_ids(self) -> Self:
@@ -156,6 +167,51 @@ class EvaluationExpectations(EvaluationModel):
         if len(case_ids) != len(set(case_ids)):
             message = "expectation case IDs must be unique"
             raise ValueError(message)
+        expected_count = {1: 10, 2: 30}[self.prompts_version]
+        if len(self.expectations) != expected_count:
+            message = (
+                f"prompt version {self.prompts_version} requires {expected_count} expectations"
+            )
+            raise ValueError(message)
+        return self
+
+
+class BusinessAssertion(EvaluationModel):
+    """One case-specific product behavior suitable for judged evaluation."""
+
+    dimension: BusinessAssertionDimension
+    requirement: Annotated[str, Field(min_length=1, max_length=500)]
+
+
+class CaseBusinessAssertions(EvaluationModel):
+    """Business requirements associated with one recommendation case."""
+
+    case_id: Annotated[str, Field(pattern=r"^project-[0-9]{2}-[a-z0-9-]+$")]
+    assertions: Annotated[list[BusinessAssertion], Field(min_length=1, max_length=3)]
+
+    @model_validator(mode="after")
+    def require_unique_dimensions(self) -> Self:
+        """Keep each scored dimension unambiguous within a case."""
+        dimensions = [assertion.dimension for assertion in self.assertions]
+        if len(dimensions) != len(set(dimensions)):
+            raise ValueError(f"business assertion dimensions repeat for {self.case_id}")
+        return self
+
+
+class EvaluationBusinessAssertions(EvaluationModel):
+    """Versioned business requirements aligned with recommendation prompts."""
+
+    suite: Literal["project-recommendation-baseline"]
+    prompts_version: Literal[2]
+    version: Literal[1]
+    cases: Annotated[list[CaseBusinessAssertions], Field(min_length=30, max_length=30)]
+
+    @model_validator(mode="after")
+    def require_unique_case_ids(self) -> Self:
+        """Require exactly one assertion set per recommendation case."""
+        case_ids = [case.case_id for case in self.cases]
+        if len(case_ids) != len(set(case_ids)):
+            raise ValueError("business assertion case IDs must be unique")
         return self
 
 

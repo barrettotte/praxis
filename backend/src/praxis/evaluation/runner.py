@@ -24,10 +24,12 @@ from praxis.evaluation.results import (
     BaselineMetadata,
     BaselineResult,
     BaselineSummary,
+    CitationSupportResult,
     DatasetIdentity,
     DeploymentIdentity,
     EvaluationCaseResult,
     QualityResult,
+    RetrievalRelevanceResult,
     SourceIdentity,
     TokenUsageResult,
     ToolCallCount,
@@ -54,6 +56,7 @@ ACTION_WORDS = frozenset(
 DATASET_FILES = ("books.json", "projects.json", "bytes.json", "museum.json")
 SOURCE_PATHS = (
     Path("backend/src/praxis"),
+    Path("evals/project-recommendations/business-assertions.json"),
     Path("evals/project-recommendations/prompts.json"),
     Path("evals/project-recommendations/expectations.json"),
     Path("pyproject.toml"),
@@ -180,6 +183,51 @@ def _failure_quality() -> QualityResult:
     )
 
 
+def measure_retrieval_relevance(
+    retrieved_evidence_ids: Iterable[str],
+    expectation: CaseExpectation,
+) -> RetrievalRelevanceResult:
+    """Measure ranked retrieval against the case's curated relevant records."""
+    retrieved = list(retrieved_evidence_ids)
+    relevant = {record.evidence_id for record in expectation.evidence.any_of}
+    matched = relevant & set(retrieved)
+    first_relevant_rank = next(
+        (rank for rank, evidence_id in enumerate(retrieved, start=1) if evidence_id in relevant),
+        None,
+    )
+    return RetrievalRelevanceResult(
+        retrieved_count=len(retrieved),
+        curated_relevant_count=len(relevant),
+        matched_count=len(matched),
+        precision_at_k=len(matched) / len(retrieved) if retrieved else 0.0,
+        expected_evidence_coverage=len(matched) / len(relevant),
+        reciprocal_rank=1 / first_relevant_rank if first_relevant_rank is not None else 0.0,
+    )
+
+
+def measure_citation_support(
+    run: ProjectPlanningRun,
+) -> CitationSupportResult:
+    """Measure whether generated connection claims cite their retrieval context."""
+    citations = [
+        citation
+        for candidate in run.candidates.candidates
+        for citation in candidate.evidence_citations
+    ]
+    retrieved = set(run.retrieved_evidence_ids)
+    resolved_count = sum(citation.evidence_id in retrieved for citation in citations)
+    claim_count = len(citations)
+    unsupported_count = claim_count - resolved_count
+    return CitationSupportResult(
+        claim_count=claim_count,
+        resolved_citation_count=resolved_count,
+        supported_claim_count=resolved_count,
+        unsupported_claim_count=unsupported_count,
+        citation_correctness_rate=resolved_count / claim_count if claim_count else 0.0,
+        unsupported_claim_rate=unsupported_count / claim_count if claim_count else 0.0,
+    )
+
+
 def _run_case(
     prompt: str,
     case_id: str,
@@ -209,6 +257,8 @@ def _run_case(
             token_usage=None,
             cycle_count=None,
             quality=_failure_quality(),
+            retrieval_relevance=None,
+            citation_support=None,
             error_type=type(error).__name__,
             error_message=str(error),
         )
@@ -251,6 +301,8 @@ def _run_case(
         ),
         cycle_count=metrics.cycle_count if metrics else None,
         quality=_quality(run, expectation),
+        retrieval_relevance=measure_retrieval_relevance(run.retrieved_evidence_ids, expectation),
+        citation_support=measure_citation_support(run),
     )
 
 
@@ -260,6 +312,15 @@ def _percentile(values: list[int], percentile: float) -> int:
 
 
 def _summary(results: list[EvaluationCaseResult]) -> BaselineSummary:
+    retrieval_results = [
+        result.retrieval_relevance for result in results if result.retrieval_relevance is not None
+    ]
+    citation_results = [
+        result.citation_support for result in results if result.citation_support is not None
+    ]
+    claim_count = sum(result.claim_count for result in citation_results)
+    supported_claim_count = sum(result.supported_claim_count for result in citation_results)
+    unsupported_claim_count = sum(result.unsupported_claim_count for result in citation_results)
     return BaselineSummary(
         case_count=len(results),
         success_count=sum(result.succeeded for result in results),
@@ -284,6 +345,20 @@ def _summary(results: list[EvaluationCaseResult]) -> BaselineSummary:
         total_model_tool_calls=sum(
             call.calls for result in results for call in result.model_tool_calls
         ),
+        average_retrieval_precision_at_k=(
+            sum(result.precision_at_k for result in retrieval_results) / len(results)
+        ),
+        average_expected_evidence_coverage=(
+            sum(result.expected_evidence_coverage for result in retrieval_results) / len(results)
+        ),
+        mean_reciprocal_rank=(
+            sum(result.reciprocal_rank for result in retrieval_results) / len(results)
+        ),
+        citation_claim_count=claim_count,
+        supported_claim_count=supported_claim_count,
+        unsupported_claim_count=unsupported_claim_count,
+        citation_correctness_rate=(supported_claim_count / claim_count if claim_count else 0.0),
+        unsupported_claim_rate=(unsupported_claim_count / claim_count if claim_count else 0.0),
     )
 
 
@@ -319,7 +394,7 @@ def run_baseline(
         suite=evaluation_set.suite,
         prompts_version=evaluation_set.version,
         expectations_version=expectations.version,
-        result_version=1,
+        result_version=3,
         metadata=BaselineMetadata(
             generated_at=datetime.now(UTC),
             model_id=settings.model_id,
@@ -333,4 +408,9 @@ def run_baseline(
     )
 
 
-__all__ = ["PlanningInvoker", "run_baseline"]
+__all__ = [
+    "PlanningInvoker",
+    "measure_citation_support",
+    "measure_retrieval_relevance",
+    "run_baseline",
+]

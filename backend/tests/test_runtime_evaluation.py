@@ -147,8 +147,19 @@ def test_runtime_invoker_adapts_response_tools_and_correlated_trace() -> None:
 
         def invoke_agent_runtime(self, **kwargs: object) -> dict[str, object]:
             self.request = kwargs
-            payload = {
+            payload: dict[str, object] = {
                 "candidates": candidates.model_dump(mode="json")["candidates"],
+                "evidence": [
+                    {
+                        "evidence_id": "book:0f5ba253568e4836",
+                        "kind": "book",
+                        "title": "Compiler Backend Development",
+                        "author": "Example Author",
+                        "year": 2025,
+                        "category": "Compilers",
+                        "tags": [],
+                    }
+                ],
                 "memory": {"retrieved_count": 0},
                 "tool_calls": [
                     {"name": "search_catalog", "count": 1},

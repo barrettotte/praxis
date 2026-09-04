@@ -39,7 +39,7 @@ This roadmap is the source of truth for the project's intended scope and current
 ### Model strategy
 
 Amazon Nova Lite is the default model because the deployed baseline showed materially better reliability and quality than Nova Micro.
-Keep the model ID in configuration rather than application code. Use expanded evaluation results in Phase 9 to decide whether particular
+Keep the model ID in configuration rather than application code. Use expanded evaluation results in Phase 8 to decide whether particular
 workflows require another model change; do not change the default without measured evidence.
 
 Use in-region inference in `us-east-1` initially. Cross-region inference can be evaluated later if throughput or 
@@ -53,7 +53,6 @@ availability becomes a demonstrated problem.
 - Keep durable source data in the sibling repository; cloud copies are disposable and reproducible.
 - Target less than **$10 total AWS spend** for the initial MVP build.
 - Configure budget notifications before deploying application resources.
-- Treat the later Knowledge Base phase as a separate cost decision.
 
 ### Inputs outside this repository
 
@@ -345,35 +344,19 @@ Definition of done: a client can complete the read-only workflow entirely throug
 
 Definition of done: the complete application is usable from a browser.
 
-## Phase 8 - Knowledge Base and richer evidence
+## Phase 8 - Expanded evaluation and token efficiency
 
-- [ ] Fetch selected GitHub README content
-- [ ] Store source snapshots in S3
-- [ ] Create a Bedrock Knowledge Base
-- [ ] Ingest descriptions and README documents
-- [ ] Preserve repository and file citations
-- [ ] Add semantic retrieval as a separate tool
-- [ ] Keep dates, languages, and identifiers in DynamoDB
-- [ ] Compare semantic retrieval with structured search
-- [ ] Add reranking only if measurements justify it
-- [ ] Test stale-document behavior
-- [ ] Document the hybrid-retrieval design
-
-Definition of done: recommendations can use both structured facts and cited semantic evidence.
-
-## Phase 9 - Expanded evaluation and token efficiency
-
-- [ ] Expand the initial set to at least 30 evaluation prompts
-- [ ] Include straightforward, ambiguous, and impossible requests
-- [ ] Define expected evidence records
-- [ ] Define expected tool trajectories and business assertions
-- [ ] Use AgentCore Evaluations for goal success, correctness, and tool use
-- [ ] Measure retrieval relevance
-- [ ] Measure citation correctness
-- [ ] Measure unsupported-claim frequency
-- [ ] Measure tool-selection accuracy
-- [ ] Measure end-to-end latency
-- [ ] Record input and output tokens
+- [x] Expand the initial set to at least 30 evaluation prompts
+- [x] Include straightforward, ambiguous, and impossible requests
+- [x] Define expected evidence records
+- [x] Define expected tool trajectories and business assertions
+- [x] Use AgentCore Evaluations for goal success, correctness, and tool use
+- [x] Measure retrieval relevance
+- [x] Measure citation correctness
+- [x] Measure unsupported-claim frequency
+- [x] Measure tool-selection accuracy
+- [x] Measure end-to-end latency
+- [x] Record input and output tokens
 - [ ] Compare full records with projected tool responses
 - [ ] Compare different retrieval limits
 - [ ] Test conversation summarization
@@ -385,7 +368,7 @@ Definition of done: recommendations can use both structured facts and cited sema
 
 Definition of done: measurements show that cost or latency improved without a material reduction in quality.
 
-## Phase 10 - Security and failure testing
+## Phase 9 - Security and failure testing
 
 - [ ] Apply least-privilege IAM policies
 - [ ] Separate API, runtime, gateway, and tool roles
@@ -403,7 +386,7 @@ Definition of done: measurements show that cost or latency improved without a ma
 
 Definition of done: the project demonstrates working controls instead of only listing security claims.
 
-## Phase 11 - Observability and demonstration package
+## Phase 10 - Observability and demonstration package
 
 - [ ] Add structured logs throughout
 - [ ] Extend OpenTelemetry instrumentation across API, runtime, and tools
@@ -428,8 +411,7 @@ Definition of done: another engineer can deploy the project, understand its cont
 ## MVP release gate
 
 The showcase release includes Phases 0 through 7 plus the essential expanded
-evaluation, security, and observability work from Phases 9 through 11. The
-Knowledge Base in Phase 8 can follow.
+evaluation, security, and observability work from Phases 8 through 10.
 
 The MVP must prove:
 

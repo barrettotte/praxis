@@ -5,6 +5,7 @@ from pydantic import TypeAdapter
 from praxis.evaluation import (
     BriefEvaluationExpectations,
     BriefEvaluationSet,
+    EvaluationBusinessAssertions,
     EvaluationExpectations,
     EvaluationSet,
 )
@@ -14,6 +15,9 @@ EVALUATION_SET_PATH = (
 )
 EXPECTATIONS_PATH = (
     Path(__file__).parents[2] / "evals" / "project-recommendations" / "expectations.json"
+)
+BUSINESS_ASSERTIONS_PATH = (
+    Path(__file__).parents[2] / "evals" / "project-recommendations" / "business-assertions.json"
 )
 BRIEF_CASES_PATH = Path(__file__).parents[2] / "evals" / "project-briefs" / "cases.json"
 BRIEF_EXPECTATIONS_PATH = (
@@ -25,10 +29,10 @@ def test_project_recommendation_evaluation_set_is_valid_and_stable() -> None:
     evaluation_set = TypeAdapter(EvaluationSet).validate_json(EVALUATION_SET_PATH.read_bytes())
 
     assert evaluation_set.suite == "project-recommendation-baseline"
-    assert evaluation_set.version == 1
-    assert len(evaluation_set.cases) == 10
+    assert evaluation_set.version == 2
+    assert len(evaluation_set.cases) == 30
     assert [case.id[:10] for case in evaluation_set.cases] == [
-        f"project-{number:02}" for number in range(1, 11)
+        f"project-{number:02}" for number in range(1, 31)
     ]
 
 
@@ -37,6 +41,10 @@ def test_project_recommendation_evaluation_set_covers_request_difficulty() -> No
 
     categories = {case.category for case in evaluation_set.cases}
     assert categories == {"straightforward", "ambiguous", "constrained", "infeasible"}
+    assert all(
+        sum(case.category == category for case in evaluation_set.cases) >= 5
+        for category in categories
+    )
 
 
 def test_project_recommendation_evaluation_set_covers_core_domains() -> None:
@@ -79,6 +87,30 @@ def test_history_aware_cases_expect_project_comparison() -> None:
 
     assert "compare_project_history" in tools_by_case["project-03-cpp-game-history"]
     assert "compare_project_history" in tools_by_case["project-07-security-python"]
+
+
+def test_business_assertions_align_with_every_prompt() -> None:
+    evaluation_set = TypeAdapter(EvaluationSet).validate_json(EVALUATION_SET_PATH.read_bytes())
+    assertions = TypeAdapter(EvaluationBusinessAssertions).validate_json(
+        BUSINESS_ASSERTIONS_PATH.read_bytes()
+    )
+
+    assert assertions.suite == evaluation_set.suite
+    assert assertions.prompts_version == evaluation_set.version
+    assert [case.case_id for case in assertions.cases] == [case.id for case in evaluation_set.cases]
+
+
+def test_infeasible_cases_require_feasibility_or_safety_assertions() -> None:
+    evaluation_set = TypeAdapter(EvaluationSet).validate_json(EVALUATION_SET_PATH.read_bytes())
+    assertions = TypeAdapter(EvaluationBusinessAssertions).validate_json(
+        BUSINESS_ASSERTIONS_PATH.read_bytes()
+    )
+    infeasible_ids = {case.id for case in evaluation_set.cases if case.category == "infeasible"}
+
+    for case in assertions.cases:
+        if case.case_id in infeasible_ids:
+            dimensions = {assertion.dimension for assertion in case.assertions}
+            assert dimensions & {"feasibility", "safety"}
 
 
 def test_project_brief_evaluation_set_covers_feasible_and_infeasible_ideas() -> None:

@@ -1,7 +1,7 @@
 {
   "suite": "project-recommendation-baseline",
-  "prompts_version": 1,
-  "version": 1,
+  "prompts_version": 2,
+  "version": 2,
   "expectations": [
     {
       "case_id": "project-01-retro-python",
@@ -161,6 +161,686 @@
       },
       "trajectory": [
         {"tool": "search_catalog", "minimum_calls": 1, "maximum_calls": 1}
+      ]
+    },
+    {
+      "case_id": "project-11-compiler-backend",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "book:0f5ba253568e4836",
+            "kind": "book",
+            "label": "LLVM Code Generation A Deep Dive Into Compiler Backend Development"
+          },
+          {
+            "evidence_id": "book:6de51b7c49c285e4",
+            "kind": "book",
+            "label": "Compilers: Principles, Techniques, and Tools"
+          },
+          {
+            "evidence_id": "book:1a243cc49c0803c6",
+            "kind": "book",
+            "label": "Modern Compiler Implementation in C"
+          }
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["book"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-12-electric-motors",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "book:4d72e635a346be22",
+            "kind": "book",
+            "label": "Motors for Makers: A Guide to Steppers, Servos, and Other Electrical Machines"
+          },
+          {
+            "evidence_id": "book:5b1e2312d5373fff",
+            "kind": "book",
+            "label": "Fundamentals of Electric Circuits"
+          },
+          {
+            "evidence_id": "book:0b13f54390dccace",
+            "kind": "book",
+            "label": "Electricity and Magnetism"
+          }
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["book"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-13-ibmi-automation",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "project:1a57a038d11edab6",
+            "kind": "project",
+            "label": "vscode-ibmi-languages"
+          },
+          {
+            "evidence_id": "book:b6ebb083c118f1e3",
+            "kind": "book",
+            "label": "Control Language Programming for IBM i"
+          },
+          {
+            "evidence_id": "book:46ecb3b74229f16b",
+            "kind": "book",
+            "label": "The AS/400 & IBM i RPG & RPGIV Programming Guide"
+          },
+          {
+            "evidence_id": "book:dc992d637971e6ae",
+            "kind": "book",
+            "label": "The Modern RPG IV Language"
+          }
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["book"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-14-retro-emulator",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "museum:48175a11ac202af9",
+            "kind": "museum",
+            "label": "Altair 8800 Replica"
+          },
+          {
+            "evidence_id": "museum:17ca91a13603360c",
+            "kind": "museum",
+            "label": "Commodore 64"
+          },
+          {
+            "evidence_id": "museum:810f4d206a9c8258",
+            "kind": "museum",
+            "label": "Tandy Color Computer 3"
+          },
+          {
+            "evidence_id": "project:50f79cefe6cb8e78",
+            "kind": "project",
+            "label": "rusty-lc3-vm"
+          }
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["museum"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-15-personal-data-visualization",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "project:3f5a1f01de644653",
+            "kind": "project",
+            "label": "LoL-R-Data-Visual"
+          },
+          {
+            "evidence_id": "project:3435c3fd5824f260",
+            "kind": "project",
+            "label": "questlines"
+          },
+          {
+            "evidence_id": "book:11795a2dd8d1610b",
+            "kind": "book",
+            "label": "Designing Data-Intensive Applications"
+          },
+          {
+            "evidence_id": "book:3287132cf62748d8",
+            "kind": "book",
+            "label": "Data Science for Business"
+          }
+        ],
+        "minimum_matches": 2,
+        "required_kinds": ["project", "book"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-16-accessible-typescript",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "project:3435c3fd5824f260",
+            "kind": "project",
+            "label": "questlines"
+          },
+          {
+            "evidence_id": "project:7f152440bcd0f1db",
+            "kind": "project",
+            "label": "MEAN-ToDoList"
+          },
+          {
+            "evidence_id": "project:2be29ace283deb3c",
+            "kind": "project",
+            "label": "wc-resistor-calc"
+          }
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["project"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-17-circuit-simulation",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "book:5b1e2312d5373fff",
+            "kind": "book",
+            "label": "Fundamentals of Electric Circuits"
+          },
+          {
+            "evidence_id": "book:1ee9c9cf7a7c154d",
+            "kind": "book",
+            "label": "The Art of Electronics"
+          },
+          {
+            "evidence_id": "book:4956f52e49ccf039",
+            "kind": "book",
+            "label": "Electronic Circuits: Physical Principles, Analysis, And Design"
+          },
+          {
+            "evidence_id": "byte:9b972a86a05de633",
+            "kind": "byte",
+            "label": "Electroscope"
+          }
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["book"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-18-linux-tracing",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "project:50f79cefe6cb8e78",
+            "kind": "project",
+            "label": "rusty-lc3-vm"
+          },
+          {
+            "evidence_id": "book:6d26724cb8d7c59f",
+            "kind": "book",
+            "label": "The Linux Programming Interface"
+          },
+          {
+            "evidence_id": "book:d92af2afb181b800",
+            "kind": "book",
+            "label": "Linux System Programming"
+          }
+        ],
+        "minimum_matches": 2,
+        "required_kinds": ["project", "book"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        },
+        {
+          "tool": "compare_project_history",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-19-defensive-security",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "byte:3e5a80b420bb1ec9",
+            "kind": "byte",
+            "label": "PlaidCTF 2023"
+          },
+          {
+            "evidence_id": "byte:7117106046dc6d03",
+            "kind": "byte",
+            "label": "Patriot CTF 2024"
+          },
+          {
+            "evidence_id": "byte:6b77852a1637349f",
+            "kind": "byte",
+            "label": "DEADFACE CTF 2024"
+          },
+          {
+            "evidence_id": "book:04593c31d47c8dd3",
+            "kind": "book",
+            "label": "CompTIA Security+ Study Guide Exam SY0-701"
+          }
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["byte"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        },
+        {
+          "tool": "compare_project_history",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-20-printed-repair",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "byte:6c5a9b8f25604895",
+            "kind": "byte",
+            "label": "Standing Desk Control Cover"
+          },
+          {
+            "evidence_id": "byte:001f29840741f183",
+            "kind": "byte",
+            "label": "Server Rack Top Extension"
+          },
+          {
+            "evidence_id": "byte:06669038ab251e06",
+            "kind": "byte",
+            "label": "RTL SDR Cable Support"
+          },
+          {
+            "evidence_id": "byte:130af2330d12a440",
+            "kind": "byte",
+            "label": "Part Organizer Dividers"
+          }
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["byte"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-21-outside-comfort-zone",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "project:50f79cefe6cb8e78",
+            "kind": "project",
+            "label": "rusty-lc3-vm"
+          },
+          {
+            "evidence_id": "byte:9b972a86a05de633",
+            "kind": "byte",
+            "label": "Electroscope"
+          },
+          {
+            "evidence_id": "book:1ee9c9cf7a7c154d",
+            "kind": "book",
+            "label": "The Art of Electronics"
+          }
+        ],
+        "minimum_matches": 1,
+        "required_kinds": []
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-22-use-a-book",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "book:11795a2dd8d1610b",
+            "kind": "book",
+            "label": "Designing Data-Intensive Applications"
+          },
+          {
+            "evidence_id": "book:1ee9c9cf7a7c154d",
+            "kind": "book",
+            "label": "The Art of Electronics"
+          },
+          {
+            "evidence_id": "book:5d67434fe1f04b6c",
+            "kind": "book",
+            "label": "Game Engine Architecture"
+          },
+          {
+            "evidence_id": "book:0f5ba253568e4836",
+            "kind": "book",
+            "label": "LLVM Code Generation A Deep Dive Into Compiler Backend Development"
+          }
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["book"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-23-use-the-museum",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "museum:48175a11ac202af9",
+            "kind": "museum",
+            "label": "Altair 8800 Replica"
+          },
+          {
+            "evidence_id": "museum:17ca91a13603360c",
+            "kind": "museum",
+            "label": "Commodore 64"
+          },
+          {
+            "evidence_id": "museum:810f4d206a9c8258",
+            "kind": "museum",
+            "label": "Tandy Color Computer 3"
+          }
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["museum"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-24-revisit-old-project",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "project:3435c3fd5824f260",
+            "kind": "project",
+            "label": "questlines"
+          },
+          {
+            "evidence_id": "project:29f2536d8e6f0a7b",
+            "kind": "project",
+            "label": "Codebase-Scanner"
+          },
+          {
+            "evidence_id": "project:50f79cefe6cb8e78",
+            "kind": "project",
+            "label": "rusty-lc3-vm"
+          },
+          {
+            "evidence_id": "project:ec89ce918d3b4a44",
+            "kind": "project",
+            "label": "Blackjack"
+          }
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["project"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        },
+        {
+          "tool": "compare_project_history",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-25-something-with-data",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "book:11795a2dd8d1610b",
+            "kind": "book",
+            "label": "Designing Data-Intensive Applications"
+          },
+          {
+            "evidence_id": "book:3287132cf62748d8",
+            "kind": "book",
+            "label": "Data Science for Business"
+          },
+          {
+            "evidence_id": "project:3f5a1f01de644653",
+            "kind": "project",
+            "label": "LoL-R-Data-Visual"
+          }
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["book"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-26-weekend-cpu",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "book:400effd05aeff96f",
+            "kind": "book",
+            "label": "Digital Design and Computer Architecture: ARM Edition"
+          },
+          {
+            "evidence_id": "book:d8f0d12e99ca55bd",
+            "kind": "book",
+            "label": "Digital Design and Computer Architecture: RISC-V Edition"
+          },
+          {
+            "evidence_id": "book:c40bf3dc768f7aa0",
+            "kind": "book",
+            "label": "Inside the Machine"
+          },
+          {
+            "evidence_id": "book:0ce8caeeb15c8d07",
+            "kind": "book",
+            "label": "Designing Video Game Hardware in Verilog"
+          }
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["book"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-27-laptop-frontier-model",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "book:1b425c0d4a771317",
+            "kind": "book",
+            "label": "Introduction to Artificial Intelligence"
+          },
+          {
+            "evidence_id": "book:b1f6f76e52493480",
+            "kind": "book",
+            "label": "Python Machine Learning, 1st Edition"
+          },
+          {
+            "evidence_id": "book:c7419c808d4abfed",
+            "kind": "book",
+            "label": "Hands-On Machine Learning with Scikit-Learn, Keras, and TensorFlow"
+          }
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["book"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-28-launch-satellite",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "book:2508fb2bb5d4fde2",
+            "kind": "book",
+            "label": "Radio and Radar Astronomy Projects for Beginners"
+          },
+          {
+            "evidence_id": "book:26502e37042fc496",
+            "kind": "book",
+            "label": "An Introduction to Radio Astronomy"
+          },
+          {
+            "evidence_id": "book:09e5441f8885929c",
+            "kind": "book",
+            "label": "Astronomy and Cosmology: A Modern Course"
+          }
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["book"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-29-quantum-dot-battery",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "book:344f1e8fc8a18063",
+            "kind": "book",
+            "label": "Introduction to Quantum Mechanics with Applications to Chemistry"
+          },
+          {
+            "evidence_id": "book:ae5a529efc5d3d40",
+            "kind": "book",
+            "label": "Quantum Mechanics: The Theoretical Minimum"
+          },
+          {
+            "evidence_id": "book:d598224d6b3b7fc4",
+            "kind": "book",
+            "label": "Quantum Mechanics On The Personal Computer"
+          }
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["book"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
+      ]
+    },
+    {
+      "case_id": "project-30-clinical-diagnosis",
+      "evidence": {
+        "any_of": [
+          {
+            "evidence_id": "book:280ae041dafaf1c9",
+            "kind": "book",
+            "label": "Campbell Biology (10th Edition)"
+          },
+          {
+            "evidence_id": "book:20c3f8fa12b3c92f",
+            "kind": "book",
+            "label": "Computational Molecular Biology: An Algorithmic Approach"
+          },
+          {
+            "evidence_id": "book:6032e9120781da17",
+            "kind": "book",
+            "label": "An Introduction to Bioinformatics Algorithms"
+          }
+        ],
+        "minimum_matches": 1,
+        "required_kinds": ["book"]
+      },
+      "trajectory": [
+        {
+          "tool": "search_catalog",
+          "minimum_calls": 1,
+          "maximum_calls": 1
+        }
       ]
     }
   ]

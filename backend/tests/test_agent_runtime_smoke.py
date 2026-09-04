@@ -68,9 +68,32 @@ def candidate_set(evidence_id: str = "book:0f5ba253568e4836") -> ProjectCandidat
     )
 
 
+def evidence_record(evidence_id: str = "book:0f5ba253568e4836") -> dict[str, object]:
+    if evidence_id.startswith("museum:"):
+        return {
+            "evidence_id": evidence_id,
+            "kind": "museum",
+            "name": "Example computer",
+            "manufacturer": "Example manufacturer",
+            "year": 1980,
+            "category": "Computer",
+            "description": "A representative museum object.",
+        }
+    return {
+        "evidence_id": evidence_id,
+        "kind": "book",
+        "title": "Compiler Backend Development",
+        "author": "Example Author",
+        "year": 2025,
+        "category": "Compilers",
+        "tags": [],
+    }
+
+
 def valid_response() -> dict[str, object]:
     payload = {
         "candidates": candidate_set().model_dump(mode="json")["candidates"],
+        "evidence": [evidence_record()],
         "memory": {"retrieved_count": 2},
         "tool_calls": [{"name": "search_catalog", "count": 1}],
     }
@@ -106,6 +129,7 @@ def test_invoke_runtime_endpoint_signs_expected_request_contract() -> None:
     assert result.candidates == candidate_set()
     assert result.tool_calls == (RuntimeToolCall(name="search_catalog", count=1),)
     assert result.memory_retrieved_count == 2
+    assert result.retrieved_evidence_ids == ("book:0f5ba253568e4836",)
 
 
 @pytest.mark.parametrize(
@@ -177,6 +201,7 @@ class SequentialRuntimeClient:
 def response_for(evidence_id: str) -> dict[str, object]:
     payload = {
         "candidates": candidate_set(evidence_id).model_dump(mode="json")["candidates"],
+        "evidence": [evidence_record(evidence_id)],
         "memory": {"retrieved_count": 2},
         "tool_calls": [{"name": "search_catalog", "count": 1}],
     }

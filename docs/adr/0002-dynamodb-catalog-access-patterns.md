@@ -69,9 +69,6 @@ development copy that can be reconstructed from validated source data.
 - The all-attributes GSI duplicates a small amount of storage and filter-based
   queries may read nonmatching items, trading minor MVP cost for simpler,
   idempotent ingestion.
-- Search is lexical rather than semantic. The later Knowledge Base remains a
-  separate retrieval tool so structured facts and semantic evidence are not
-  conflated.
 - Add a facet/token index or dedicated search service only if measurements show
   the catalog exceeds 1,500 evaluated items, latency becomes unacceptable, or
   read consumption materially threatens the cost target. Such a change requires

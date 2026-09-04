@@ -56,5 +56,5 @@ React + TypeScript -> Cognito -> API Gateway -> API Lambda
   practical, at the expense of cold starts and AWS service integration work.
 - Buffered responses simplify the first release but provide less interactive
   feedback than streaming.
-- A VPC, stronger default model, Knowledge Base, streaming, or
-  multi-agent design requires measured need and a superseding ADR.
+- A VPC, stronger default model, streaming, or multi-agent design requires
+  measured need and a superseding ADR.

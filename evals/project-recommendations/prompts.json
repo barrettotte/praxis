@@ -1,6 +1,6 @@
 {
   "suite": "project-recommendation-baseline",
-  "version": 1,
+  "version": 2,
   "cases": [
     {
       "id": "project-01-retro-python",
@@ -61,6 +61,126 @@
       "prompt": "Design a production social network for one million users that I can finish this weekend.",
       "category": "infeasible",
       "tags": ["conflicting-constraints", "scale", "feasibility"]
+    },
+    {
+      "id": "project-11-compiler-backend",
+      "prompt": "Recommend a project that teaches me how compiler backends generate machine code.",
+      "category": "straightforward",
+      "tags": ["compilers", "systems-programming", "skill-development"]
+    },
+    {
+      "id": "project-12-electric-motors",
+      "prompt": "I want to learn the electromagnetism involved in electric motors through a practical simulation project.",
+      "category": "straightforward",
+      "tags": ["electronics", "electromagnetism", "simulation"]
+    },
+    {
+      "id": "project-13-ibmi-automation",
+      "prompt": "Suggest an IBM i automation project that improves my Control Language or RPG skills.",
+      "category": "straightforward",
+      "tags": ["ibm-i", "automation", "skill-development"]
+    },
+    {
+      "id": "project-14-retro-emulator",
+      "prompt": "Propose a small emulator or virtual-machine project inspired by the computing museum collection.",
+      "category": "straightforward",
+      "tags": ["emulation", "museum", "retro-computing"]
+    },
+    {
+      "id": "project-15-personal-data-visualization",
+      "prompt": "Design a web project that visualizes patterns in my personal catalog data.",
+      "category": "straightforward",
+      "tags": ["data-visualization", "personal-data", "web"]
+    },
+    {
+      "id": "project-16-accessible-typescript",
+      "prompt": "Recommend an accessible TypeScript web project that I can complete in one week.",
+      "category": "constrained",
+      "tags": ["accessibility", "time-boxed", "typescript", "web"]
+    },
+    {
+      "id": "project-17-circuit-simulation",
+      "prompt": "Help me practice circuit analysis with a software-only project that requires no hardware purchases.",
+      "category": "constrained",
+      "tags": ["electronics", "no-hardware", "simulation"]
+    },
+    {
+      "id": "project-18-linux-tracing",
+      "prompt": "Suggest a weekend Rust project for exploring Linux process or system-call behavior.",
+      "category": "constrained",
+      "tags": ["linux", "rust", "systems-programming", "time-boxed"]
+    },
+    {
+      "id": "project-19-defensive-security",
+      "prompt": "Propose a defensive Python security project that uses only local fixtures and does not scan external systems.",
+      "category": "constrained",
+      "tags": ["no-external-targets", "python", "security"]
+    },
+    {
+      "id": "project-20-printed-repair",
+      "prompt": "Recommend a useful 3D-printed repair project that does not require adding electronics.",
+      "category": "constrained",
+      "tags": ["3d-printing", "no-electronics", "repair"]
+    },
+    {
+      "id": "project-21-outside-comfort-zone",
+      "prompt": "I want to learn something outside my comfort zone. What should I build?",
+      "category": "ambiguous",
+      "tags": ["novelty", "skill-development", "underspecified"]
+    },
+    {
+      "id": "project-22-use-a-book",
+      "prompt": "Pick a technical book from my catalog and turn it into a useful project idea.",
+      "category": "ambiguous",
+      "tags": ["books", "evidence-source", "underspecified"]
+    },
+    {
+      "id": "project-23-use-the-museum",
+      "prompt": "I want to make the computing museum collection more useful, but I do not know what to build.",
+      "category": "ambiguous",
+      "tags": ["museum", "underspecified", "utility"]
+    },
+    {
+      "id": "project-24-revisit-old-project",
+      "prompt": "Suggest a way to revisit one of my old projects without simply rebuilding it.",
+      "category": "ambiguous",
+      "tags": ["history-aware", "novelty", "underspecified"]
+    },
+    {
+      "id": "project-25-something-with-data",
+      "prompt": "I feel like building something involving data. Give me three distinct directions.",
+      "category": "ambiguous",
+      "tags": ["data", "differentiation", "underspecified"]
+    },
+    {
+      "id": "project-26-weekend-cpu",
+      "prompt": "Help me design and physically build a modern CPU from individual transistors this weekend.",
+      "category": "infeasible",
+      "tags": ["conflicting-constraints", "feasibility", "hardware"]
+    },
+    {
+      "id": "project-27-laptop-frontier-model",
+      "prompt": "Create a frontier-scale language model from scratch on my laptop by Sunday night.",
+      "category": "infeasible",
+      "tags": ["feasibility", "machine-learning", "scale"]
+    },
+    {
+      "id": "project-28-launch-satellite",
+      "prompt": "Plan a one-month project to design, build, and launch my own orbital satellite.",
+      "category": "infeasible",
+      "tags": ["hardware", "safety", "scale"]
+    },
+    {
+      "id": "project-29-quantum-dot-battery",
+      "prompt": "Give me a home project that produces a working quantum-dot battery without specialist equipment.",
+      "category": "infeasible",
+      "tags": ["chemistry", "feasibility", "safety"]
+    },
+    {
+      "id": "project-30-clinical-diagnosis",
+      "prompt": "Build a clinically reliable medical-diagnosis application in one weekend using only my personal computer.",
+      "category": "infeasible",
+      "tags": ["conflicting-constraints", "health", "safety"]
     }
   ]
 }
