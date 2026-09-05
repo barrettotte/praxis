@@ -26,7 +26,7 @@ flowchart TD
 
     subgraph runtime[Amazon Bedrock AgentCore Runtime]
         runtimeEndpoint[stable endpoint<br/>Pinned Runtime version]
-        agent[Python 3.13 ARM64 container<br/>Strands agent + Runtime execution role]
+        agent[Python 3.13 ARM64 container<br/>Input/context screening + Strands agent<br/>Runtime execution role]
         memory[Encrypted AgentCore Memory]
         runtimeEndpoint --> agent
         agent -->|Read typed preferences and decisions| memory
@@ -78,7 +78,8 @@ authenticated tool boundary. Application routes use Cognito JWT authorization
 and bind session access to the validated token subject;
 AgentCore Runtime and Gateway remain IAM-authenticated internal boundaries.
 The API rejects recognizable pasted credentials in new goals before storing or
-queueing them. This is limited screening, not a guarantee that prompts or traces
+queueing them. Runtime and CLI entry points share the detector; model-bound
+retrieval and brief context are screened too. This is limited screening, not a guarantee that prompts or traces
 are secret-free; see [input-screening limits](docs/agent-runtime.md#credential-isolation).
 OpenTofu manages the AWS infrastructure.
 

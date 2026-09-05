@@ -5,6 +5,7 @@ from typing import Annotated, Protocol, cast
 
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 from pydantic import Field, TypeAdapter, ValidationError
+from starlette.exceptions import HTTPException
 
 from praxis.agent.brief import invoke_project_brief as generate_project_brief
 from praxis.agent.gateway import GatewayAgentRun, invoke_gateway_agent
@@ -17,6 +18,7 @@ from praxis.agent.memory import (
 from praxis.config import load_gateway_settings, load_memory_settings, load_settings
 from praxis.domain import ProjectCandidate
 from praxis.domain.briefs import ProjectBrief
+from praxis.domain.prompt_safety import SensitiveInputError, require_safe_content
 from praxis.tools.contracts import Evidence
 
 RuntimeInvoker = Callable[[str, Sequence[str]], GatewayAgentRun]
@@ -73,6 +75,7 @@ def invoke_runtime(
     invoke_brief: BriefInvoker | None = None,
 ) -> dict[str, object]:
     """Validate one request and return a buffered recommendation or project brief."""
+    require_safe_content(payload)
     if payload.get("operation") == "create_project_brief":
         _actor_from_payload(payload)
         if set(payload) != {"actor_id", "candidate", "evidence", "goal", "operation"}:
@@ -130,7 +133,10 @@ app = cast("RuntimeApplication", BedrockAgentCoreApp())
 @app.entrypoint
 def handle_invocation(payload: dict[str, object]) -> dict[str, object]:
     """Serve one AgentCore Runtime HTTP invocation."""
-    return invoke_runtime(payload)
+    try:
+        return invoke_runtime(payload)
+    except SensitiveInputError:
+        raise HTTPException(400, detail="Request content appears to contain credentials.") from None
 
 
 if __name__ == "__main__":

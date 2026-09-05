@@ -10,6 +10,7 @@ from praxis.agent.planner import CandidatePlanningError
 from praxis.catalog import CatalogLoadError, InMemoryCatalog
 from praxis.config import SettingsError, load_catalog_directory
 from praxis.domain import ProjectCandidateSet
+from praxis.domain.prompt_safety import SensitiveInputError, require_safe_content
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -56,9 +57,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     json_output = cast(bool, arguments.json)
 
     try:
+        require_safe_content(prompt)
         catalog = InMemoryCatalog.from_directory(data_directory)
         response = invoke_project_candidates(prompt, catalog)
-    except (CandidatePlanningError, CatalogLoadError, SettingsError) as error:
+    except (CandidatePlanningError, CatalogLoadError, SettingsError, SensitiveInputError) as error:
         parser.error(str(error))
 
     print(response.model_dump_json(indent=2) if json_output else render_candidates(response))

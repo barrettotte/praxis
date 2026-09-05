@@ -221,11 +221,23 @@ redaction, lets the user remove the value without changing their goal implicitly
 Even synthetic credential examples can be rejected; describe the mechanism
 without including values. The browser displays a fixed correction message.
 
+The same detector screens JSON-like Runtime payloads before schema validation or
+memory lookup, returning a fixed HTTP 400 rather than a traceback with submitted
+values. The CLI checks goals before loading its catalog. Local planning,
+Gateway generation, and brief generation screen goals and assembled context
+before calling Strands. This includes selected candidates, initial catalog
+evidence, and recalled memory context. Model-selected tool results containing
+recognizable credentials are replaced with a fixed error by the evidence hook,
+without adding their facts to the evidence ledger. The hook uses Strands'
+[supported tool-result modification boundary](https://strandsagents.com/docs/user-guide/concepts/agents/hooks/).
+
 This screening is intentionally limited: unlabelled passwords, unknown token
 formats, encoded or obfuscated secrets, and ordinary sensitive prose may pass.
-It does not screen direct IAM Runtime/CLI requests, existing sessions, catalog
-content, memory, or generated output, and it does not remove previously retained
-data. Do not treat a successful request as proof that its content is safe to log.
+It screens retrieved context on the model path, not the underlying catalog or
+memory stores, and does not scrub existing sessions or generated output. A
+dependency may log raw results or exception details before the application
+screens them. CLI arguments also exist in shell history/process listings before
+screening. Do not treat a successful request as proof that its content is safe to log.
 Avoid recording request bodies or validator inputs; this follows
 [OWASP guidance to exclude passwords and access tokens from logs](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html#data-to-exclude).
 
@@ -241,7 +253,9 @@ Local regression tests cover synthetic authentication markers across API jobs,
 Runtime requests, stored sessions, public responses, and captured application
 logs on success and handled dependency failure. Runtime tests also verify the
 agent receives only the expected prompt and memory with synthetic AWS credentials
-in the environment. These checks do not prove absence from every SDK log or
+in the environment. Runtime HTTP rejection tests exercise the SDK application
+and inspect captured logs; generation tests verify blocked context never reaches
+the model call. These checks do not prove absence from every SDK log or
 deployed trace. Keep SDK debug/wire logging and shell tracing disabled around
 credentials, and do not enable HTTP header capture without a security review;
 [OpenTelemetry warns that capturing all headers can leak sensitive information](https://opentelemetry.io/docs/specs/semconv/http/http-spans/).

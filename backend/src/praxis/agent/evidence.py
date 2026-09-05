@@ -8,6 +8,7 @@ from typing import cast
 from strands.hooks import AfterToolCallEvent, HookRegistry
 from strands.types.tools import ToolResult
 
+from praxis.domain.prompt_safety import SensitiveInputError, require_safe_content
 from praxis.tools.contracts import (
     CONTRACTS_BY_NAME,
     GetCatalogItemOutput,
@@ -42,6 +43,13 @@ class CatalogEvidenceLedger:
     def after_tool_call(self, event: AfterToolCallEvent) -> None:
         """Record accepted evidence or replace a conflicting result with an error."""
         tool_name = event.tool_use["name"]
+        try:
+            require_safe_content(event.result)
+        except SensitiveInputError:
+            event.result = _error_result(
+                event, "Tool content withheld because it may contain credentials"
+            )
+            return
         if tool_name not in CONTRACTS_BY_NAME or event.result["status"] != "success":
             return
 
@@ -148,6 +156,7 @@ def _evidence_observations(
     payload: object,
 ) -> list[tuple[str, dict[str, object]]]:
     """Validate a catalog response and project only stable factual fields."""
+    require_safe_content(payload)
     validated = validate_tool_output(tool_name, payload)
     match validated:
         case SearchCatalogOutput():

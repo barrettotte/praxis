@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from pydantic import ValidationError
@@ -24,6 +25,7 @@ from praxis.domain import (
     ProjectCandidate,
     ProjectCandidateSet,
 )
+from praxis.domain.prompt_safety import SensitiveInputError
 
 FIXTURE_DIRECTORY = Path(__file__).parents[2] / "data" / "fixtures"
 GOAL = "Build a TypeScript electronics notebook"
@@ -60,6 +62,19 @@ def candidate_set(evidence_id: str) -> ProjectCandidateSet:
         for number in range(1, 4)
     ]
     return ProjectCandidateSet(candidates=candidates)
+
+
+@pytest.mark.parametrize("source", ["goal", "evidence"])
+def test_planner_rejects_credentials_before_generation(source: str) -> None:
+    catalog = InMemoryCatalog.from_directory(FIXTURE_DIRECTORY)
+    generator = StubCandidateGenerator(candidate_set("book:0000000000000000"))
+    marker = "api_key=synthetic-credential"
+    with (
+        patch.object(planner, "project_evidence", return_value={"title": marker}),
+        pytest.raises(SensitiveInputError),
+    ):
+        plan_project_candidates(marker if source == "goal" else GOAL, catalog, generator)
+    assert generator.prompt is None
 
 
 def test_plan_project_candidates_returns_three_grounded_candidates() -> None:

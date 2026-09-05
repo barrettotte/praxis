@@ -41,7 +41,7 @@ case "${praxis_suite}" in
     run_check "Bedrock prompt-attack guardrail" \
       "${praxis_script_dir}/smoke-guardrail-dev.sh"
     run_check "API CORS" "${praxis_script_dir}/smoke-api-cors-dev.sh"
-    run_check "API payload limit" "${praxis_script_dir}/smoke-api-payload-dev.sh"
+    run_check "API payload limits and credential screening" "${praxis_script_dir}/smoke-api-payload-dev.sh"
     run_check "API throttling" "${praxis_script_dir}/smoke-api-throttling-dev.sh"
     run_check "Application identity boundary" "${praxis_script_dir}/smoke-cognito-dev.sh"
     run_check "Runtime authorization" "${praxis_script_dir}/smoke-runtime-auth-dev.sh"

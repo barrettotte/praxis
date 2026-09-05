@@ -2,12 +2,30 @@ from types import SimpleNamespace
 from typing import cast
 from unittest.mock import patch
 
+import pytest
 from strands.types.tools import AgentTool
 
 from praxis.agent import factory
 from praxis.agent.budget import CatalogResultBudget, ToolCallBudget
 from praxis.agent.evidence import CatalogEvidenceLedger
 from praxis.config import DEFAULT_MAX_CATALOG_RESULTS, AgentSettings
+from praxis.domain.prompt_safety import SensitiveInputError
+
+
+def test_local_invoke_rejects_credentials_before_agent_creation() -> None:
+    with patch.object(factory, "create_agent") as create, pytest.raises(SensitiveInputError):
+        factory.invoke("api_key=synthetic-credential")
+    create.assert_not_called()
+
+
+@pytest.mark.parametrize("position", [0, 1])
+def test_guardrail_framing_screens_both_goal_and_application_context(position: int) -> None:
+    parts = ["learn compilers", "validated context"]
+    parts[position] = "api_key=synthetic-credential"
+    with pytest.raises(SensitiveInputError):
+        factory.scope_guardrail_input(
+            parts[0], parts[1], AgentSettings(model_id="amazon.nova-lite-v1:0", region="us-east-1")
+        )
 
 
 def test_system_prompt_defines_the_agent_boundaries() -> None:

@@ -4,7 +4,7 @@
   "candidate_count": 3,
   "client": "Boto3 AgentCore Runtime",
   "endpoint_qualifier": "stable",
-  "endpoint_version": "50",
+  "endpoint_version": "52",
   "evidence_ids": [
     "book:0f5ba253568e4836",
     "book:1a243cc49c0803c6",

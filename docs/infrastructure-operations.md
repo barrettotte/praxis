@@ -203,6 +203,11 @@ seconds) and records configuration evidence in `docs/evidence/api-throttling.jso
 The payload check invokes the private API Lambda with a body over 16 KiB
 and a separate 4,001-character goal. It requires fixed 413 and 400 responses,
 respectively, proving validation stopped before Runtime.
+It also submits a synthetic credential assignment using both JSON and base64
+bodies, requiring a fixed `400 sensitive_input` response without reflected text.
+These direct Lambda probes simulate trusted JWT authorizer context; they do not
+verify browser authentication. Results are recorded in
+`docs/evidence/api-payload-limits.json` without storing submitted goals.
 The `api` suite exercises the Runtime-backed success path through API Gateway.
 The direct Lambda script remains available only for targeted diagnosis. Every
 successful Runtime call is metered. That diagnostic supplies trusted-context

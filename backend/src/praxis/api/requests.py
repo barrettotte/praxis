@@ -8,7 +8,7 @@ from typing import Annotated, Literal, cast
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 from praxis.api.correlation import CorrelationIdError, correlation_id_from_event
-from praxis.api.prompt_safety import contains_likely_secret
+from praxis.domain.prompt_safety import contains_likely_secret
 
 MAX_API_BODY_BYTES = 16 * 1024
 MAX_API_TEXT_CHARACTERS = 4_000

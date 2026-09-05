@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verify the private API Lambda rejects oversized bodies before Runtime work.
+# Verify the private API Lambda rejects oversized and credential-bearing goals.
 set -euo pipefail
 
 praxis_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -148,9 +148,39 @@ if ! jq -e \
   exit 1
 fi
 
+# Synthetic credentials must be rejected in both supported body encodings.
+# Reuse the authenticated event shape without submitting any actual credential.
+for praxis_encoded in false true; do
+  praxis_sensitive_payload="$(
+    jq -c --argjson encoded "${praxis_encoded}" '
+      .body = ({goal: "Build a project using api_key=synthetic-smoke-credential"} | tojson)
+      | .isBase64Encoded = $encoded
+      | if $encoded then .body |= @base64 else . end
+    ' <<<"${praxis_prompt_payload}"
+  )"
+  aws --profile "${praxis_profile}" --region "${praxis_region}" lambda invoke \
+    --function-name "${praxis_function_name}" \
+    --cli-binary-format raw-in-base64-out \
+    --payload "${praxis_sensitive_payload}" \
+    "${praxis_build_dir}/api-sensitive-input-response.json" \
+    --output json >"${praxis_build_dir}/api-sensitive-input-metadata.json"
+  if ! jq -e '.FunctionError == null' \
+    "${praxis_build_dir}/api-sensitive-input-metadata.json" >/dev/null || \
+    ! jq -e --arg correlation_id "${praxis_correlation_id}" '
+      .statusCode == 400
+      and .headers["x-correlation-id"] == $correlation_id
+      and .headers["cache-control"] == "no-store"
+      and ((.body | fromjson) == {error: {code: "sensitive_input",
+        message: "Remove passwords, API keys, or tokens from your goal."}})
+    ' "${praxis_build_dir}/api-sensitive-input-response.json" >/dev/null; then
+    printf 'API credential screening failed (base64: %s).\n' "${praxis_encoded}" >&2
+    exit 1
+  fi
+done
+
 jq -n \
   --argjson body_limit "${praxis_body_limit_bytes}" \
   --argjson prompt_limit "${praxis_prompt_limit_characters}" \
-  '{body_limit_bytes: $body_limit, oversized_body_status: 413, oversized_prompt_status: 400, prompt_limit_characters: $prompt_limit, runtime_invoked: false, simulated_authorizer_context: true}' \
+  '{body_limit_bytes: $body_limit, oversized_body_status: 413, oversized_prompt_status: 400, prompt_limit_characters: $prompt_limit, sensitive_input_status: 400, sensitive_input_encodings: ["json", "base64-json"], payload_reflected: false, runtime_invoked: false, simulated_authorizer_context: true}' \
   >"${praxis_evidence_dir}/api-payload-limits.json"
 jq . "${praxis_evidence_dir}/api-payload-limits.json"

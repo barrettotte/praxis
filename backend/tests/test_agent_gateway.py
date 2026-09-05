@@ -22,6 +22,7 @@ from praxis.domain import (
     ProjectCandidateSet,
     validate_candidate_output,
 )
+from praxis.domain.prompt_safety import SensitiveInputError
 
 
 def gateway_settings() -> GatewaySettings:
@@ -164,6 +165,31 @@ def test_create_gateway_client_uses_sigv4_and_catalog_allowlist() -> None:
     allowed = cast("list[re.Pattern[str]]", options["tool_filters"]["allowed"])
     assert all(allowed[0].fullmatch(tool.tool_name) for tool in catalog_tools())
     assert not allowed[0].fullmatch("praxis-dev-catalog___delete_records")
+
+
+@pytest.mark.parametrize("source", ["goal", "memory", "catalog"])
+def test_gateway_screens_content_before_model_invocation(source: str) -> None:
+    agent = MagicMock()
+    context, client = stub_gateway_session(agent)
+    marker = "api_key=synthetic-credential"
+    if source == "catalog":
+        client.call_tool_sync.return_value = {
+            "status": "success",
+            "content": [{"text": json.dumps({"results": [{"title": marker}]})}],
+        }
+    with (
+        patch.object(gateway, "gateway_agent_session", return_value=context) as session,
+        pytest.raises(SensitiveInputError),
+    ):
+        gateway.invoke_gateway_agent(
+            marker if source == "goal" else "compiler",
+            AgentSettings(model_id="amazon.nova-lite-v1:0", region="us-east-1"),
+            gateway_settings(),
+            memory_context=(marker,) if source == "memory" else (),
+        )
+    agent.assert_not_called()
+    if source != "catalog":
+        session.assert_not_called()
 
 
 def test_validate_gateway_tools_requires_exact_catalog_boundary() -> None:

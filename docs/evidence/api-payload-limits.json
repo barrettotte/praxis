@@ -3,6 +3,12 @@
   "oversized_body_status": 413,
   "oversized_prompt_status": 400,
   "prompt_limit_characters": 4000,
+  "sensitive_input_status": 400,
+  "sensitive_input_encodings": [
+    "json",
+    "base64-json"
+  ],
+  "payload_reflected": false,
   "runtime_invoked": false,
   "simulated_authorizer_context": true
 }

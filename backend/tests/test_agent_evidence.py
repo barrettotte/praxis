@@ -2,11 +2,26 @@ import json
 from typing import cast
 from unittest.mock import MagicMock
 
+import pytest
 from strands import Agent
 from strands.hooks import AfterToolCallEvent
 from strands.types.tools import ToolResult
 
 from praxis.agent.evidence import CatalogEvidenceLedger, read_evidence_state
+
+
+@pytest.mark.parametrize("status", ["success", "error"])
+def test_evidence_ledger_withholds_credential_bearing_tool_content(status: str) -> None:
+    state: dict[str, object] = {}
+    event = result_event("search_catalog", {"message": "api_key=synthetic-credential"}, state)
+    event.result["status"] = cast("ToolResult", {"status": status})["status"]
+
+    CatalogEvidenceLedger().after_tool_call(event)
+
+    assert event.result["status"] == "error"
+    assert "withheld" in str(event.result)
+    assert "synthetic-credential" not in str(event.result)
+    assert not read_evidence_state(state).evidence_ids
 
 
 def result_event(

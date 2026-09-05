@@ -2,9 +2,14 @@
 
 from collections.abc import Sequence
 from typing import Protocol, cast
+from unittest.mock import patch
 
 import pytest
+from httpx import Client
+from starlette.testclient import TestClient
+from starlette.types import ASGIApp
 
+from praxis.agent import runtime
 from praxis.agent.gateway import GatewayAgentRun
 from praxis.agent.memory import MemoryRecord
 from praxis.agent.runtime import RuntimeRequestError, app, invoke_runtime
@@ -20,6 +25,32 @@ from praxis.domain.briefs import (
     ProjectRisk,
 )
 from praxis.tools.contracts import BookEvidence, Evidence
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"actor_id": "user-123", "prompt": "api_key=synthetic-credential"},
+        {"operation": "create_project_brief", "goal": "api_key=synthetic-credential"},
+        {"operation": "create_project_brief", "candidate": {"password": "synthetic-credential"}},
+    ],
+)
+def test_runtime_http_rejects_credentials_before_validation_and_agent_work(
+    payload: dict[str, object], caplog: pytest.LogCaptureFixture
+) -> None:
+    with (
+        patch.object(runtime, "load_settings") as settings,
+        patch.object(runtime, "AgentCoreMemoryStore") as memory,
+        patch.object(runtime, "invoke_gateway_agent") as agent,
+        patch.object(runtime, "generate_project_brief") as brief,
+        TestClient(cast("ASGIApp", app)) as client,
+    ):
+        response = cast("Client", client).post("/invocations", json=payload)
+    assert response.status_code == 400
+    assert response.json() == {"error": "Request content appears to contain credentials."}
+    for dependency in (settings, memory, agent, brief):
+        dependency.assert_not_called()
+    assert "synthetic-credential" not in caplog.text + response.text
 
 
 class RuntimeRoute(Protocol):

@@ -39,6 +39,7 @@ from praxis.domain import (
     validate_candidate_output,
 )
 from praxis.domain.candidate_validation import JsonValue
+from praxis.domain.prompt_safety import require_safe_content
 from praxis.tools.contracts import Evidence, SearchCatalogOutput, validate_tool_output
 
 GATEWAY_SIGNING_SERVICE = "bedrock-agentcore"
@@ -332,10 +333,12 @@ def prefetch_catalog_evidence(
         },
         read_timeout_seconds=search_tool.timeout,
     )
+    require_safe_content(result)
     if result["status"] != "success":
         raise GatewayAgentError("Initial Gateway catalog search failed")
     try:
         payload = catalog_result_payload(cast("dict[str, object]", result))
+        require_safe_content(payload)
         validated = validate_tool_output("search_catalog", payload)
         if not isinstance(validated, SearchCatalogOutput):
             raise TypeError("Unexpected catalog result type")
@@ -451,6 +454,7 @@ def invoke_gateway_agent(
     memory_context: Sequence[str] = (),
 ) -> GatewayAgentRun:
     """Invoke Strands while its IAM-authenticated MCP connection remains open."""
+    require_safe_content((prompt, memory_context))
     invocation_state: dict[str, object] = {}
     with gateway_agent_session(agent_settings, gateway_settings) as session:
         generation_prompt, prefetched_evidence, public_evidence = prefetch_catalog_evidence(

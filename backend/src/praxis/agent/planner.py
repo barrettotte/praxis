@@ -22,6 +22,7 @@ from praxis.domain import (
     validate_candidate_output,
 )
 from praxis.domain.candidate_validation import JsonValue
+from praxis.domain.prompt_safety import require_safe_content
 
 EVIDENCE_LIMIT = 15
 
@@ -86,6 +87,7 @@ class StrandsCandidateGenerator:
 
     def generate(self, prompt: str) -> CandidateGeneration:
         """Invoke Strands structured output and narrow the validated result type."""
+        require_safe_content(prompt)
         try:
             result = self.agent(prompt, structured_output_model=ProjectCandidateSet)
         except StructuredOutputException as error:
@@ -129,7 +131,9 @@ class StrandsCandidateGenerator:
 
 def build_planning_prompt(goal: str, evidence: tuple[CatalogEntry, ...]) -> str:
     """Build the untrusted-evidence prompt shared by planning evaluations."""
+    require_safe_content(goal)
     records = [project_evidence(entry) for entry in evidence]
+    require_safe_content(records)
     evidence_json = json.dumps(records, ensure_ascii=False, separators=(",", ":"))
     return f"""Create exactly three differentiated, realistically scoped project candidates.
 
@@ -181,6 +185,7 @@ def plan_project_candidates_with_trace(
     max_catalog_results: int = DEFAULT_MAX_CATALOG_RESULTS,
 ) -> ProjectPlanningRun:
     """Retrieve evidence and return grounded candidates with observable execution data."""
+    require_safe_content(goal)
     if max_catalog_results < 1:
         raise ValueError("max_catalog_results must be positive")
     results = search_catalog(
@@ -232,6 +237,7 @@ def invoke_project_candidates_with_trace(
     settings: AgentSettings | None = None,
 ) -> ProjectPlanningRun:
     """Create a Bedrock-backed agent and return an observable planning run."""
+    require_safe_content(goal)
     configured_settings = settings or load_settings()
     agent = create_agent(configured_settings)
     generator = StrandsCandidateGenerator(agent=agent)

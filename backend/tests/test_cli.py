@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 from typing import cast
+from unittest.mock import patch
 
 import pytest
 
@@ -76,3 +77,19 @@ def test_main_reports_catalog_load_errors(capsys: pytest.CaptureFixture[str]) ->
         cli.main(["build something useful", "--data-dir", "missing-directory"])
 
     assert "Unable to load catalog records" in capsys.readouterr().err
+
+
+def test_main_rejects_credentials_before_catalog_or_model_work(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with (
+        patch.object(InMemoryCatalog, "from_directory") as load_catalog,
+        patch.object(cli, "invoke_project_candidates") as invoke,
+        pytest.raises(SystemExit, match="2"),
+    ):
+        cli.main(["Build with api_key=synthetic-credential"])
+    load_catalog.assert_not_called()
+    invoke.assert_not_called()
+    output = capsys.readouterr()
+    assert "remove them and retry" in output.err
+    assert "synthetic-credential" not in output.out + output.err

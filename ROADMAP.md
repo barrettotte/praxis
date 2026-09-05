@@ -378,7 +378,7 @@ Definition of done: measurements show that cost or latency improved without a ma
 - [x] Test cross-session data access
 - [x] Test oversized prompts and tool arguments
 - [x] Test Lambda timeout and throttling behavior
-- [ ] Screen pasted secrets before persistence/model calls and verify credential isolation from prompts/logs
+- [x] Screen pasted secrets before persistence/model calls and verify credential isolation from prompts/logs
 - [ ] Add dependency and container scanning
 - [ ] Produce a lightweight threat model
 - [ ] Document residual risks
@@ -392,9 +392,29 @@ documented in `docs/infrastructure-operations.md`.
 Public goal screening is implemented and verified locally for recognizable
 credential formats and assignments before session persistence, queueing, or
 Runtime invocation. JSON/base64 rejection and browser correction tests pass.
-Deployment and the extended API smoke remain pending; direct Runtime/CLI and
-retrieved-content coverage is not implemented. Keep the broader secret-screening
-item open. See `docs/adr/0027-goal-credential-screening.md` for scope and limits.
+The API and shared worker package are deployed. The no-inference configuration
+suite passes, including direct Lambda rejection of synthetic credential-bearing
+JSON/base64 goals; sanitized evidence is in `docs/evidence/api-payload-limits.json`.
+Frontend publication and the synthetic credential rejection message in the
+authenticated browser are user-confirmed. The extended JWT API smoke suite has
+not been rerun. Shared screening now covers Runtime JSON payloads before schema
+validation/Memory lookup, local CLI goals, initial Gateway evidence, memory
+context, local planning, brief context, and model-selected tool results before
+they return to the model. Local SDK HTTP tests verify safe Runtime rejection and
+captured logs; other tests verify blocked context never reaches generation.
+`make check` passes with 421 backend and 37 frontend tests, and API packaging
+passes. Runtime version 52 is deployed to `stable` with the published image and
+MMDSv2 verified. Three signed synthetic probes (recommendation goal, brief goal,
+and nested JSON credential field) returned Runtime HTTP 400 without reflection.
+Bounded CloudWatch inspection found three session-correlated fixed rejections
+and HTTP spans, no synthetic marker, and no model spans. Sanitized evidence is
+in `docs/evidence/runtime-credential-screening.json`. This verifies the input
+boundary, not arbitrary retrieved-context/SDK-error telemetry; local tests cover
+the context-screening paths. A normal signed Runtime smoke also passes with
+three cited candidates and actor-scoped Memory retrieval. Verification is
+limited to these tested boundaries, not universal secret detection or scrubbing.
+See `docs/adr/0027-goal-credential-screening.md` for
+scope and limits, including SDK diagnostics and undetected credential formats.
 
 Credential verification uses synthetic markers in API headers, unused JWT
 claims, dependency errors, and Runtime environment credentials. Local tests

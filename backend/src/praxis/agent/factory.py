@@ -11,6 +11,7 @@ from strands.types.tools import AgentTool
 from praxis.agent.budget import CatalogResultBudget, ToolCallBudget
 from praxis.agent.evidence import CatalogEvidenceLedger
 from praxis.config import AgentSettings, load_settings
+from praxis.domain.prompt_safety import require_safe_content
 
 SYSTEM_PROMPT = """## Role
 You are Praxis, a project-planning assistant for one user. Help the user choose useful,
@@ -61,6 +62,7 @@ def scope_guardrail_input(
     settings: AgentSettings,
 ) -> str | list[ContentBlock]:
     """Assess user-authored text without classifying trusted application framing."""
+    require_safe_content((user_text, application_context))
     combined = f"{user_text}\n\n{application_context}"
     if settings.guardrail_id is None:
         return combined
@@ -127,6 +129,7 @@ def create_agent(
 
 def invoke(prompt: str, settings: AgentSettings | None = None) -> str:
     """Invoke the local agent and return its text representation."""
+    require_safe_content(prompt)
     configured_settings = settings or load_settings()
     result = create_agent(configured_settings)(prompt)
     return str(result)

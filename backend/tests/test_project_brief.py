@@ -13,6 +13,7 @@ from strands.agent.agent_result import AgentResult
 from praxis.agent import brief
 from praxis.config import AgentSettings
 from praxis.domain import EvidenceCitation, ProjectCandidate
+from praxis.domain.prompt_safety import SensitiveInputError
 from praxis.tools.contracts import BookEvidence
 
 
@@ -146,6 +147,22 @@ def test_project_brief_output_parses_atomic_json() -> None:
 def test_project_brief_output_rejects_incomplete_content() -> None:
     with pytest.raises(ValidationError, match="brief_json is invalid"):
         brief.ProjectBriefOutput(brief_json=json.dumps({"objective": "Incomplete"}))
+
+
+@pytest.mark.parametrize("source", ["goal", "candidate", "evidence"])
+def test_brief_screens_all_model_context_before_agent_creation(source: str) -> None:
+    marker = "api_key=synthetic-credential"
+    selected = candidate()
+    item = evidence()
+    if source == "candidate":
+        selected = selected.model_copy(update={"summary": marker})
+    if source == "evidence":
+        item = item.model_copy(update={"title": marker})
+    with patch.object(brief, "create_brief_agent") as create, pytest.raises(SensitiveInputError):
+        brief.invoke_project_brief(
+            marker if source == "goal" else "compiler", selected, [item], settings()
+        )
+    create.assert_not_called()
 
 
 def test_invokes_deterministic_brief_agent_with_server_context() -> None:
