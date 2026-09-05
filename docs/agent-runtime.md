@@ -292,8 +292,8 @@ describes the service's session and immutable-version boundaries.
 ## Container contract
 
 `backend/Containerfile` packages the runtime as a non-root Python 3.13 ARM64
-container. ADOT launches `praxis.agent.runtime`, which uses the AgentCore SDK
-to serve the required
+container using the Debian Trixie slim base. ADOT launches `praxis.agent.runtime`,
+which uses the AgentCore SDK to serve the required
 `GET /ping` and `POST /invocations` endpoints on `0.0.0.0:8080`. An invocation
 accepts `{"actor_id": "...", "prompt": "..."}` and returns three validated
 candidates, their bounded supporting fact records, the sanitized Memory
@@ -318,6 +318,14 @@ make smoke-agent-container
 platform. The smoke target builds the same Containerfile for the host architecture
 before checking `/ping`, avoiding slow cross-architecture emulation during local
 development.
+
+Package installation finishes during the build. The serving image excludes
+pip, its `ensurepip` bootstrap bundle, and uv/uvx; dependencies are frozen in
+the application virtual environment. The container smoke check verifies the
+health endpoint, Python version, non-root user, and absence of those installers.
+The build also strips setuid/setgid bits from files under `/usr`; the smoke
+check verifies they remain absent. See the [container risk review](container-risk-review.md)
+for advisory applicability and unresolved findings.
 
 The image contains no local credentials or `.env` file. Deployed AWS calls use
 the runtime execution role; local Gateway invocations continue to use the

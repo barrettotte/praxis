@@ -19,6 +19,7 @@ TOFU_DEV_PLAN ?= dev.tfplan
 TOFU_DEV_DESTROY_PLAN ?= dev-destroy.tfplan
 PROMPT ?=
 SUITE ?= config
+SCAN ?= all
 SOURCE_DATA_DIR ?= $(abspath ../barrettotte.github.io/data)
 DSPY_MODEL_ID ?= amazon.nova-lite-v1:0
 REGRESSION_RESULT ?= evals/project-recommendations/results/agentcore-v46-20260904T175002Z.json
@@ -35,6 +36,11 @@ EVALUATION_TESTS := \
 FRONTEND_NPM := $(NPM) --prefix frontend
 
 export UV_CACHE_DIR
+
+.PHONY: security
+
+security: ## Scan locked dependencies and the local agent image; SCAN=all|dependencies|image
+	CONTAINER_TOOL=$(CONTAINER_TOOL) AGENT_IMAGE=$(AGENT_IMAGE) ./scripts/security.sh "$(SCAN)"
 
 .PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-api-lambda package-functions agent agent-image smoke-agent-container preview-agent-image-dev push-agent-image-dev deploy-frontend-dev eval-baseline eval-check eval-dspy-instructions eval-projections eval-regression eval-retrieval-limits eval-runtime-dev inspect-runtime-versions-dev tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-dev smoke-memory-dev dev-frontend
 

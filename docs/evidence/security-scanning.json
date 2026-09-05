@@ -1,0 +1,52 @@
+{
+  "scanner": "Trivy",
+  "scanner_version": "0.74.0",
+  "scanner_image_digest": "sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
+  "database_updated_at": "2026-09-04T19:03:14.457271343Z",
+  "image_scan_created_at": "2026-09-05T03:19:48.753053132Z",
+  "command": "make security",
+  "gate_severities": ["HIGH", "CRITICAL"],
+  "unfixed_findings_included": true,
+  "dependencies": {
+    "scan_created_at": "2026-09-05T03:09:55.592369102Z",
+    "development_dependencies_included": true,
+    "targets": ["uv.lock", "frontend/package-lock.json", "backend/lambda/requirements.lock"],
+    "high": 0,
+    "critical": 0
+  },
+  "image": {
+    "config_digest": "sha256:3a04bf7fe40052910a9e13ce2cf8b1b26b37c97824ac94e84ac363d134c34747",
+    "base_image": "python:3.13.15-slim-trixie",
+    "architecture": "arm64",
+    "os": "Debian 13.6",
+    "high": 51,
+    "critical": 3,
+    "unique_advisory_ids": 18,
+    "os_package_findings": 54,
+    "findings_with_fixed_versions": 0,
+    "python_package_findings": 0,
+    "python_package_installers_present": false,
+    "python_findings": [],
+    "native_health_and_packaging_verified": true,
+    "arm64_health_and_packaging_verified": true,
+    "network_disabled_inspection": {
+      "uid": 10001,
+      "perl_pointer_bytes": 8,
+      "perl_integer_bytes": 8,
+      "confirmed_missing_perl_modules": ["Archive::Tar", "File::GlobMapper", "Storable"],
+      "fstab_configured_entries": 0,
+      "systemd_homed_binary_present": false,
+      "usr_setuid_setgid_files": 0,
+      "bin_resolves_to": "/usr/bin",
+      "sbin_resolves_to": "/usr/sbin"
+    }
+  },
+  "security_gate_passed": false,
+  "triage_status": "open",
+  "hosted_ci_verified": false,
+  "limitations": [
+    "Findings count package/advisory pairs, not independently exploitable vulnerabilities.",
+    "Affected code paths and upstream vendor assessments require triage.",
+    "Reports exclude lower severities and AWS-managed runtime dependencies."
+  ]
+}

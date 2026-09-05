@@ -26,6 +26,26 @@ for _ in {1..30}; do
       'import urllib.request; print(urllib.request.urlopen("http://127.0.0.1:8080/ping", timeout=2).read().decode())' \
       2>/dev/null
   )"; then
+    # Verify the serving identity and exclude installers and privilege-elevating files.
+    "${container_tool}" exec "${container_name}" python -c '
+import importlib.util
+import os
+import shutil
+import stat
+import sys
+from pathlib import Path
+assert sys.version_info[:2] == (3, 13)
+assert os.geteuid() != 0
+assert importlib.util.find_spec("pip") is None
+assert importlib.util.find_spec("ensurepip") is None
+assert not Path("/usr/local/lib/python3.13/site-packages/pip").exists()
+assert shutil.which("uv") is None
+assert shutil.which("uvx") is None
+assert not any(
+    path.is_file() and path.stat().st_mode & (stat.S_ISUID | stat.S_ISGID)
+    for path in Path("/usr").rglob("*")
+)
+'
     uv run python -c \
       'import json, sys; assert json.loads(sys.argv[1])["status"] == "Healthy"' \
       "${response}"

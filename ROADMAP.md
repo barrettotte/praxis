@@ -379,9 +379,36 @@ Definition of done: measurements show that cost or latency improved without a ma
 - [x] Test oversized prompts and tool arguments
 - [x] Test Lambda timeout and throttling behavior
 - [x] Screen pasted secrets before persistence/model calls and verify credential isolation from prompts/logs
-- [ ] Add dependency and container scanning
+- [x] Add dependency and container scanning
+- [ ] Triage and remediate the container scan findings or document reviewed risk exceptions
 - [ ] Produce a lightweight threat model
 - [ ] Document residual risks
+
+`make security` scans all three dependency locks (including development
+dependencies) and the local Runtime image with digest-pinned Trivy. Local
+verification found no HIGH/CRITICAL lockfile findings, but the ARM64 image
+reported 57 HIGH and 5 CRITICAL package findings across 23 unique advisory IDs.
+The command correctly fails without suppressing unfixed findings. Removing
+build-only pip, its ensurepip bootstrap bundle, and uv/uvx from the serving
+filesystem eliminates both Python findings. Updating the Python 3.13.15 base
+from Bookworm to Trixie reduces the remaining scan from 55 HIGH/5 CRITICAL
+to 51 HIGH/3 CRITICAL Debian package findings across 18 unique advisory IDs.
+The remaining findings have no fixed version listed by the scan database;
+vendor/reachability review remains open, with no exceptions or suppression.
+Current sanitized evidence is `docs/evidence/security-scanning.json`; full reports are in ignored
+`build/security/`. Native and ARM64 container health checks pass, including
+Python 3.13, non-root execution, absent Python installers, and no setuid/setgid
+files under `/usr`. Removing the inherited privilege bits leaves version-based
+scan counts unchanged. `docs/container-risk-review.md` reviews all 18 advisories:
+local ARM64 inspection verifies a 64-bit Perl build, three missing affected Perl
+modules, no configured fstab entries, and no systemd-homed executable. Other
+findings have no identified application path but are not proven unreachable;
+remediation or explicitly approved, scoped exceptions remain outstanding. `make check`
+passes with 424 backend and 37 frontend tests. Publication and deployment of
+the hardened image remain pending. Offline tests verify
+clean, vulnerability, and scanner-error exit handling. CI invokes the same
+command against a native AMD64 build; hosted verification remains pending while
+the private repository's Actions allowance is exhausted. No deployment changed.
 
 Timeout and throttling verification uses local injected SDK failures, catalog
 remaining-time checks, and browser 429/polling tests, plus read-only verification

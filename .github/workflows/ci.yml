@@ -47,6 +47,12 @@ jobs:
       - name: Build packages
         run: make build
 
+      - name: Build Runtime image for scanning
+        run: make agent-image CONTAINER_TOOL=docker AGENT_PLATFORM=linux/amd64
+
+      - name: Scan dependencies and Runtime image
+        run: make security CONTAINER_TOOL=docker
+
   infrastructure:
     name: Infrastructure
     runs-on: ubuntu-24.04
