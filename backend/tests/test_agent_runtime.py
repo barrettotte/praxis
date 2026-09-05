@@ -1,11 +1,19 @@
 """Tests for the AgentCore Runtime entry point."""
 
+import json
+import logging
 from collections.abc import Sequence
+from io import StringIO
 from typing import Protocol, cast
 from unittest.mock import patch
 
 import pytest
 from httpx import Client
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from opentelemetry.trace import StatusCode
+from starlette.exceptions import HTTPException
 from starlette.testclient import TestClient
 from starlette.types import ASGIApp
 
@@ -24,7 +32,111 @@ from praxis.domain.briefs import (
     ProjectMilestone,
     ProjectRisk,
 )
+from praxis.domain.prompt_safety import SensitiveInputError
 from praxis.tools.contracts import BookEvidence, Evidence
+
+
+@pytest.mark.parametrize("outcome", ["success", "rejected", "error"])
+def test_runtime_request_span_preserves_outcome_and_parent_without_content(outcome: str) -> None:
+    provider = TracerProvider()
+    exporter = InMemorySpanExporter()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    local_tracer = provider.get_tracer("test.runtime")
+    marker = "private synthetic request response and diagnostic"
+    response: dict[str, object] = {"result": marker}
+    failure = SensitiveInputError(marker) if outcome == "rejected" else RuntimeError(marker)
+
+    def invoke(payload: dict[str, object]) -> dict[str, object]:
+        assert payload == {"prompt": marker}
+        with local_tracer.start_as_current_span("test.child"):
+            pass
+        if outcome != "success":
+            raise failure
+        return response
+
+    try:
+        with (
+            patch.object(runtime, "tracer", local_tracer),
+            patch.object(runtime, "invoke_runtime", side_effect=invoke),
+            local_tracer.start_as_current_span("test.parent"),
+        ):
+            if outcome == "success":
+                assert runtime.handle_invocation({"prompt": marker}) is response
+            elif outcome == "rejected":
+                with pytest.raises(HTTPException) as rejected:
+                    runtime.handle_invocation({"prompt": marker})
+                assert rejected.value.status_code == 400
+                assert marker not in rejected.value.detail
+            else:
+                with pytest.raises(RuntimeError) as failed:
+                    runtime.handle_invocation({"prompt": marker})
+                assert failed.value is failure
+        spans = {span.name: span for span in exporter.get_finished_spans()}
+        request = spans["praxis.runtime.request"]
+        assert request.attributes == {"praxis.outcome": outcome}
+        assert request.events == ()
+        assert request.status.status_code == (
+            StatusCode.ERROR if outcome == "error" else StatusCode.UNSET
+        )
+        assert request.status.description is None
+        assert request.parent == spans["test.parent"].context
+        assert spans["test.child"].parent == request.context
+        assert request.start_time is not None
+        assert request.end_time is not None
+        assert request.end_time >= request.start_time
+        assert marker not in request.to_json()
+    finally:
+        provider.shutdown()
+
+
+@pytest.mark.parametrize("outcome", ["success", "rejected", "error"])
+def test_runtime_sdk_emits_json_outcomes(outcome: str) -> None:
+    """Verify native JSON logging, including its exception-detail exposure limit."""
+    sdk_logger = logging.getLogger("bedrock_agentcore.app")
+    formatter = sdk_logger.handlers[0].formatter
+    assert formatter is not None
+    output = StringIO()
+    capture = logging.StreamHandler(output)
+    capture.setFormatter(formatter)
+    content_marker = "synthetic request and response content"
+    diagnostic = "synthetic provider diagnostic"
+    failure: Exception | None = None
+    if outcome == "rejected":
+        failure = SensitiveInputError("Request content appears to contain credentials.")
+    elif outcome == "error":
+        failure = RuntimeError(diagnostic)
+    sdk_logger.addHandler(capture)
+    try:
+        with (
+            patch.object(
+                runtime,
+                "invoke_runtime",
+                return_value={"result": content_marker},
+                side_effect=failure,
+            ),
+            TestClient(cast("ASGIApp", app)) as client,
+        ):
+            response = cast("Client", client).post("/invocations", json={"prompt": content_marker})
+    finally:
+        sdk_logger.removeHandler(capture)
+    assert response.status_code == {"success": 200, "rejected": 400, "error": 500}[outcome]
+    records = [json.loads(line) for line in output.getvalue().splitlines()]
+    messages = {
+        "success": "Invocation completed successfully",
+        "rejected": "HTTP 400",
+        "error": "Invocation failed",
+    }
+    matches = [record for record in records if record["message"].startswith(messages[outcome])]
+    assert len(matches) == 1
+    record = matches[0]
+    assert record["logger"] == "bedrock_agentcore.app"
+    assert record["level"] == {"success": "INFO", "rejected": "WARNING", "error": "ERROR"}[outcome]
+    assert record["timestamp"]
+    assert content_marker not in output.getvalue()
+    if outcome == "error":
+        assert record["errorMessage"] == diagnostic
+        assert record["errorType"] == "RuntimeError"
+        assert record["stackTrace"]
 
 
 @pytest.mark.parametrize(

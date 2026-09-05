@@ -1,9 +1,12 @@
 """Private AWS Lambda entry point for the Praxis application API."""
 
+import logging
 from functools import cache
+from time import monotonic
 from typing import cast
 from uuid import uuid4
 
+from opentelemetry import trace
 from pydantic import JsonValue
 
 from praxis.api.correlation import response_correlation_id
@@ -39,6 +42,11 @@ from praxis.api.sessions import (
     PendingSession,
     create_session_store,
 )
+from praxis.functions.tracing import lambda_tracer
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+tracer = lambda_tracer(__name__)
 
 
 @cache
@@ -122,7 +130,7 @@ def select_candidate(
     )
 
 
-def lambda_handler(event: object, context: object) -> dict[str, object]:
+def _handle_request(event: object, context: object) -> dict[str, object]:
     """Validate one API Gateway request before dispatching application work."""
     fallback_correlation_id = response_correlation_id(event, context)
     try:
@@ -174,3 +182,37 @@ def lambda_handler(event: object, context: object) -> dict[str, object]:
             request.correlation_id,
         )
     return error_response(ApiErrorCode.SERVICE_UNAVAILABLE, request.correlation_id)
+
+
+def lambda_handler(event: object, context: object) -> dict[str, object]:
+    """Record fixed completion metadata without copying request or response content."""
+    # Do not turn escaping dependency errors into content-bearing span events.
+    with tracer.start_as_current_span(
+        "praxis.api.request", record_exception=False, set_status_on_exception=False
+    ) as span:
+        started = monotonic()
+        status_code: int | None = None
+        try:
+            response = _handle_request(event, context)
+            status_code = cast("int", response["statusCode"])
+            return response
+        finally:
+            outcome = "unhandled_error" if status_code is None else "responded"
+            span.set_attribute("praxis.outcome", outcome)
+            if status_code is not None:
+                span.set_attribute("http.response.status_code", status_code)
+            level = logging.INFO
+            if status_code is None or status_code >= 500:
+                level = logging.ERROR
+                span.set_status(trace.StatusCode.ERROR)
+            elif status_code >= 400:
+                level = logging.WARNING
+            logger.log(
+                level,
+                "api_request",
+                extra={
+                    "outcome": outcome,
+                    "status_code": status_code,
+                    "duration_ms": round((monotonic() - started) * 1000),
+                },
+            )

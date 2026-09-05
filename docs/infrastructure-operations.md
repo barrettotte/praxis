@@ -226,6 +226,55 @@ experiments. A hard worker termination cannot write a failed status; its SQS
 message remains subject to redelivery and dead-letter handling, and the browser
 can reach its polling limit while the stored session still says `pending`.
 
+The worker emits one `recommendation_delivery` application log per completed
+handler attempt using Python logging and Lambda's configured JSON log format.
+Its custom fields are `outcome` (`ready`, `failed`, or `retry`) and elapsed
+`duration_ms`. `ready` means candidates were stored; `failed` means a safe failure
+state was stored and the message is acknowledged. `retry` is ERROR-level and
+means an exception escaped; SQS redelivery/dead-letter policy determines what
+happens next. Other outcomes are INFO-level. Lambda supplies invocation metadata;
+the application record omits goals, subjects, session IDs, headers, results,
+and exception text. It does not change root logging or dependency verbosity.
+Hard termination can prevent this event, and SDK or platform exception records
+are outside its privacy contract. Use invocation metadata to investigate rather
+than enabling payload logging. Local tests verify these fields and unchanged
+exception propagation; deployed log capture requires publishing the API/worker ZIP.
+
+The API Lambda emits one `api_request` event with `outcome`, `status_code`, and
+`duration_ms`. Returned responses have outcome `responded`; status below 400 is
+INFO, 4xx is WARNING, and 5xx is ERROR. An escaping exception is ERROR with
+`unhandled_error` and a null status, not a claim that an HTTP response was sent.
+The wrapper returns responses unchanged and preserves exception propagation.
+It does not log request/response bodies, routes, identity, headers, correlation
+IDs, or exception details. Use Lambda invocation metadata for investigation and
+API Gateway access logs for route-level metadata. Rejections before Lambda do
+not produce this application event; hard termination may also prevent it.
+As with worker events, this contract does not sanitize platform or SDK logs.
+
+The catalog Lambda emits one `catalog_request` event with `outcome` and
+`duration_ms`, including failures during configuration or SDK setup. Success is
+INFO; `INVALID_ARGUMENTS` and `NOT_FOUND` are WARNING; `TIMEOUT`,
+`DEPENDENCY_FAILURE`, and `INTERNAL_ERROR` are ERROR. These are the existing
+normalized tool error codes, not provider messages. The event excludes tool
+arguments, tool names, evidence IDs/records, and exception text. Both direct
+invocations and Gateway calls use this Lambda boundary. Logging preserves
+the existing response and error conversion; hard termination and SDK/platform
+diagnostics have the same limitations described above. Build the catalog and
+ingestion artifact with `make package-functions`; deployed verification remains
+separate from local packaging and tests.
+
+The ingestion Lambda emits one `catalog_ingestion` event with `outcome`,
+`duration_ms`, and aggregate `records_accepted`, `records_written`,
+`records_deleted`, and `records_rejected`. `updated` is INFO and means the
+snapshot and report completed; `rejected` is WARNING and means validation
+prevented snapshot replacement. `error` is ERROR and preserves the escaping
+exception. Without a completed report, counts are null: a failed write or report
+operation may already have changed some records. This is not a rollback or
+transaction guarantee. Source names, paths, records, validation details, and
+exception text are omitted from the application event. Lambda responses and
+stored reports retain their existing contract. Hard termination may prevent
+logging, and platform/SDK diagnostics remain outside this privacy contract.
+
 The Memory check has a distinct confirmation because its first run creates one
 typed preference and one typed decision for a dedicated smoke actor. A
 deterministic preflight makes later runs read-only once both records exist. It
@@ -275,6 +324,51 @@ capture without session IDs to
 
 ## Runtime traces
 
+API and worker handlers create internal OpenTelemetry spans using the active
+provider, without configuring an exporter or extracting browser trace headers:
+
+| Span | Attributes | ERROR status |
+| --- | --- | --- |
+| `praxis.api.request` | `praxis.outcome`: `responded` or `unhandled_error`; `http.response.status_code` only when a response exists | Returned 5xx or escaping exception |
+| `praxis.worker.delivery` | `praxis.outcome`: `ready`, `failed`, or `retry` | Stored failure or escaping exception |
+| `praxis.catalog.request` | `praxis.outcome`: `success` or a normalized catalog error code | Any failed tool request, including invalid arguments |
+
+Other outcomes retain UNSET status. Span timestamps supply duration; automatic
+exception events and status descriptions are disabled. No request/response
+content, identity, route, or diagnostic text is attached. Existing application
+logs and exception/retry behavior are unchanged. A stored worker failure is an
+ERROR span even though its acknowledged-delivery log is INFO. These contracts
+do not scrub dependency spans or platform diagnostics, and hard termination
+can prevent span completion.
+
+The shared API/worker Runtime adapter forwards the active OpenTelemetry W3C
+`traceparent` through the SDK's `traceParent` parameter for recommendations and
+briefs. It uses the standard propagator, preserves the sampling flag, and omits
+the parameter when no valid context exists. It does not copy incoming browser
+headers, vendor `tracestate`, or arbitrary baggage; the existing encoded
+`praxis.correlation_id` baggage remains separate.
+
+The API adds active server-generated `traceparent` as an SQS String message
+attribute, leaving the job body unchanged. The single-record worker uses that
+validated identity as its remote parent, preserving sampling without accepting
+vendor state or baggage. Absent or malformed metadata starts an independent
+trace; it neither invalidates the job nor inherits another delivery's context.
+See [trusted trace propagation](adr/0028-trusted-trace-propagation.md).
+
+The Lambda package includes a locked SDK and HTTP/protobuf exporter. Its
+application-only provider is enabled by `PRAXIS_LAMBDA_TRACING=true` inside Lambda;
+without that opt-in, handlers use the existing active provider. It synchronously
+hands spans to `127.0.0.1:4318` with a 0.5-second exporter timeout and does not
+inherit proxy/netrc settings or arbitrary exporter headers. No automatic library
+instrumentation or metrics are enabled. The provider requires a collector
+extension; deployment configuration and end-to-end verification remain pending.
+Local tests exercise queue propagation and both Runtime call paths without AWS.
+
+The catalog handler also uses the active provider but does not extract context
+from tool arguments or assume Gateway forwards a parent. Its local span contract
+is verified separately; a deployed Runtime-to-Gateway-to-catalog parent chain is
+not yet established.
+
 CloudWatch Transaction Search must accept OTEL spans before Runtime trace
 verification. This is a one-time account and Region setting. In the CloudWatch
 console for `us-east-1`, open **Settings**, choose **X-Ray traces**, edit
@@ -308,15 +402,18 @@ prefix. Each run writes sanitized counters to the existing
 
 ## Deployed evaluation
 
-Run the canonical ten-case evaluation manually after the stable endpoint and
-its Strands traces are verified:
+Run the canonical evaluation manually, with explicit approval for its metered
+work, after the stable endpoint and its Strands traces are verified:
 
 ```shell
 make eval-runtime-dev
 ```
 
-This command performs ten metered Runtime invocations with isolated session IDs
-and waits for a correlated CloudWatch trace after each invocation. It resolves
+The current suite performs 30 metered Runtime invocations with isolated session
+IDs and up to 90 managed evaluation requests. It waits for a correlated
+CloudWatch trace after each invocation. Prefer the
+[local checks and cost controls](../evals/README.md#cost-and-token-controls)
+when a fresh model measurement is unnecessary. It resolves
 the endpoint qualifier, immutable Runtime version, and digest-pinned container
 from OpenTofu state, then writes a versioned result under
 `evals/project-recommendations/results/`. The artifact excludes AWS account,

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
+from unittest.mock import Mock
 
 import pytest
 
+from praxis.catalog import CatalogKind
+from praxis.functions import ingestion
 from praxis.functions.ingestion import (
     CatalogWriter,
     DynamoCatalogWriter,
@@ -23,6 +27,58 @@ if TYPE_CHECKING:
     from mypy_boto3_dynamodb.type_defs import BatchWriteItemOutputTypeDef
 
 FIXTURE_DIRECTORY = Path(__file__).parents[2] / "data" / "fixtures"
+
+
+@pytest.mark.parametrize("outcome", ["updated", "rejected", "error", "configuration"])
+def test_ingestion_logs_counts_without_content(
+    outcome: str, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    private_marker = "private source path and provider detail"
+    report = ingestion.IngestionReport(
+        sources=(ingestion.SourceResult(CatalogKind.BOOK, private_marker, 2, 0),),
+        records_deleted=1 if outcome == "updated" else 0,
+        rejected_records=()
+        if outcome == "updated"
+        else (ingestion.RejectedRecord(CatalogKind.BOOK, private_marker, 0, (private_marker,)),),
+        catalog_updated=outcome == "updated",
+    )
+    failure = RuntimeError(private_marker)
+    run = Mock(return_value=report, side_effect=failure if outcome == "error" else None)
+    monkeypatch.setattr(ingestion, "run_ingestion", run)
+    monkeypatch.setattr(ingestion, "Session", Mock())
+    monkeypatch.setenv("SOURCE_BUCKET_NAME", private_marker)
+    monkeypatch.setenv("CATALOG_TABLE_NAME", private_marker)
+    if outcome == "configuration":
+        monkeypatch.delenv("SOURCE_BUCKET_NAME")
+    if outcome in {"error", "configuration"}:
+        with pytest.raises((RuntimeError, IngestionConfigurationError)) as raised:
+            ingestion.lambda_handler(private_marker, object())
+        if outcome == "error":
+            assert raised.value is failure
+        else:
+            run.assert_not_called()
+    else:
+        assert ingestion.lambda_handler(private_marker, object()) == report.as_dict()
+    records = [r for r in caplog.records if r.name == ingestion.__name__]
+    assert len(records) == 1
+    record = records[0]
+    assert record.getMessage() == "catalog_ingestion"
+    assert record.__dict__["outcome"] == ("error" if outcome == "configuration" else outcome)
+    assert record.__dict__["duration_ms"] >= 0
+    for field in ("records_accepted", "records_written", "records_deleted", "records_rejected"):
+        expected = getattr(report, field) if outcome in {"updated", "rejected"} else None
+        assert record.__dict__[field] == expected
+    assert (
+        record.levelno
+        == {
+            "updated": logging.INFO,
+            "rejected": logging.WARNING,
+            "error": logging.ERROR,
+            "configuration": logging.ERROR,
+        }[outcome]
+    )
+    assert record.exc_info is None
+    assert private_marker not in str(record.__dict__)
 
 
 class FixtureSourceReader(SourceReader):

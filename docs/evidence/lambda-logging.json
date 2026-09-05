@@ -1,0 +1,75 @@
+{
+  "verified_at": "2026-09-05T16:45:41Z",
+  "verification": "read-only Lambda configuration after saved-plan deployment",
+  "plan_sha256": "3f847330d2c20c21a4cb900fe2be3b4462ad4dec25d6868d65b4be33a488508a",
+  "resources_added": 0,
+  "resources_changed": 4,
+  "resources_destroyed": 0,
+  "functions": [
+    {
+      "component": "api",
+      "code_sha256_base64": "NSemFsWOqL4Wl8wgxlvDRMMzI7w5zlsOv0dlqaIa4wY=",
+      "state": "Active",
+      "update_status": "Successful",
+      "log_format": "JSON"
+    },
+    {
+      "component": "recommendation_worker",
+      "code_sha256_base64": "NSemFsWOqL4Wl8wgxlvDRMMzI7w5zlsOv0dlqaIa4wY=",
+      "state": "Active",
+      "update_status": "Successful",
+      "log_format": "JSON"
+    },
+    {
+      "component": "catalog",
+      "code_sha256_base64": "SOezDgD5ON5P1F5nScKPcDeBnAnXm7P5PA0wNBEKMzc=",
+      "state": "Active",
+      "update_status": "Successful",
+      "log_format": "JSON"
+    },
+    {
+      "component": "ingestion",
+      "code_sha256_base64": "SOezDgD5ON5P1F5nScKPcDeBnAnXm7P5PA0wNBEKMzc=",
+      "state": "Active",
+      "update_status": "Successful",
+      "log_format": "JSON"
+    }
+  ],
+  "deployed_hashes_match_local_packages": true,
+  "runtime_changed": false,
+  "emitted_events_verified": true,
+  "workflow_event_inspection": {
+    "checked_at": "2026-09-05T17:46:27Z",
+    "verification": "One approved API Lambda smoke workflow followed by bounded CloudWatch reads",
+    "model_workflows": ["recommendation", "selected-project brief"],
+    "page_limit_per_function": 3,
+    "matching_event_counts": {"api": 3, "recommendation_worker": 1, "catalog": 1},
+    "representative_events": [
+      {"component": "api", "timestamp": "2026-09-05T17:44:41Z", "message": "api_request", "level": "INFO", "outcome": "responded", "status_code": 202, "duration_ms": 2100},
+      {"component": "recommendation_worker", "timestamp": "2026-09-05T17:44:54Z", "message": "recommendation_delivery", "level": "INFO", "outcome": "ready", "duration_ms": 11985},
+      {"component": "catalog", "timestamp": "2026-09-05T17:44:49Z", "message": "catalog_request", "level": "INFO", "outcome": "success", "duration_ms": 2531}
+    ],
+    "only_expected_metadata_fields": true,
+    "limitation": "Representative application events only, combined with the retained ingestion inspection below. Platform logger/request identifiers are omitted from this capture. This is not proof that dependency diagnostics are content-free or that distributed spans are exported."
+  },
+  "event_inspection": {
+    "checked_at": "2026-09-05T16:53:02Z",
+    "start_time": "2026-09-05T16:45:41Z",
+    "page_limit_per_function": 20,
+    "matching_event_counts": {"api": 0, "recommendation_worker": 0, "catalog": 0, "ingestion": 1},
+    "continuation_tokens_returned": {"api": false, "recommendation_worker": false, "catalog": false, "ingestion": true},
+    "ingestion_event": {
+      "timestamp_epoch_ms": 1788627071965,
+      "message": "catalog_ingestion",
+      "level": "INFO",
+      "outcome": "updated",
+      "duration_ms": 5000,
+      "records_accepted": 1034,
+      "records_written": 1034,
+      "records_deleted": 0,
+      "records_rejected": 0,
+      "only_expected_metadata_fields": true
+    },
+    "limitation": "One bounded page per function, without following continuation tokens. Missing events do not establish whether functions were invoked or logs are delayed. No additional invocations were performed."
+  }
+}

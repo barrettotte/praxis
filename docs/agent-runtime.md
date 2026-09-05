@@ -186,6 +186,23 @@ Empty or contradictory evidence produces an explicit planning error rather
 than an ungrounded recommendation. A conflicting Gateway tool response is also
 replaced with an error before its content can return to the model.
 
+## Application logs
+
+Use the installed AgentCore SDK's `bedrock_agentcore.app` JSON logs for Runtime
+HTTP outcomes; Praxis does not emit a duplicate completion event. The SDK
+formatter includes timestamp, level, message, logger, and request/session IDs
+when available. Success is INFO, the fixed credential rejection is WARNING,
+and escaping application exceptions are ERROR. Duration is embedded in the
+message in seconds, not a separate `duration_ms` field as in the Lambda events.
+
+Local HTTP tests exercise the SDK handler and formatter for all three outcomes.
+They verify that the tested success/rejection paths do not copy payload content,
+and explicitly confirm that an unhandled synthetic provider exception appears
+in `errorMessage`, `errorType`, and `stackTrace`. These logs are **not** subject
+to the content-free Lambda event contract. SDK diagnostics and traces require
+restricted access and non-sensitive inputs; review this behavior on SDK updates.
+Malformed transport requests and abrupt termination are outside these probes.
+
 ## Tracing
 
 The Runtime image starts through the AWS Distro for OpenTelemetry (ADOT)
@@ -195,6 +212,21 @@ and model-selected tool spans under its supported
 Runtime session and supplies the endpoint-specific OTEL service name. The
 execution role can submit traces and retrieve X-Ray sampling rules but cannot
 read traces or change observability configuration.
+
+The application adds an internal `praxis.runtime.request` span around validation
+and generation for both recommendations and briefs. It inherits the current
+trace context and records only `praxis.outcome`: `success`, `rejected` for the
+fixed credential rejection, or `error` for an escaping exception. Error spans
+have ERROR status without a description; successful and rejected spans retain
+UNSET status. Span timestamps supply duration. No payload, identity, evidence,
+exception event, or exception text is attached by this instrumentation.
+
+The span uses the existing provider; it does not configure an exporter or send
+telemetry when none is configured. Local in-memory exporter tests verify parent
+and child relationships, outcomes, and unchanged return/exception behavior.
+This contract covers only the application span, not enclosing SDK HTTP spans,
+SDK logs, or content-bearing Strands spans. It does not establish cross-service
+API/queue/Gateway trace propagation.
 
 AgentCore Evaluations consumes the standard Strands spans rather than a Praxis-
 specific trace schema. AgentCore stores them in the named Runtime endpoint's

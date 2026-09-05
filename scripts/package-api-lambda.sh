@@ -28,6 +28,8 @@ cp -R "${praxis_repo_root}/backend/src/praxis/domain" "${praxis_package_dir}/pac
 cp -R "${praxis_repo_root}/backend/src/praxis/tools" "${praxis_package_dir}/package/praxis/"
 cp "${praxis_repo_root}/backend/src/praxis/functions/__init__.py" \
   "${praxis_package_dir}/package/praxis/functions/"
+cp "${praxis_repo_root}/backend/src/praxis/functions/tracing.py" \
+  "${praxis_package_dir}/package/praxis/functions/"
 cp "${praxis_repo_root}/backend/src/praxis/functions/api.py" \
   "${praxis_package_dir}/package/praxis/functions/"
 cp "${praxis_repo_root}/backend/src/praxis/functions/recommendation_worker.py" \

@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -17,6 +18,7 @@ from praxis.catalog import (
     search_catalog,
 )
 from praxis.domain import Project
+from praxis.functions import catalog as catalog_function
 from praxis.functions.catalog import (
     CatalogRepository,
     CatalogToolError,
@@ -25,6 +27,66 @@ from praxis.functions.catalog import (
 )
 
 FIXTURE_DIRECTORY = Path(__file__).parents[2] / "data" / "fixtures"
+
+
+@pytest.mark.parametrize(
+    "code",
+    [None, "INVALID_ARGUMENTS", "NOT_FOUND", "TIMEOUT", "DEPENDENCY_FAILURE", "INTERNAL_ERROR"],
+)
+def test_catalog_completion_log_excludes_content(
+    code: catalog_function.CatalogToolErrorCode | None,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    private_marker = "private arguments records and provider detail"
+    response = {"results": [private_marker]}
+    failure = CatalogToolError(code, private_marker, retryable=True) if code else None
+    monkeypatch.setenv("CATALOG_TABLE_NAME", "local-test-table")
+    monkeypatch.setattr(catalog_function, "Session", Mock())
+    monkeypatch.setattr(
+        catalog_function,
+        "handle_catalog_invocation",
+        Mock(return_value=response, side_effect=failure),
+    )
+    if failure is not None:
+        with pytest.raises(CatalogToolError) as raised:
+            catalog_function.lambda_handler({"arguments": private_marker}, object())
+        assert raised.value is failure
+    else:
+        assert catalog_function.lambda_handler({"arguments": private_marker}, object()) is response
+    records = [r for r in caplog.records if r.name == catalog_function.__name__]
+    assert len(records) == 1
+    record = records[0]
+    assert record.getMessage() == "catalog_request"
+    assert record.__dict__["outcome"] == (code or "success")
+    assert record.__dict__["duration_ms"] >= 0
+    level = logging.ERROR
+    if code is None:
+        level = logging.INFO
+    elif code in {"INVALID_ARGUMENTS", "NOT_FOUND"}:
+        level = logging.WARNING
+    assert record.levelno == level
+    assert record.exc_info is None
+    assert private_marker not in str(record.__dict__)
+
+
+@pytest.mark.parametrize("timeout", [False, True])
+def test_catalog_startup_failures_are_logged(
+    timeout: bool, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.delenv("CATALOG_TABLE_NAME", raising=False)
+    session = Mock()
+    monkeypatch.setattr(catalog_function, "Session", session)
+    context = (
+        gateway_context("target___search_catalog", remaining_time_ms=1) if timeout else object()
+    )
+    with pytest.raises(CatalogToolError):
+        catalog_function.lambda_handler({}, context)
+    session.assert_not_called()
+    records = [r for r in caplog.records if r.name == catalog_function.__name__]
+    assert len(records) == 1
+    assert records[0].__dict__["outcome"] == ("TIMEOUT" if timeout else "INTERNAL_ERROR")
+    assert records[0].exc_info is None
 
 
 class LocalCatalogRepository(CatalogRepository):

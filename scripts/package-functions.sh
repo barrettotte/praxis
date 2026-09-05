@@ -32,6 +32,8 @@ cp "${praxis_repo_root}/backend/src/praxis/domain/__init__.py" \
 mkdir -p "${praxis_package_dir}/package/praxis/functions"
 cp "${praxis_repo_root}/backend/src/praxis/functions/__init__.py" \
   "${praxis_package_dir}/package/praxis/functions/"
+cp "${praxis_repo_root}/backend/src/praxis/functions/tracing.py" \
+  "${praxis_package_dir}/package/praxis/functions/"
 cp "${praxis_repo_root}/backend/src/praxis/functions/catalog.py" \
   "${praxis_package_dir}/package/praxis/functions/"
 cp "${praxis_repo_root}/backend/src/praxis/functions/ingestion.py" \

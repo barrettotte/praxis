@@ -32,6 +32,9 @@ preserve unrelated user changes.
 - Treat deployed development environments as temporary. Prefer on-demand
   services, avoid provisioned capacity, and keep the initial total AWS spend
   below $10. Preserve only documented bootstrap resources when tearing down.
+- Prefer local tests and existing evidence over fresh AWS executions. Obtain
+  explicit approval before metered model smoke tests, evaluations, or DSPy runs;
+  do not repeat them merely to refresh evidence. Keep cloud inspection bounded.
 - Keep source data in the sibling repository authoritative and read-only;
   ingested cloud copies must be disposable and reproducible.
 - Keep AgentCore Gateway tools and external integrations read-only. External

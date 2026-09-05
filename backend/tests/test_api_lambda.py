@@ -1,7 +1,9 @@
 """Tests for application API request validation and the Lambda entry point."""
 
 import json
+import logging
 from base64 import b64encode
+from unittest.mock import Mock
 
 import pytest
 
@@ -42,6 +44,59 @@ CORRELATION_ID = "51f4a405-8835-411d-9821-5980d73f51f6"
 GATEWAY_REQUEST_ID = "MqgCjHCKoAMEPLw="
 ACTOR_ID = "7b9db85b-9448-4a41-9bb7-235a461429ae"
 GOAL = "Learn compiler backends over a weekend"
+
+
+@pytest.mark.parametrize("status_code", [200, 202, 400, 404, 413, 503, None])
+def test_api_completion_log_excludes_content(
+    status_code: int | None,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    private_marker = "private request response and exception detail"
+    response = {"statusCode": status_code, "body": private_marker}
+    failure = RuntimeError(private_marker)
+    dispatch = Mock(return_value=response, side_effect=failure if status_code is None else None)
+    monkeypatch.setattr(api_function, "_handle_request", dispatch)
+    with caplog.at_level(logging.INFO, logger=api_function.__name__):
+        if status_code is None:
+            with pytest.raises(RuntimeError) as raised:
+                api_function.lambda_handler({"body": private_marker}, object())
+            assert raised.value is failure
+        else:
+            assert api_function.lambda_handler({"body": private_marker}, object()) is response
+    records = [record for record in caplog.records if record.name == api_function.__name__]
+    assert len(records) == 1
+    record = records[0]
+    assert record.getMessage() == "api_request"
+    assert record.__dict__["status_code"] == status_code
+    assert record.__dict__["duration_ms"] >= 0
+    assert record.__dict__["outcome"] == ("unhandled_error" if status_code is None else "responded")
+    expected_level = logging.INFO
+    if status_code is None or status_code >= 500:
+        expected_level = logging.ERROR
+    elif status_code >= 400:
+        expected_level = logging.WARNING
+    assert record.levelno == expected_level
+    assert record.exc_info is None
+    assert private_marker not in str(record.__dict__)
+
+
+def test_invalid_api_input_is_not_logged(caplog: pytest.LogCaptureFixture) -> None:
+    private_marker = "untrusted header body route and identity"
+    response = api_function.lambda_handler(
+        {
+            "body": private_marker,
+            "headers": {"authorization": private_marker},
+            "routeKey": private_marker,
+            "requestContext": {"requestId": private_marker},
+        },
+        object(),
+    )
+    assert response["statusCode"] == 400
+    records = [record for record in caplog.records if record.name == api_function.__name__]
+    assert len(records) == 1
+    assert records[0].__dict__["status_code"] == 400
+    assert private_marker not in str(records[0].__dict__)
 
 
 def http_event(

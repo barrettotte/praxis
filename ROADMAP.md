@@ -47,6 +47,13 @@ availability becomes a demonstrated problem.
 
 ### Cost posture
 
+- User-reported spend is approximately $5 as of September 5, 2026, attributed
+  tentatively to evaluation/DSPy work; billing has not been independently checked.
+  Prefer local work and existing evidence. Fresh metered smoke tests, evaluations,
+  and DSPy runs require explicit approval; do not rerun them just for log capture.
+- The user subsequently approved bounded AWS calls to complete observability
+  and demonstration work, including lightweight smoke verification. Avoid heavy
+  evaluation or DSPy tasks; retain saved-plan review and teardown approval rules.
 - Use on-demand services and avoid provisioned throughput or commitments.
 - Deploy only the development environment while actively building or testing.
 - Destroy the application stack during extended pauses and at project end.
@@ -381,8 +388,22 @@ Definition of done: measurements show that cost or latency improved without a ma
 - [x] Screen pasted secrets before persistence/model calls and verify credential isolation from prompts/logs
 - [x] Add dependency and container scanning
 - [ ] Triage and remediate the container scan findings or document reviewed risk exceptions
-- [ ] Produce a lightweight threat model
-- [ ] Document residual risks
+- [x] Produce a lightweight threat model
+- [x] Document residual risks
+
+With user approval, the threat model proceeds while container remediation stays
+open and the security gate remains strict. `docs/threat-model.md` maps implemented
+trust boundaries, threats, control evidence, and verification limits. Review
+against API/worker/Runtime code, identity/hosting/queue configuration, and existing
+ADRs verifies the inventory; 88 targeted boundary tests pass. The document calls
+out deployment-wide Memory personalization, duplicate metered work, 14-day
+dead-letter retention, and content-bearing telemetry. `docs/residual-risks.md`
+records eight open risks with project priorities, proposed maintainer ownership,
+handling actions, and review triggers. Its coverage was checked against the
+threat model and container review; local document links and whitespace checks
+pass. Documentation is complete, not risk acceptance or mitigation. Container
+remediation remains open; structured logging deployment and verification are
+tracked below. No exception is accepted by these documentation reviews.
 
 `make security` scans all three dependency locks (including development
 dependencies) and the local Runtime image with digest-pinned Trivy. Local
@@ -457,23 +478,190 @@ Definition of done: the project demonstrates working controls instead of only li
 
 ## Phase 10 - Observability and demonstration package
 
-- [ ] Add structured logs throughout
+The Lambda export provider is implemented behind an explicit opt-in. It owns a
+locked SDK, uses parent-based sampling and X-Ray-compatible IDs, and hands spans
+synchronously to a local HTTP/protobuf collector with a 0.5-second exporter
+timeout. It does not replace the global provider, enable automatic library
+instrumentation, or inherit arbitrary exporter headers/proxy credentials.
+API, worker, and catalog use the helper; both packaging scripts include it.
+Four local tests verify opt-in, reuse, sampling, metadata, and transport settings.
+`make check` passes with 484 backend and 37 frontend tests; both Lambda ZIPs build.
+A bounded read-only AWS lookup verified collector-only layer
+`aws-otel-collector-amd64-ver-0-156-0:4` in `us-east-1` (AWS publisher
+`901920570463`, size 14,519,118 bytes, SHA-256 base64
+`O/SMWrsEJnin7ymFCDA4uTCB5EK7f2hggBbbJ76J74Q=`). Returned compatibility lists
+were absent; this is availability verification, not runtime compatibility proof.
+ADR 0028 records the export boundary. Next: package a traces-only collector
+configuration, attach the pinned layer and narrowly scoped export permissions
+through a reviewed saved plan, then verify a no-model invocation before a
+bounded end-to-end smoke. No deployment or metered inference occurred here.
+
+After the user approved lightweight AWS verification, one API Lambda smoke
+completed asynchronous recommendations and selected-project brief generation,
+including subject-isolation checks. Bounded CloudWatch reads verified three API
+events, one ready worker event, and one successful catalog event with only the
+expected metadata fields. Combined with the retained ingestion event and Runtime
+verification, this completes structured logging. Sanitized evidence is in
+`docs/evidence/lambda-logging.json`; SDK diagnostic scrubbing is not claimed.
+No heavy evaluations, DSPy runs, or deployments were performed.
+
+Catalog instrumentation now adds `praxis.catalog.request` through the active
+provider, with only normalized outcomes and error status, no automatic exception
+events, and unchanged results/errors. Four local cases verify privacy, parent/child
+linkage, and behavior. `make check` passes with 480 backend and 37 frontend tests;
+the shared functions ZIP builds successfully. These spans
+are not deployed or exported yet; Lambda provider/export configuration and the
+Gateway-to-catalog propagation boundary are the next tracing work. Keep the
+end-to-end instrumentation checkbox open until deployed verification.
+
+Structured logging is implemented and deployed for all four Lambdas:
+`api_request`, `recommendation_delivery`, `catalog_request`, and
+`catalog_ingestion`. Events contain fixed outcomes, duration, and applicable
+status/count fields, not payloads or exception text. Incomplete ingestion counts
+are null rather than misleading zeros. Local tests verify these contracts and
+unchanged response/error behavior. The latest `make check` passes with 451 backend
+and 37 frontend tests; both Lambda packaging targets pass.
+
+The reviewed saved plan applied four in-place code updates, with no additions
+or deletions. Gateway policy recomputation made no effective change. Read-only
+AWS checks confirm Active/Successful state, JSON logging, and matching local
+package hashes. Evidence is `docs/evidence/lambda-logging.json`.
+
+The Runtime deployment is unchanged. Its installed SDK already provides
+JSON outcome logs; three local HTTP tests verify success, rejection, and failure
+formatting. SDK exception logs contain diagnostics and are not covered by the
+content-free Lambda event contract; README and Runtime docs explain the difference.
+
+Remaining verification: following user-confirmed actions, a bounded CloudWatch
+read verified an INFO `catalog_ingestion` event with outcome `updated`, 1,034
+accepted/written records, zero deleted/rejected records, and only the intended
+metadata fields. The sampled API/worker/catalog pages returned no matching
+events; this does not establish whether calls were absent or delivery was delayed.
+Do not request repeated paid work for this evidence: keep logging unchecked and
+use existing events when available. Further implementation should stay local.
+Container remediation and hosted CI remain open. OpenTelemetry implementation
+can proceed locally while deployed logging verification remains pending.
+
+The Runtime entry point now adds a `praxis.runtime.request` span around validation
+and generation using the installed OpenTelemetry provider. Only a fixed outcome
+is attached; automatic exception events/status descriptions are disabled, and
+escaping errors set ERROR status without diagnostic text. Three in-memory tests
+verify outcomes, parent/child relationships, timestamps, privacy, and unchanged
+return/exception behavior. `make check` passes with 454 backend and 37 frontend
+tests after rerunning the sandbox-stalled HTTP tests outside the sandbox.
+No AWS calls, new dependencies, exporter configuration, publication, or deployment
+were performed. This is a local Runtime slice only: API/queue/tool propagation
+and deployed trace verification remain incomplete, so the tracing checkbox stays
+open.
+
+The shared API/worker Runtime adapter forwards active W3C trace context using
+the SDK `traceParent` parameter, without vendor state or arbitrary baggage.
+Four local tests cover sampled/unsampled contexts through both public adapters;
+existing no-context request assertions retain their unchanged wire contract.
+The OpenTelemetry API is now a direct dependency and included in the Lambda
+lock/package; no existing dependency versions changed. `make check` passes
+with 458 backend and 37 frontend tests, and API packaging verifies the propagator
+is included. No AWS calls or deployment occurred. Lambda provider/exporter setup,
+queue propagation, and deployed verification remain open.
+
+API and worker handlers now add `praxis.api.request` and
+`praxis.worker.delivery` spans through the active provider, without configuring
+an exporter or accepting browser trace headers. Fixed outcomes and API response
+status are the only attributes; exceptions are not recorded as span events or
+status descriptions. Existing logs, responses, and SQS retry behavior remain
+unchanged. Seven in-memory cases verify status/outcome, parent/child linkage,
+timing, privacy, and response/exception preservation. `make check` passes with
+465 backend and 37 frontend tests; API/worker packaging passes. No dependencies,
+AWS resources, export paths, or deployments changed in this slice. Next is
+trusted queue trace-context propagation; deployed tracing remains unchecked.
+
+Queue propagation is now implemented locally: the API injects server-generated
+W3C trace identity into optional SQS metadata, and the single-record worker
+continues that parent with its sampling flag. Job bodies remain unchanged;
+missing or malformed metadata does not break jobs or inherit unrelated context.
+Vendor state and arbitrary baggage are excluded. ADR 0028 records the trust
+boundary. Eleven new local cases verify transport, privacy, compatibility, and
+worker linkage. `make check` passes with 476 backend and 37 frontend tests;
+API/worker packaging and the targeted 35-test suite pass. No AWS calls or
+deployment occurred. Next is local catalog-tool instrumentation; Lambda exporter
+configuration and deployed end-to-end verification remain open, with no tracing
+checkbox changed.
+
+Cost/token documentation is complete in `evals/README.md`, using checked-in
+projection, retrieval, caching, DSPy, and model-comparison evidence. Command
+guidance distinguishes no-AWS checks from locally hosted metered inference;
+operations documentation now reflects the 30-case evaluation and managed
+evaluator calls. `make eval-check` passes all 32 tests and the recorded regression
+gate without AWS calls. Logging and tracing verification remain open.
+
+The five-minute presentation script in `docs/demo.md` uses existing evidence by
+default and separates an optional approved live workflow from local checks.
+The six presentation segments total five minutes; linked files resolve, cited
+measurements match their artifacts, and all 37 frontend tests pass locally.
+The script is written, not a recorded or live-rehearsed demonstration. Video
+and failure/recovery trace capture remain open; no AWS calls were made.
+
+`docs/architecture-tradeoffs.md` consolidates ten accepted choices with benefits,
+limitations, and review triggers. Review against the linked ADRs and risk register
+preserves the distinction between subject-owned sessions and deployment-wide
+Memory personalization, and between citation provenance and factual correctness.
+Local link and whitespace checks pass. No architecture or deployment changed.
+
+`docs/multi-user-deployment.md` documents prerequisites for broader access,
+including trusted identity propagation, Memory/catalog isolation, telemetry
+permissions, duplicate-work handling, and operational ownership. Current-state
+claims were checked against API/session/worker code, deployment actor and Cognito
+configuration, and the threat model. Local links and whitespace checks pass.
+This completes the explanation only; multi-user implementation is not authorized
+or verified, and the current architecture remains single-user.
+
+The conditional production-evolution diagram in `docs/multi-user-deployment.md`
+keeps the application/tool boundaries and shows a private-source connector only
+when a concrete reachability requirement justifies it. It distinguishes that
+case from private service ingress or controlled Runtime egress. Review against
+the documented tenancy requirements and initial architecture ADR passes;
+the text diagram fits 80 columns, its README anchor resolves, and whitespace
+checks pass. It is a proposal, not an approved network design or deployment.
+
+The enterprise retrieval mapping in `docs/multi-user-deployment.md` relates all
+four inputs, ingestion, Gateway retrieval, and reviewed output to organizational
+use cases. Review against the retrieval/tool ADRs and evaluation guide confirms
+that analogies do not imply connectors, a Knowledge Base, document permissions,
+or external writes. Local links, the README anchor, and whitespace checks pass;
+no application, infrastructure, or authoritative data changed.
+
+The README is prepared for public readers with a short workflow, explicit
+single-user/security limits, local prerequisites, separate metered AWS usage,
+and consolidated guide links. The opening description and architecture diagram
+are preserved. Local links, whitespace, Make help, CLI help, and smoke-suite help
+checks pass without AWS calls. Public publication remains unchecked: no push or
+repository-visibility change was requested or performed.
+
+Existing demonstration captures were reviewed locally. The Runtime rejection
+artifact verifies three synthetic HTTP 400 probes without reflection and their
+bounded correlated log inspection, satisfying the rejected-request capture item.
+The successful trace artifact records 15 spans only as a summary; it lacks the
+retained span tree/timings/outcomes needed for a trace walkthrough. Its version
+also differs from the separate successful invocation capture. Successful-trace
+and failure/recovery items therefore remain open. `docs/demo.md` records coverage
+and acceptance criteria; JSON assertions pass without AWS calls or new captures.
+
+- [x] Add structured logs throughout
 - [ ] Extend OpenTelemetry instrumentation across API, runtime, and tools
 - [ ] Enable AgentCore and CloudWatch observability
 - [ ] Create a dashboard for latency, tokens, errors, and tool calls
 - [ ] Add alarms for error rate and unexpected spending
 - [ ] Create a polished architecture diagram
-- [ ] Create a five-minute demo script
+- [x] Create a five-minute demo script
 - [ ] Capture one successful trace
-- [ ] Capture one rejected invalid request
+- [x] Capture one rejected invalid request
 - [ ] Capture one failure-and-recovery trace
-- [ ] Document architectural tradeoffs
-- [ ] Document cost and token optimizations
-- [ ] Explain changes needed for a multi-user enterprise deployment
-- [ ] Diagram a production evolution with private networking only where justified
-- [ ] Map the personal-data workflow to an enterprise retrieval pattern
+- [x] Document architectural tradeoffs
+- [x] Document cost and token optimizations
+- [x] Explain changes needed for a multi-user enterprise deployment
+- [x] Diagram a production evolution with private networking only where justified
+- [x] Map the personal-data workflow to an enterprise retrieval pattern
 - [ ] Publish a concise public README
-- [ ] Record a short demonstration video
 
 Definition of done: another engineer can deploy the project, understand its controls, and reproduce the demonstration.
 

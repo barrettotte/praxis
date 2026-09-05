@@ -9,6 +9,7 @@ from urllib.parse import quote
 from boto3.session import Session
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from praxis.domain import ProjectCandidate
@@ -180,6 +181,10 @@ def _invoke_runtime_payload(
 ) -> bytes:
     """Invoke Runtime once and return a validated buffered JSON payload."""
     encoded_payload = json.dumps(payload, separators=(",", ":")).encode()
+    carrier: dict[str, str] = {}
+    TraceContextTextMapPropagator().inject(carrier)
+    # Forward only standard trace identity, not vendor state or arbitrary baggage.
+    trace_headers = {"traceParent": carrier["traceparent"]} if "traceparent" in carrier else {}
     try:
         response = client.invoke_agent_runtime(
             accept=JSON_CONTENT_TYPE,
@@ -189,6 +194,7 @@ def _invoke_runtime_payload(
             payload=encoded_payload,
             qualifier=settings.qualifier,
             runtimeSessionId=session_id,
+            **trace_headers,
         )
     except (BotoCoreError, ClientError) as error:
         raise ApiRuntimeError("Runtime invocation failed") from error

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 from collections.abc import Mapping, Sequence
@@ -49,6 +50,8 @@ PROJECT_ADAPTER = TypeAdapter(Project)
 BYTE_ADAPTER = TypeAdapter(Byte)
 MUSEUM_ADAPTER = TypeAdapter(MuseumObject)
 DYNAMO_SERIALIZER = TypeSerializer()
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 class IngestionConfigurationError(ValueError):
@@ -441,11 +444,35 @@ def run_ingestion(
 
 def lambda_handler(_event: object, _context: object) -> dict[str, object]:
     """AWS Lambda entry point for a complete catalog ingestion run."""
-    config = IngestionConfig.from_environment()
-    session = Session()
-    s3_client: S3Client = session.client("s3")  # pyright: ignore[reportUnknownMemberType]
-    dynamodb_client: DynamoDBClient = session.client("dynamodb")  # pyright: ignore[reportUnknownMemberType]
-    dynamodb_resource: DynamoDBServiceResource = session.resource("dynamodb")  # pyright: ignore[reportUnknownMemberType]
-    source_reader = S3SourceReader(s3_client)
-    catalog_writer = DynamoCatalogWriter(dynamodb_resource, dynamodb_client)
-    return run_ingestion(config, source_reader, catalog_writer).as_dict()
+    started = time.monotonic()
+    report: IngestionReport | None = None
+    outcome = "error"
+    try:
+        config = IngestionConfig.from_environment()
+        session = Session()
+        s3_client: S3Client = session.client("s3")  # pyright: ignore[reportUnknownMemberType]
+        dynamodb_client: DynamoDBClient = session.client("dynamodb")  # pyright: ignore[reportUnknownMemberType]
+        dynamodb_resource: DynamoDBServiceResource = session.resource("dynamodb")  # pyright: ignore[reportUnknownMemberType]
+        source_reader = S3SourceReader(s3_client)
+        catalog_writer = DynamoCatalogWriter(dynamodb_resource, dynamodb_client)
+        report = run_ingestion(config, source_reader, catalog_writer)
+        response = report.as_dict()
+        outcome = "updated" if report.catalog_updated else "rejected"
+        return response
+    finally:
+        # An incomplete run can have partial writes; unknown counts must not look like zero.
+        level = logging.ERROR if outcome == "error" else logging.INFO
+        if outcome == "rejected":
+            level = logging.WARNING
+        logger.log(
+            level,
+            "catalog_ingestion",
+            extra={
+                "outcome": outcome,
+                "duration_ms": round((time.monotonic() - started) * 1000),
+                "records_accepted": report.records_accepted if report else None,
+                "records_written": report.records_written if report else None,
+                "records_deleted": report.records_deleted if report else None,
+                "records_rejected": report.records_rejected if report else None,
+            },
+        )

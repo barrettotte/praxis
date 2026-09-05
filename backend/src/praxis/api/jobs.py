@@ -8,6 +8,8 @@ from typing import Annotated, Literal, Protocol, cast
 from boto3.session import Session
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
+from opentelemetry.context import Context
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from praxis.api.requests import MAX_API_TEXT_CHARACTERS, ActorId, SessionId
@@ -41,6 +43,7 @@ class _SqsRecord(BaseModel):
 
     body: str
     event_source: Literal["aws:sqs"] = Field(alias="eventSource")
+    message_attributes: object = Field(default=None, alias="messageAttributes")
 
 
 class _SqsEvent(BaseModel):
@@ -81,10 +84,46 @@ def create_queue_client() -> QueueClient:
 
 def enqueue_job(client: QueueClient, queue_url: str, job: RecommendationJob) -> None:
     """Submit one private recommendation job to the encrypted queue."""
+    carrier: dict[str, str] = {}
+    TraceContextTextMapPropagator().inject(carrier)
+    # Transport only server-generated trace identity, never baggage or vendor state.
+    metadata = (
+        {
+            "MessageAttributes": {
+                "traceparent": {"DataType": "String", "StringValue": carrier["traceparent"]}
+            }
+        }
+        if "traceparent" in carrier
+        else {}
+    )
     try:
-        client.send_message(QueueUrl=queue_url, MessageBody=job.model_dump_json())
+        client.send_message(QueueUrl=queue_url, MessageBody=job.model_dump_json(), **metadata)
     except (BotoCoreError, ClientError) as error:
         raise ApiJobError("recommendation job could not be queued") from error
+
+
+def job_trace_context(event: object) -> Context:
+    """Extract optional queue trace identity without inheriting another delivery's context."""
+    try:
+        attributes = _SqsEvent.model_validate(event).records[0].message_attributes
+    except ValidationError:
+        return Context()
+    if not isinstance(attributes, dict):
+        return Context()
+    attribute = cast("dict[str, object]", attributes).get("traceparent")
+    if not isinstance(attribute, dict):
+        return Context()
+    fields = cast("dict[str, object]", attribute)
+    value = fields.get("stringValue")
+    if (
+        fields.get("dataType") != "String"
+        or not isinstance(value, str)
+        or len(value) != 55
+        or not value.startswith("00-")
+    ):
+        return Context()
+    # Accept the W3C version-zero format emitted by this producer; ignore all other metadata.
+    return TraceContextTextMapPropagator().extract({"traceparent": value}, context=Context())
 
 
 def parse_job_event(event: object) -> RecommendationJob:

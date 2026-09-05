@@ -6,6 +6,7 @@ from typing import Protocol, cast
 import pytest
 from botocore.config import Config
 from botocore.exceptions import ClientError, ReadTimeoutError
+from opentelemetry import baggage, context, trace
 
 from praxis.api import runtime as api_runtime
 from praxis.api.runtime import (
@@ -23,6 +24,48 @@ from praxis.tools.contracts import BookEvidence
 RUNTIME_ARN = "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/example-runtime"
 SESSION_ID = "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4"
 CORRELATION_ID = "51f4a405-8835-411d-9821-5980d73f51f6"
+
+
+@pytest.mark.parametrize("sampled", [False, True])
+@pytest.mark.parametrize("operation", ["recommendation", "brief"])
+def test_runtime_adapter_forwards_only_active_trace_parent(sampled: bool, operation: str) -> None:
+    span_context = trace.SpanContext(
+        trace_id=0x12345678901234567890123456789012,
+        span_id=0x1234567890123456,
+        is_remote=False,
+        trace_flags=trace.TraceFlags(1 if sampled else 0),
+        trace_state=trace.TraceState([("vendor", "private-marker")]),
+    )
+    session = invoke_runtime(
+        FakeRuntimeClient(valid_response()), settings(), "goal", SESSION_ID, CORRELATION_ID
+    )
+    client = FakeRuntimeClient(valid_brief_response() if operation == "brief" else valid_response())
+    token = context.attach(baggage.set_baggage("private", "private-marker"))
+    try:
+        with trace.use_span(trace.NonRecordingSpan(span_context)):
+            if operation == "brief":
+                invoke_project_brief_runtime(
+                    client,
+                    settings(),
+                    SESSION_ID,
+                    "goal",
+                    session.candidates[0],
+                    session.evidence,
+                    CORRELATION_ID,
+                )
+            else:
+                invoke_runtime(client, settings(), "goal", SESSION_ID, CORRELATION_ID)
+    finally:
+        context.detach(token)
+    assert client.request is not None
+    flags = "01" if sampled else "00"
+    assert client.request["traceParent"] == (
+        f"00-12345678901234567890123456789012-1234567890123456-{flags}"
+    )
+    assert "traceState" not in client.request
+    assert "traceId" not in client.request
+    assert client.request["baggage"] == f"praxis.correlation_id={CORRELATION_ID}"
+    assert "private-marker" not in repr(client.request)
 
 
 class ObservedRuntimeConfig(Protocol):

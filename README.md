@@ -5,9 +5,22 @@ An Amazon Bedrock and AgentCore app that uses personal evidence to recommend wor
 I wanted to see a basic AgentCore app doing something mildly interesting.
 I used my data from [barrettotte.github.io](https://github.com/barrettotte/barrettotte.github.io/tree/master/data).
 
+Describe a learning goal, compare three evidence-backed candidates, then select
+one for a brief with deliverables, milestones, risks, and acceptance checks.
+Retrieval uses book, project, technical-note, and computing-museum metadata in
+DynamoDB—not a semantic Knowledge Base or externally fetched book contents.
+
+This is a single-user demonstration. Citations identify retrieved evidence;
+they do not prove generated advice is correct or feasible. Do not submit secrets
+or sensitive material. Security findings and deployment-verification gaps remain
+open in the [residual-risk register](docs/residual-risks.md).
+
 ## Architecture
 
-Praxis follows this serverless architecture:
+Praxis follows this serverless architecture. Application trace propagation across
+SQS and Runtime is implemented locally; Lambda export and deployed verification
+remain pending ([trace boundary](docs/adr/0028-trusted-trace-propagation.md)). The
+diagram shows the deployed observability paths:
 
 ```mermaid
 flowchart TD
@@ -40,6 +53,11 @@ flowchart TD
 
     subgraph observability[Application and agent observability]
         apiAccessLogs[CloudWatch Logs<br/>API access metadata]
+        workerLogs[CloudWatch Logs<br/>Worker delivery outcomes]
+        apiLogs[CloudWatch Logs<br/>API request outcomes]
+        catalogLogs[CloudWatch Logs<br/>Catalog request outcomes]
+        ingestionLogs[CloudWatch Logs<br/>Ingestion outcomes and counts]
+        runtimeLogs[CloudWatch Logs<br/>SDK Runtime outcomes and diagnostics]
         runtimeSpans[CloudWatch Logs<br/>Runtime span stream]
         xray[AWS X-Ray ingest]
         cloudwatch[CloudWatch transaction search]
@@ -47,6 +65,11 @@ flowchart TD
     end
 
     apiGateway -->|Privacy-safe access records| apiAccessLogs
+    worker -->|Outcome + duration metadata| workerLogs
+    apiLambda -->|Status + duration metadata| apiLogs
+    catalogLambda -->|Outcome + duration metadata| catalogLogs
+    ingestion -->|Outcome + aggregate counts| ingestionLogs
+    agent -->|SDK JSON logs| runtimeLogs
     agent -->|Strands OTEL spans via ADOT| xray
     agent -->|Session-correlated OTEL spans| runtimeSpans
 
@@ -89,38 +112,56 @@ Praxis is a monorepo with a Python backend in `backend/`, a React and TypeScript
 application in `frontend/`, OpenTofu configuration in `infra/`, and evaluation
 fixtures in `evals/`.
 
-Install the Python 3.13 environment and list the available commands:
+Prerequisites: Python 3.13, uv, Node.js 24–26, npm, and Make. Install locked
+dependencies and run local checks without AWS credentials:
 
 ```bash
 make bootstrap
+make check
 make help
 ```
 
-Run all local quality checks with `make check`. Deployed smoke checks use one
-suite command; `make smoke-dev` runs the non-inference configuration suite, and
-`./scripts/smoke/smoke-dev.sh --help` lists the explicitly metered suites.
+Dependency installation needs network access. `make check` runs Ruff, type
+checks, backend/frontend tests, schema checks, and the recorded evaluation
+regression gate without AWS calls. `make eval-check` runs the focused offline
+evaluation checks.
 
 Run `make security` to scan locked dependencies and the built local Runtime
 image. It requires Podman (or `CONTAINER_TOOL=docker`) and network access, but
 no AWS credentials. See [security scanning](docs/security-scanning.md) for
 coverage, reports, and finding triage.
 
-The frontend requires the public Cognito and API values shown in
-`frontend/.env.example`; `frontend/README.md` describes the local setup.
+## Run with AWS
 
-Copy `.env.example` to `.env`, refresh the `praxis-dev` AWS session, and run the
-local evidence-backed command-line demonstration:
+Model commands incur AWS charges even when run locally or with synthetic
+fixtures. After following [account setup](docs/account-setup.md), configure
+`.env` from `.env.example` and refresh the `praxis-dev` session before running:
 
 ```bash
 make agent PROMPT='Build a small Python project inspired by computing history'
 ```
 
-The command renders three readable candidates with evidence IDs. Use
-`uv run praxis --json 'your goal'` for the validated JSON representation, or
-`--data-dir data/fixtures` to use synthetic fixtures. Run `make dev-frontend` to
-start the Vite development server.
+The CLI renders three candidates with evidence IDs. Use
+`uv run praxis --data-dir data/fixtures --json 'your goal'` for synthetic catalog
+inputs and JSON output; inference is still metered.
 
-The [agent runtime guide](docs/agent-runtime.md) documents the Strands loop,
-AgentCore Gateway tool boundary, and evidence-grounding invariants. Deployment
-and teardown commands are in
-[the infrastructure operations guide](docs/infrastructure-operations.md).
+For the browser, follow [frontend setup](frontend/README.md) and run
+`make dev-frontend`. Local Vite uses the configured AWS authentication/API;
+it is not an offline application mode.
+
+Deployed checks use `make smoke-dev`; the default is the non-inference
+configuration suite. `./scripts/smoke/smoke-dev.sh --help` lists metered suites.
+Review [cost controls](evals/README.md#cost-and-token-controls) before model smoke
+tests, evaluations, or DSPy. Deployment and teardown require the reviewed
+procedures in the [operations guide](docs/infrastructure-operations.md).
+
+## Project guides
+
+- [Five-minute demo](docs/demo.md): evidence walkthrough requiring no AWS calls.
+- [Agent runtime](docs/agent-runtime.md) and [API](docs/api.md): execution and contracts.
+- [Evaluations](evals/README.md): measured quality, model comparisons, and token controls.
+- [Threat model](docs/threat-model.md): trust boundaries and verification limits.
+- [Architectural tradeoffs](docs/architecture-tradeoffs.md): decisions and constraints.
+- [Multi-user requirements](docs/multi-user-deployment.md): proposed evolution and
+  enterprise retrieval mapping, not deployed features.
+- [Roadmap](ROADMAP.md): implementation progress and open release gates.

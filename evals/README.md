@@ -3,6 +3,52 @@
 Evaluation prompts, expected evidence, expected tool trajectories, and measured
 results belong here.
 
+## Cost and token controls
+
+Prefer existing artifacts and local checks. Coding agents require explicit
+approval before metered model smoke tests, evaluations, or DSPy experiments;
+do not rerun them merely to refresh evidence.
+
+| Command | AWS usage |
+| --- | --- |
+| `make check`, `make eval-check`, `make eval-regression` | None; local tests and recorded results |
+| `make eval-projections`, `make eval-retrieval-limits` | None; read-only local catalog comparisons |
+| `make agent`, `make eval-baseline` | Metered Bedrock inference, despite running locally |
+| `make eval-dspy-instructions` | Multiple metered Bedrock optimization and comparison calls |
+| `make eval-runtime-dev` | Runtime inference, trace reads, and managed evaluator calls |
+
+The serving path limits context through projected catalog fields, a three-result
+initial retrieval, bounded tool turns, and separate recommendation/brief
+operations without accumulated conversation history. The
+[projection artifact](catalog-projections/results/catalog-projections-cb225f014349.json)
+measures 227,099 full-record bytes versus 199,239 projected bytes: a 12.3%
+reduction, **not** a token or billing estimate. The retrieval-limit comparison
+below explains why simply increasing context is not the default optimization.
+
+A cache point covers stable recommendation instructions and tool schemas,
+excluding variable goals, evidence, and Memory context. Cache hits are not
+guaranteed, and isolated requests may not reuse the prefix. See the
+[cache decision and measured token reuse](../docs/adr/0023-explicit-prompt-caching.md).
+Do not send extra requests just to keep a cache warm.
+
+Keep the maintained instruction: the
+[DSPy comparison](../docs/adr/0024-dspy-instruction-optimization.md) does not
+justify promoting the optimized alternative. Nova Pro remains the configured
+default for measured reliability; the
+[model comparison](../docs/adr/0025-nova-pro-default-model.md) records the
+quality/cost tradeoff. Its model-cost estimates exclude managed evaluators and
+other AWS services and must not be treated as total project spend or current
+pricing. Runtime tokens and evaluator tokens are separate artifact fields.
+
+Tool/turn limits constrain individual requests, not total spending. Repeated
+browser submissions and queue retries can cause duplicate paid work; budget
+notifications are not an application spending cap. Keep deployments temporary
+and follow the reviewed
+[teardown procedure](../docs/infrastructure-operations.md) during long
+pauses. Neither teardown nor a fresh paid experiment is part of local validation.
+
+## Measurements and experiments
+
 `catalog-projections/results/` contains content-addressed measurements comparing
 the authoritative source records with the exact evidence objects exposed to the
 agent. Run `make eval-projections` to reproduce the compact-JSON UTF-8 byte and
@@ -54,7 +100,7 @@ retrieval-to-citation boundary but do not treat the curated relevant set as
 exhaustive; the managed correctness evaluator remains the semantic check over
 the full response.
 
-Run the local suite with `make eval-baseline`. Run the same fixtures and scoring
+Run the locally hosted, metered model suite with `make eval-baseline`. Run the same fixtures and scoring
 against the stable development Runtime manually with:
 
 ```shell
@@ -105,7 +151,7 @@ successful cases, preserves citation provenance as an absolute invariant, and
 sets bounded quality, retrieval, latency, token, and managed-evaluator gates.
 This command is offline and never invokes AWS or a model.
 
-Run the offline DSPy instruction comparison with:
+Run the development-only, metered DSPy instruction comparison with:
 
 ```shell
 make eval-dspy-instructions

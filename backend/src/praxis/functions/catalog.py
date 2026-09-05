@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal
+from time import monotonic
 from typing import TYPE_CHECKING, Annotated, Literal, Protocol, cast, runtime_checkable
 
 from boto3.session import Session
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
+from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 from praxis.catalog import (
@@ -32,6 +35,7 @@ from praxis.catalog import (
 )
 from praxis.catalog.search import MAX_SEARCH_EVALUATED_ITEMS
 from praxis.domain import Book, Byte, MuseumObject, Project
+from praxis.functions.tracing import lambda_tracer
 from praxis.tools import (
     MAX_CANDIDATE_SCORE_EVIDENCE_IDS,
     ScoreProjectCandidatesInput,
@@ -43,6 +47,10 @@ from praxis.tools import (
 if TYPE_CHECKING:
     from mypy_boto3_dynamodb.service_resource import DynamoDBServiceResource, Table
     from mypy_boto3_dynamodb.type_defs import TableAttributeValueTypeDef
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+tracer = lambda_tracer(__name__)
 
 
 class CatalogConfigurationError(ValueError):
@@ -471,6 +479,27 @@ def handle_catalog_invocation(
 
 def lambda_handler(event: object, context: object) -> dict[str, object]:
     """AWS Lambda entry point for bounded read-only catalog operations."""
+    with tracer.start_as_current_span(
+        "praxis.catalog.request", record_exception=False, set_status_on_exception=False
+    ) as span:
+        try:
+            response = _handle_request(event, context)
+        except CatalogToolError as error:
+            span.set_attribute("praxis.outcome", error.code)
+            span.set_status(trace.StatusCode.ERROR)
+            raise
+        except Exception:
+            span.set_attribute("praxis.outcome", "INTERNAL_ERROR")
+            span.set_status(trace.StatusCode.ERROR)
+            raise
+        span.set_attribute("praxis.outcome", "success")
+        return response
+
+
+def _handle_request(event: object, context: object) -> dict[str, object]:
+    """Execute catalog work with normalized errors and content-free outcome logs."""
+    started = monotonic()
+    outcome = "INTERNAL_ERROR"
     try:
         ensure_time_budget(context)
         table_name = _required_environment("CATALOG_TABLE_NAME")
@@ -483,6 +512,22 @@ def lambda_handler(event: object, context: object) -> dict[str, object]:
             table_name,
             time_budget_guard=lambda: ensure_time_budget(context),
         )
-        return handle_catalog_invocation(event, context, repository)
+        response = handle_catalog_invocation(event, context, repository)
+        outcome = "success"
+        return response
     except Exception as error:
-        raise _safe_tool_error(error) from error
+        safe_error = _safe_tool_error(error)
+        outcome = safe_error.code
+        raise safe_error from error
+    finally:
+        # Log only the normalized outcome, never arguments, records, or error text.
+        level = logging.ERROR
+        if outcome == "success":
+            level = logging.INFO
+        elif outcome in {"INVALID_ARGUMENTS", "NOT_FOUND"}:
+            level = logging.WARNING
+        logger.log(
+            level,
+            "catalog_request",
+            extra={"outcome": outcome, "duration_ms": round((monotonic() - started) * 1000)},
+        )

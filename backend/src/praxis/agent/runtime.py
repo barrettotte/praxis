@@ -4,6 +4,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Annotated, Protocol, cast
 
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
+from opentelemetry import trace
 from pydantic import Field, TypeAdapter, ValidationError
 from starlette.exceptions import HTTPException
 
@@ -29,6 +30,7 @@ _EVIDENCE_LIST_ADAPTER = TypeAdapter[Annotated[list[Evidence], Field(min_length=
     Annotated[list[Evidence], Field(min_length=1, max_length=3)]
 )
 _BRIEF_GOAL_ADAPTER: TypeAdapter[str] = TypeAdapter(BriefGoal)
+tracer = trace.get_tracer(__name__)
 
 
 class RuntimeApplication(Protocol):
@@ -133,10 +135,24 @@ app = cast("RuntimeApplication", BedrockAgentCoreApp())
 @app.entrypoint
 def handle_invocation(payload: dict[str, object]) -> dict[str, object]:
     """Serve one AgentCore Runtime HTTP invocation."""
-    try:
-        return invoke_runtime(payload)
-    except SensitiveInputError:
-        raise HTTPException(400, detail="Request content appears to contain credentials.") from None
+    # Automatic exception events/status descriptions can contain private SDK input.
+    with tracer.start_as_current_span(
+        "praxis.runtime.request", record_exception=False, set_status_on_exception=False
+    ) as span:
+        outcome = "error"
+        try:
+            response = invoke_runtime(payload)
+            outcome = "success"
+            return response
+        except SensitiveInputError:
+            outcome = "rejected"
+            raise HTTPException(
+                400, detail="Request content appears to contain credentials."
+            ) from None
+        finally:
+            span.set_attribute("praxis.outcome", outcome)
+            if outcome == "error":
+                span.set_status(trace.StatusCode.ERROR)
 
 
 if __name__ == "__main__":
