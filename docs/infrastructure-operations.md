@@ -324,6 +324,43 @@ capture without session IDs to
 
 ## Runtime traces
 
+Catalog application spans read `_X_AMZN_TRACE_ID` from the Lambda runtime on
+each invocation. They accept only valid trace/parent IDs with an explicit
+sampling decision, ignore extension fields, and never extract context from tool
+arguments. Missing or invalid metadata starts an independent trace. Unsampled
+parents produce no recorded catalog span; this is not itself an export failure.
+See [trusted trace propagation](adr/0028-trusted-trace-propagation.md).
+
+Gateway service tracing is managed by `gateway_tracing.tf`: a `TRACES` delivery
+source, an `XRAY` destination, and their delivery connection. This is separate
+from client-side MCP instrumentation and requires existing Transaction Search
+configuration. It does not enable Gateway `APPLICATION_LOGS`, change indexing,
+or create another log group. Trace ingestion remains usage-based.
+See [AWS trace-delivery setup](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability-configure.html).
+Deployment and retained service spans must be verified independently; enabling
+delivery does not automatically make catalog application spans inherit a parent.
+
+For collector-exported Lambda spans, inspect the confirmed Transaction Search
+log group **`aws/spans` (no leading slash)**. It is distinct from the
+resource-specific AgentCore Runtime span log group. X-Ray summary search only
+covers the configured indexed percentage, so an empty summary result alone is
+not evidence of export failure. Use a bounded time window and event limit:
+
+```sh
+aws logs filter-log-events --profile praxis-dev --region us-east-1 \
+  --log-group-name aws/spans \
+  --start-time START_EPOCH_MS --end-time END_EPOCH_MS \
+  --filter-pattern '"praxis.catalog.request"' --limit 2 --no-paginate
+```
+
+Replace the timestamp placeholders with the invocation window. Do not increase
+indexing or repeat model calls just to populate summary search. See
+[AWS span storage documentation](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Transaction-Search-ingesting-span-log-groups.html).
+X-Ray conversion can alter the stored representation: API spans were observed
+with an empty top-level `name`, identity retained in `_aws.xray.name`, and
+HTTP 4xx mapped to stored ERROR status. The application span contract below
+describes the SDK output before that conversion.
+
 API and worker handlers create internal OpenTelemetry spans using the active
 provider, without configuring an exporter or extracting browser trace headers:
 
@@ -343,8 +380,9 @@ can prevent span completion.
 
 The shared API/worker Runtime adapter forwards the active OpenTelemetry W3C
 `traceparent` through the SDK's `traceParent` parameter for recommendations and
-briefs. It uses the standard propagator, preserves the sampling flag, and omits
-the parameter when no valid context exists. It does not copy incoming browser
+briefs, plus an equivalent X-Ray `traceId` header for the AWS service boundary.
+Both representations preserve the same trace, parent, and sampling flag and are
+omitted when no valid context exists. It does not copy incoming browser
 headers, vendor `tracestate`, or arbitrary baggage; the existing encoded
 `praxis.correlation_id` baggage remains separate.
 
@@ -358,10 +396,16 @@ See [trusted trace propagation](adr/0028-trusted-trace-propagation.md).
 The Lambda package includes a locked SDK and HTTP/protobuf exporter. Its
 application-only provider is enabled by `PRAXIS_LAMBDA_TRACING=true` inside Lambda;
 without that opt-in, handlers use the existing active provider. It synchronously
-hands spans to `127.0.0.1:4318` with a 0.5-second exporter timeout and does not
+hands spans to `127.0.0.1:4318` with a 2-second exporter timeout and does not
 inherit proxy/netrc settings or arbitrary exporter headers. No automatic library
 instrumentation or metrics are enabled. The provider requires a collector
-extension; deployment configuration and end-to-end verification remain pending.
+extension. OpenTofu attaches a pinned collector-only layer to API, worker, and
+catalog, with only `xray:PutTraceSegments` and `xray:PutTelemetryRecords` added to
+their execution roles. The packaged `collector.yaml` accepts loopback OTLP and
+exports directly to X-Ray; remote export latency can delay the local response.
+There are no metrics, batch processors, or debug payload exporters.
+Ingestion shares the ZIP but does not enable tracing or attach the extension.
+End-to-end linkage verification remains pending.
 Local tests exercise queue propagation and both Runtime call paths without AWS.
 
 The catalog handler also uses the active provider but does not extract context

@@ -1,0 +1,52 @@
+{
+  "verification_date": "2026-09-05",
+  "collector_layer": "aws-otel-collector-amd64-ver-0-156-0:4",
+  "enabled_components": ["api", "worker", "catalog"],
+  "export_permissions": ["xray:PutTraceSegments", "xray:PutTelemetryRecords"],
+  "exporter_timeout_seconds": 2,
+  "metrics_enabled": false,
+  "automatic_library_instrumentation": false,
+  "final_plan_sha256": "23c7ed25c8ca64695db33451b30485060afcaf86ff032c8f0f18db1a9746a916",
+  "initial_apply": {"added": 3, "changed": 4, "destroyed": 0},
+  "recovery_apply": {"added": 0, "changed": 4, "destroyed": 0},
+  "catalog_smoke_passed": true,
+  "api_rejection_smoke_passed": true,
+  "model_invocations": 0,
+  "catalog_observed_metrics": {
+    "application_duration_ms": 2094,
+    "lambda_duration_ms": 2983.283,
+    "init_duration_ms": 1621.541,
+    "max_memory_used_mb": 179,
+    "memory_size_mb": 256
+  },
+  "collector_ready_observed": true,
+  "export_error_in_recovered_invocation_log": false,
+  "retained_remote_span_verified": true,
+  "retention_inspection": {
+    "destination": "CloudWatchLogs",
+    "destination_status": "ACTIVE",
+    "log_group": "aws/spans",
+    "indexing_percentage": 1.0,
+    "method": "Bounded reads of existing spans; no fresh invocations",
+    "catalog": {
+      "span_name": "praxis.catalog.request",
+      "outcome": "success",
+      "duration_ns": 2111265536,
+      "status": "UNSET",
+      "local_root": true
+    },
+    "api": [
+      {"xray_name": "praxis.api.request", "span_name": "", "outcome": "responded", "http_status": 413, "duration_ns": 2870528, "stored_status": "ERROR"},
+      {"xray_name": "praxis.api.request", "span_name": "", "outcome": "responded", "http_status": 400, "duration_ns": 462848, "stored_status": "ERROR"}
+    ],
+    "conversion_note": "X-Ray-to-OTel conversion retains API identity in _aws.xray.name, leaves the top-level name empty, and classifies HTTP 4xx as ERROR. These are stored representations, not the original SDK span contract."
+  },
+  "end_to_end_linkage_verified": false,
+  "limitations": [
+    "The first 0.5-second export timed out and canceled the X-Ray request.",
+    "A batch-processor configuration caused extension initialization failure and was removed through a reviewed recovery plan.",
+    "The initial retention check used the incorrect /aws/spans name; the confirmed destination is aws/spans without a leading slash.",
+    "The bounded X-Ray summary query returned no summaries; only 1 percent of spans are indexed as summaries. This is not an export failure.",
+    "This collector-retention check did not invoke the worker model; a separate lightweight workflow check is recorded in api-worker-trace-linkage.json."
+  ]
+}

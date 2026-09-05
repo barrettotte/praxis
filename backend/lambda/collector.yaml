@@ -1,0 +1,14 @@
+# Export application traces through the local Lambda extension without payload logging.
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: "127.0.0.1:4318"
+exporters:
+  awsxray:
+    region: us-east-1
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [awsxray]

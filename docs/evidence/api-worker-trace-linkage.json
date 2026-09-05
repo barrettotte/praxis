@@ -1,0 +1,64 @@
+{
+  "verification_date": "2026-09-05",
+  "runtime_endpoint_version": "52",
+  "method": "One direct API Lambda smoke followed by bounded CloudWatch span reads",
+  "smoke": {
+    "passed": true,
+    "recommendation_workflows": 1,
+    "brief_workflows": 1,
+    "candidate_count": 3,
+    "all_candidates_cited": true,
+    "cross_actor_access_rejected": true,
+    "simulated_authorizer_context": true
+  },
+  "query_window_epoch_ms": {"start": 1788633150000, "end": 1788633270000},
+  "lambda_trace": {
+    "log_group": "aws/spans",
+    "pages_read": 2,
+    "pagination_exhausted": true,
+    "shared_trace_id_verified": true,
+    "worker_parent_matches_api_span_id": true,
+    "spans": [
+      {
+        "alias": "api",
+        "parent_alias": null,
+        "xray_name": "praxis.api.request",
+        "duration_ns": 2328945664,
+        "outcome": "responded",
+        "http_status": 202,
+        "stored_status": "UNSET"
+      },
+      {
+        "alias": "worker",
+        "parent_alias": "api",
+        "xray_name": "praxis.worker.delivery",
+        "duration_ns": 13792190720,
+        "outcome": "ready",
+        "stored_status": "UNSET"
+      }
+    ]
+  },
+  "runtime_trace": {
+    "lookup": "Confirmed deployed Runtime endpoint log group, spans stream, same bounded time window",
+    "session_filtered_span_count": 0,
+    "unfiltered_span_count": 0,
+    "linkage_verified": false,
+    "diagnosis": {
+      "method": "Bounded read of existing Runtime telemetry logs; no additional invocations",
+      "runtime_trace_differs_from_worker": true,
+      "runtime_log_trace_sampled": false,
+      "spans_stream_last_event_epoch_ms": 1788567996131,
+      "adapter_sent_w3c_header_only": true,
+      "proposed_fix": "Send equivalent X-Ray traceId alongside traceParent, preserving parent identity and sampling",
+      "fix_deployed": false,
+      "caveat": "Unsampled Runtime context explains missing recorded spans; the precise service-side header handling is not directly observed."
+    }
+  },
+  "limitations": [
+    "Trace and span IDs were compared during inspection and replaced with aliases in this public artifact.",
+    "The smoke bypasses API Gateway using an IAM-authorized Lambda invocation with simulated authorizer context.",
+    "A successful Runtime response does not prove Runtime span retention or parent propagation; empty bounded reads do not establish the cause.",
+    "Runtime-to-Gateway-to-catalog linkage was not verified.",
+    "The additional local Runtime request span is not published; no image or infrastructure was changed for this check."
+  ]
+}

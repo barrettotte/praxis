@@ -17,8 +17,13 @@ preserve unrelated user changes.
   data flows, authentication, or deployment topology change.
 - Write comments, documentation, examples, and file names for long-term readers.
   Describe current behavior, intent, and constraints without roadmap sequencing
-  labels or implementation chronology. Keep progress history in `ROADMAP.md`
-  and decision history in ADRs rather than scattering it through the codebase.
+  labels or implementation chronology. Keep decision history in ADRs rather
+  than scattering it through the codebase.
+- Keep `ROADMAP.md` concise: current scope, status, blockers, and next actions.
+  Replace superseded handoff notes rather than appending session narratives.
+  Link verification artifacts and operational docs instead of repeating logs,
+  test-count history, deployment hashes, or troubleshooting transcripts. Summarize
+  completed work; preserve open checklist items and their verification requirements.
 - Keep local development usable before requiring deployed AWS services.
 - Give every shell script a `.sh` file extension.
 - Add deployed checks to the named `smoke-dev` suites instead of creating new

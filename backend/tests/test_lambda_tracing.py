@@ -11,6 +11,36 @@ from opentelemetry.trace import StatusCode
 from praxis.functions import api, catalog, recommendation_worker
 
 
+def test_catalog_span_uses_platform_parent_not_tool_arguments(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AWS_LAMBDA_FUNCTION_NAME", "test-catalog")
+    monkeypatch.setenv(
+        "_X_AMZN_TRACE_ID",
+        "Root=1-12345678-901234567890123456789012;Parent=1234567890123456;Sampled=1",
+    )
+    provider = TracerProvider()
+    exporter = InMemorySpanExporter()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    tracer = provider.get_tracer("test.catalog")
+    try:
+        with (
+            patch.object(catalog, "tracer", tracer),
+            patch.object(catalog, "_handle_request", return_value={}),
+            tracer.start_as_current_span("unrelated"),
+        ):
+            catalog.lambda_handler({"traceparent": "private-payload-marker"}, None)
+        span = next(s for s in exporter.get_finished_spans() if s.name == "praxis.catalog.request")
+        assert span.context is not None
+        assert span.context.trace_id == 0x12345678901234567890123456789012
+        assert span.parent is not None
+        assert span.parent.span_id == 0x1234567890123456
+        assert span.parent.is_remote
+        assert "private-payload-marker" not in span.to_json()
+    finally:
+        provider.shutdown()
+
+
 @pytest.mark.parametrize(
     ("component", "result"),
     [
@@ -132,7 +162,7 @@ def test_catalog_span_preserves_result_and_safe_outcome(outcome: str) -> None:
         )
         assert span.status.description is None
         assert not span.events
-        assert span.parent == spans["test.parent"].context
+        assert span.parent is None
         assert spans["test.child"].parent == span.context
         assert span.start_time is not None
         assert span.end_time is not None

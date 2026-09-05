@@ -35,7 +35,7 @@ from praxis.catalog import (
 )
 from praxis.catalog.search import MAX_SEARCH_EVALUATED_ITEMS
 from praxis.domain import Book, Byte, MuseumObject, Project
-from praxis.functions.tracing import lambda_tracer
+from praxis.functions.tracing import lambda_invocation_trace_context, lambda_tracer
 from praxis.tools import (
     MAX_CANDIDATE_SCORE_EVIDENCE_IDS,
     ScoreProjectCandidatesInput,
@@ -480,7 +480,10 @@ def handle_catalog_invocation(
 def lambda_handler(event: object, context: object) -> dict[str, object]:
     """AWS Lambda entry point for bounded read-only catalog operations."""
     with tracer.start_as_current_span(
-        "praxis.catalog.request", record_exception=False, set_status_on_exception=False
+        "praxis.catalog.request",
+        context=lambda_invocation_trace_context(),
+        record_exception=False,
+        set_status_on_exception=False,
     ) as span:
         try:
             response = _handle_request(event, context)

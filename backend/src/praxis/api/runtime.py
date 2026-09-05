@@ -185,6 +185,13 @@ def _invoke_runtime_payload(
     TraceContextTextMapPropagator().inject(carrier)
     # Forward only standard trace identity, not vendor state or arbitrary baggage.
     trace_headers = {"traceParent": carrier["traceparent"]} if "traceparent" in carrier else {}
+    if "traceparent" in carrier:
+        # AgentCore's AWS tracing boundary also consumes the X-Ray representation.
+        # Both headers must describe the same parent and preserve its sampling decision.
+        _, trace_id, span_id, flags = carrier["traceparent"].split("-")
+        trace_headers["traceId"] = (
+            f"Root=1-{trace_id[:8]}-{trace_id[8:]};Parent={span_id};Sampled={int(flags, 16) & 1}"
+        )
     try:
         response = client.invoke_agent_runtime(
             accept=JSON_CONTENT_TYPE,

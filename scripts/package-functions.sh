@@ -9,6 +9,7 @@ praxis_package_dir="$(mktemp -d)"
 trap 'rm -rf "${praxis_package_dir}"' EXIT
 
 mkdir -p "${praxis_artifact_dir}" "${praxis_package_dir}/package/praxis"
+cp "${praxis_repo_root}/backend/lambda/collector.yaml" "${praxis_package_dir}/package/"
 
 # Install locked manylinux dependencies for Lambda rather than the host platform.
 UV_CACHE_DIR="${praxis_repo_root}/.cache/uv" uv pip install \

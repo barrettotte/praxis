@@ -115,6 +115,7 @@ resource "aws_lambda_function" "recommendation_worker" {
   handler       = "praxis.functions.recommendation_worker.lambda_handler"
   runtime       = "python3.13"
   architectures = ["x86_64"]
+  layers        = [local.lambda_collector_layer]
 
   filename         = local.api_lambda_package_path
   source_code_hash = filebase64sha256(local.api_lambda_package_path)
@@ -123,12 +124,12 @@ resource "aws_lambda_function" "recommendation_worker" {
   timeout     = 120
 
   environment {
-    variables = {
+    variables = merge(local.lambda_trace_environment, {
       PRAXIS_AGENT_RUNTIME_ARN       = aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn
       PRAXIS_AGENT_RUNTIME_QUALIFIER = aws_bedrockagentcore_agent_runtime_endpoint.stable.name
       PRAXIS_API_ACTOR_ID            = local.api_actor_id
       PRAXIS_SESSION_TABLE_NAME      = aws_dynamodb_table.api_sessions.name
-    }
+    })
   }
 
   logging_config {
@@ -143,6 +144,7 @@ resource "aws_lambda_function" "recommendation_worker" {
   depends_on = [
     aws_cloudwatch_log_group.recommendation_worker,
     aws_iam_role_policy.recommendation_worker,
+    aws_iam_role_policy.lambda_trace_export,
   ]
 }
 

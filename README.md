@@ -17,10 +17,11 @@ open in the [residual-risk register](docs/residual-risks.md).
 
 ## Architecture
 
-Praxis follows this serverless architecture. Application trace propagation across
-SQS and Runtime is implemented locally; Lambda export and deployed verification
-remain pending ([trace boundary](docs/adr/0028-trusted-trace-propagation.md)). The
-diagram shows the deployed observability paths:
+Praxis follows this serverless architecture. Lambda trace export is configured;
+complete cross-service trace linkage remains under verification
+([trace boundary](docs/adr/0028-trusted-trace-propagation.md)). The diagram shows
+the deployed observability configuration. Gateway-to-catalog parent linkage is
+verified; complete workflow parent linkage remains to be verified:
 
 ```mermaid
 flowchart TD
@@ -60,6 +61,7 @@ flowchart TD
         runtimeLogs[CloudWatch Logs<br/>SDK Runtime outcomes and diagnostics]
         runtimeSpans[CloudWatch Logs<br/>Runtime span stream]
         xray[AWS X-Ray ingest]
+        lambdaCollector[ADOT collector extension<br/>API, worker, and catalog]
         cloudwatch[CloudWatch transaction search]
         xray --> cloudwatch
     end
@@ -69,6 +71,10 @@ flowchart TD
     apiLambda -->|Status + duration metadata| apiLogs
     catalogLambda -->|Outcome + duration metadata| catalogLogs
     ingestion -->|Outcome + aggregate counts| ingestionLogs
+    apiLambda -->|Application spans over loopback OTLP| lambdaCollector
+    worker -->|Application spans over loopback OTLP| lambdaCollector
+    catalogLambda -->|Application spans over loopback OTLP| lambdaCollector
+    lambdaCollector -->|Traces only| xray
     agent -->|SDK JSON logs| runtimeLogs
     agent -->|Strands OTEL spans via ADOT| xray
     agent -->|Session-correlated OTEL spans| runtimeSpans
@@ -89,6 +95,7 @@ flowchart TD
     end
 
     agent -->|IAM-authenticated MCP| gateway
+    gateway -->|Service trace delivery| xray
     catalogLambda --> catalog[(Encrypted DynamoDB catalog)]
 
     sources[Read-only source JSON] -->|Manual reproducible seed upload| sourceBucket[(Encrypted S3 source copies)]

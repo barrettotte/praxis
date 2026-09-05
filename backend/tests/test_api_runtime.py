@@ -63,9 +63,22 @@ def test_runtime_adapter_forwards_only_active_trace_parent(sampled: bool, operat
         f"00-12345678901234567890123456789012-1234567890123456-{flags}"
     )
     assert "traceState" not in client.request
-    assert "traceId" not in client.request
+    assert client.request["traceId"] == (
+        f"Root=1-12345678-901234567890123456789012;Parent=1234567890123456;Sampled={int(sampled)}"
+    )
     assert client.request["baggage"] == f"praxis.correlation_id={CORRELATION_ID}"
     assert "private-marker" not in repr(client.request)
+
+
+def test_runtime_adapter_omits_trace_headers_without_active_context() -> None:
+    client = FakeRuntimeClient(valid_response())
+    token = context.attach(context.Context())
+    try:
+        invoke_runtime(client, settings(), "goal", SESSION_ID, CORRELATION_ID)
+    finally:
+        context.detach(token)
+    assert client.request is not None
+    assert {"traceParent", "traceId", "traceState"}.isdisjoint(client.request)
 
 
 class ObservedRuntimeConfig(Protocol):

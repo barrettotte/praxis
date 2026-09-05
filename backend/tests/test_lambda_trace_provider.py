@@ -58,7 +58,7 @@ def test_enabled_provider_reuses_exporter_and_preserves_sampling() -> None:
             factory.assert_called_once()
             arguments = factory.call_args.kwargs
             assert arguments["endpoint"] == "http://127.0.0.1:4318/v1/traces"
-            assert arguments["timeout"] == 0.5
+            assert arguments["timeout"] == 2
             assert arguments["headers"] == {"Content-Type": "application/x-protobuf"}
             assert arguments["session"].trust_env is False
             spans = exporter.get_finished_spans()
