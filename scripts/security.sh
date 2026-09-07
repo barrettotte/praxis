@@ -13,6 +13,11 @@ case "${praxis_mode}" in
   *) printf 'Usage: %s [all|dependencies|image]\n' "$0" >&2; exit 2 ;;
 esac
 command -v "${praxis_container_tool}" >/dev/null
+# Bind mounts retain host ownership. Rootless Podman also needs matching namespace IDs.
+praxis_identity=(--user "$(id -u):$(id -g)")
+if [[ "${praxis_container_tool##*/}" == "podman" ]]; then
+  praxis_identity+=(--userns=keep-id)
+fi
 praxis_work="$(mktemp -d)"
 trap 'rm -rf "${praxis_work}"' EXIT
 mkdir -p "${praxis_root}/build/security" "${praxis_root}/.cache/trivy"
@@ -21,6 +26,7 @@ mkdir -p "${praxis_root}/build/security" "${praxis_root}/.cache/trivy"
 # cloud credentials, container socket, or host environment is passed to Trivy.
 scan() {
   "${praxis_container_tool}" run --rm --read-only --cap-drop=ALL \
+    "${praxis_identity[@]}" \
     --security-opt=no-new-privileges --tmpfs /tmp \
     --volume "${praxis_work}:/scan:ro,Z" \
     --volume "${praxis_root}/build/security:/reports:Z" \
@@ -46,7 +52,8 @@ for praxis_scan in dependencies image; do
   else
     # Saving a local image avoids registry credentials and works without executing ARM64 code.
     "${praxis_container_tool}" image inspect "${AGENT_IMAGE:-praxis-agent:dev}" >/dev/null
-    "${praxis_container_tool}" save --format docker-archive \
+    # Both Docker and Podman default to the Docker archive format.
+    "${praxis_container_tool}" save \
       --output "${praxis_work}/agent.tar" "${AGENT_IMAGE:-praxis-agent:dev}"
     praxis_arguments=(image --input /scan/agent.tar)
   fi

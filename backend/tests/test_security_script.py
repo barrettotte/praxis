@@ -9,8 +9,9 @@ import pytest
 
 
 @pytest.mark.parametrize("scanner_status", [0, 1, 2])
+@pytest.mark.parametrize("engine", ["docker", "podman"])
 def test_security_scans_both_targets_and_propagates_failure(
-    tmp_path: Path, scanner_status: int
+    tmp_path: Path, scanner_status: int, engine: str
 ) -> None:
     scripts = tmp_path / "scripts"
     scripts.mkdir()
@@ -24,7 +25,7 @@ def test_security_scans_both_targets_and_propagates_failure(
     for name in ("dependencies.json", "image.json"):
         (reports / name).write_text("stale")
     calls = tmp_path / "calls"
-    container = tmp_path / "container.sh"
+    container = tmp_path / engine
     container.write_text(
         "#!/bin/sh\n# Record scanner calls and simulate a dependency scan result.\n"
         'printf "%s\\n" "$*" >> "$TEST_CALLS"\n'
@@ -49,8 +50,14 @@ def test_security_scans_both_targets_and_propagates_failure(
     assert "fs --include-dev-deps /scan/locks" in scans[0]
     assert "image --input /scan/agent.tar" in scans[1]
     for scan in scans:
+        assert f"--user {os.getuid()}:{os.getgid()}" in scan
+        assert ("--userns=keep-id" in scan) == (engine == "podman")
         assert "--scanners vuln --severity HIGH,CRITICAL --exit-code 1" in scan
         assert "--ignore-unfixed" not in scan
         assert "/var/run/docker.sock" not in scan
         assert "--env" not in scan
     assert not list(reports.iterdir())
+    exports = [line for line in invocations if line.startswith("save ")]
+    assert len(exports) == 1
+    assert "--format" not in exports[0]
+    assert "--output" in exports[0]

@@ -9,7 +9,6 @@ do not establish deployed correctness or recommendation quality.
 
 ## Remaining verification
 
-- [ ] Run infrastructure formatting, validation, and static checks in hosted CI.
 - [ ] Verify dashboard console rendering.
 - [ ] Confirm operational email subscription and notification delivery.
 - [ ] Verify a related failure-and-recovery trace through the application.
