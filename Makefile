@@ -33,7 +33,7 @@ FRONTEND_NPM := $(NPM) --prefix frontend
 
 export UV_CACHE_DIR
 
-.PHONY: security
+.PHONY: security tofu-plan-ecr-dev
 
 security: ## Scan locked dependencies and the local agent image; SCAN=all|dependencies|image
 	CONTAINER_TOOL=$(CONTAINER_TOOL) AGENT_IMAGE=$(AGENT_IMAGE) ./scripts/security.sh "$(SCAN)"
@@ -168,6 +168,12 @@ tofu-plan-destroy-bootstrap: ## Plan permanent bootstrap teardown without applyi
 tofu-destroy-bootstrap: ## Apply the reviewed bootstrap teardown; requires CONFIRM=destroy-bootstrap
 	@test "$(CONFIRM)" = "destroy-bootstrap" || { echo "CONFIRM=destroy-bootstrap is required"; exit 2; }
 	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/bootstrap apply $(TOFU_BOOTSTRAP_DESTROY_PLAN)
+
+# The placeholder satisfies root input validation only; targeting excludes Runtime.
+tofu-plan-ecr-dev: tool-schemas-check package-functions package-api-lambda ## Plan only ECR for first deployment; review ecr.tfplan before applying
+	@test ! -e infra/environments/dev/deployment.auto.tfvars || { echo "Move deployment.auto.tfvars aside until ECR publication; its digest conflicts with the ECR-only plan."; exit 2; }
+	$(RM) infra/environments/dev/ecr.tfplan
+	AWS_PROFILE=$(AWS_PROFILE) $(TOFU) -chdir=infra/environments/dev plan -input=false -target=aws_ecr_lifecycle_policy.deployable -var='agent_image_digest=sha256:0000000000000000000000000000000000000000000000000000000000000000' -out=ecr.tfplan
 
 tofu-plan-dev: tool-schemas-check package-functions package-api-lambda ## Plan temporary development resources without applying them
 	@test "$(TOFU_DEV_PLAN)" = "$(notdir $(TOFU_DEV_PLAN))" || { echo "TOFU_DEV_PLAN must be a file name"; exit 2; }

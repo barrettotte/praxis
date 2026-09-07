@@ -86,6 +86,50 @@ teardown.
 
 ## Development lifecycle
 
+### First deployment
+
+Runtime requires a published image, but the development root also owns ECR.
+After bootstrap and `make tofu-init-dev`, create ECR with a targeted saved plan:
+
+```shell
+make tofu-plan-ecr-dev
+AWS_PROFILE=praxis-dev tofu -chdir=infra/environments/dev show ecr.tfplan
+make tofu-apply-dev CONFIRM=apply-dev TOFU_DEV_PLAN=ecr.tfplan
+```
+
+Review that the plan contains only the agent ECR repository and its lifecycle
+policy. For a rebuild, move the existing private `deployment.auto.tfvars` aside
+before planning; restore it only after image publication. The target includes
+the repository through its dependency. This one-time
+plan supplies a zero digest solely to satisfy required input validation; it must
+not create Runtime or write that placeholder into deployment configuration.
+Keep `TF_VAR_budget_notification_email` set as described above. Leave
+`deployment.auto.tfvars` absent until a real image digest is available.
+
+Build, scan, preview, and explicitly publish the ARM64 image using the
+[image publication commands](#agent-image-publication). ECR outputs are now
+available to the publication script. Copy `deployment.auto.tfvars.example` to
+ignored `deployment.auto.tfvars` and set `agent_image_digest` to the published
+digest. Then run the full plan/apply sequence below with its default `dev.tfplan`,
+followed by catalog seeding and frontend deployment:
+
+```shell
+make seed-dev CONFIRM=seed-dev
+make deploy-frontend-dev CONFIRM=deploy-frontend-dev
+make smoke-dev SUITE=public
+make smoke-dev SUITE=tools
+```
+
+Each new Cognito pool starts empty. Follow [application user setup](../frontend/README.md#application-user-setup)
+to create your login, then sign in at the newly printed frontend URL and change
+the temporary password. Creating recommendations or briefs for the final browser
+check incurs model charges; the two smoke suites above do not invoke a model.
+Refresh local frontend configuration from the new outputs if using Vite.
+Do not use resource targeting for routine deployments or treat the ECR-only apply
+as a complete stack.
+
+### Full deployment and updates
+
 For each development change, initialize the remote backend, save and inspect a
 plan, and manually apply that exact artifact:
 
@@ -198,65 +242,25 @@ The tools suite signs MCP discovery and a catalog search/lookup round trip.
 The API suite checks one pending-to-ready recommendation and selected brief,
 plus safe rejection responses. It does not exercise every tool or response permutation.
 
-`make check` injects transport timeouts and throttling errors into the API,
-worker, and catalog adapters. Expected worker failures become a safe `failed`
-session and are acknowledged; brief failures return 503 while preserving the
-stored candidates. Catalog storage failures are retryable, and its remaining-time
-guard rejects work before accessing storage. The browser stops pending-session
-polling after 60 attempts and does not automatically retry POST requests on 429.
-These are deterministic failure tests, not live Lambda saturation or hard-timeout
-experiments. A hard worker termination cannot write a failed status; its SQS
-message remains subject to redelivery and dead-letter handling, and the browser
-can reach its polling limit while the stored session still says `pending`.
+## Application logs
 
-The worker emits one `recommendation_delivery` application log per completed
-handler attempt using Python logging and Lambda's configured JSON log format.
-Its custom fields are `outcome` (`ready`, `failed`, or `retry`) and elapsed
-`duration_ms`. `ready` means candidates were stored; `failed` means a safe failure
-state was stored and the message is acknowledged. `retry` is ERROR-level and
-means an exception escaped; SQS redelivery/dead-letter policy determines what
-happens next. Other outcomes are INFO-level. Lambda supplies invocation metadata;
-the application record omits goals, subjects, session IDs, headers, results,
-and exception text. It does not change root logging or dependency verbosity.
-Hard termination can prevent this event, and SDK or platform exception records
-are outside its privacy contract. Use invocation metadata to investigate rather
-than enabling payload logging. Local tests verify these fields and unchanged
-exception propagation; deployed log capture requires publishing the API/worker ZIP.
+Application events contain outcomes and elapsed `duration_ms`, not request
+bodies, identities, credentials, evidence, or exception text:
 
-The API Lambda emits one `api_request` event with `outcome`, `status_code`, and
-`duration_ms`. Returned responses have outcome `responded`; status below 400 is
-INFO, 4xx is WARNING, and 5xx is ERROR. An escaping exception is ERROR with
-`unhandled_error` and a null status, not a claim that an HTTP response was sent.
-The wrapper returns responses unchanged and preserves exception propagation.
-It does not log request/response bodies, routes, identity, headers, correlation
-IDs, or exception details. Use Lambda invocation metadata for investigation and
-API Gateway access logs for route-level metadata. Rejections before Lambda do
-not produce this application event; hard termination may also prevent it.
-As with worker events, this contract does not sanitize platform or SDK logs.
+| Event | Outcomes / additional fields |
+| --- | --- |
+| `api_request` | `responded` with `status_code`, or `unhandled_error` with null status |
+| `recommendation_delivery` | `ready`, `failed` (acknowledged), or `retry` (escaping exception) |
+| `catalog_request` | `success` or a normalized tool error code |
+| `catalog_ingestion` | `updated`, `rejected`, or `error`; accepted/written/deleted/rejected counts |
 
-The catalog Lambda emits one `catalog_request` event with `outcome` and
-`duration_ms`, including failures during configuration or SDK setup. Success is
-INFO; `INVALID_ARGUMENTS` and `NOT_FOUND` are WARNING; `TIMEOUT`,
-`DEPENDENCY_FAILURE`, and `INTERNAL_ERROR` are ERROR. These are the existing
-normalized tool error codes, not provider messages. The event excludes tool
-arguments, tool names, evidence IDs/records, and exception text. Both direct
-invocations and Gateway calls use this Lambda boundary. Logging preserves
-the existing response and error conversion; hard termination and SDK/platform
-diagnostics have the same limitations described above. Build the catalog and
-ingestion artifact with `make package-functions`; deployed verification remains
-separate from local packaging and tests.
-
-The ingestion Lambda emits one `catalog_ingestion` event with `outcome`,
-`duration_ms`, and aggregate `records_accepted`, `records_written`,
-`records_deleted`, and `records_rejected`. `updated` is INFO and means the
-snapshot and report completed; `rejected` is WARNING and means validation
-prevented snapshot replacement. `error` is ERROR and preserves the escaping
-exception. Without a completed report, counts are null: a failed write or report
-operation may already have changed some records. This is not a rollback or
-transaction guarantee. Source names, paths, records, validation details, and
-exception text are omitted from the application event. Lambda responses and
-stored reports retain their existing contract. Hard termination may prevent
-logging, and platform/SDK diagnostics remain outside this privacy contract.
+Use Lambda invocation metadata and API Gateway access records for investigation.
+Hard termination can prevent completion logs or leave a job pending until
+redelivery/dead-letter handling. Ingestion failure is not a transaction rollback;
+counts may be null after partial writes. These application contracts do not
+sanitize SDK/platform diagnostics or content-bearing Strands traces. See
+[Runtime logs and tracing](agent-runtime.md#application-logs) and
+[API behavior](api.md).
 
 ### Operational alarms
 
@@ -340,35 +344,23 @@ its wall-clock deadline with `RUNTIME_SMOKE_TIMEOUT_SECONDS=seconds`.
 
 ## Runtime traces
 
-`runtime_tracing.tf` configures managed `InvokeAgentRuntime` service-span delivery
-separately from the container's ADOT application spans. It uses a `TRACES` source
-and `XRAY` destination without enabling `APPLICATION_LOGS` or `USAGE_LOGS`.
-See [AWS Runtime service-span documentation](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability-runtime-metrics.html).
-Configuration validation alone does not verify service support, successful
-delivery, or the worker-to-Runtime parent chain; check deployed spans before
-claiming complete linkage.
+Runtime and Gateway have OpenTofu-managed `TRACES` delivery to X-Ray, separate
+from container ADOT export. API, worker, and catalog use a collector-only Lambda
+extension. For propagation rules and content limits, see
+[Runtime tracing](agent-runtime.md#tracing).
 
-Catalog application spans read `_X_AMZN_TRACE_ID` from the Lambda runtime on
-each invocation. They accept only valid trace/parent IDs with an explicit
-sampling decision, ignore extension fields, and never extract context from tool
-arguments. Missing or invalid metadata starts an independent trace. Unsampled
-parents produce no recorded catalog span; this is not itself an export failure.
-See [trusted trace propagation](agent-runtime.md).
+| Application span | Outcome | ERROR status |
+| --- | --- | --- |
+| `praxis.api.request` | `responded` or `unhandled_error`; response status when available | Returned 5xx or escaping exception |
+| `praxis.worker.delivery` | `ready`, `failed`, or `retry` | Stored failure or escaping exception |
+| `praxis.catalog.request` | `success` or normalized error | Any failed tool request |
 
-Gateway service tracing is managed by `gateway_tracing.tf`: a `TRACES` delivery
-source, an `XRAY` destination, and their delivery connection. This is separate
-from client-side MCP instrumentation and requires existing Transaction Search
-configuration. It does not enable Gateway `APPLICATION_LOGS`, change indexing,
-or create another log group. Trace ingestion remains usage-based.
-See [AWS trace-delivery setup](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability-configure.html).
-Deployment and retained service spans must be verified independently; enabling
-delivery does not automatically make catalog application spans inherit a parent.
+Other outcomes retain UNSET status. Application spans omit payloads and exception
+details; SDK/Strands spans have different content contracts. Successful requests
+or configured delivery do not prove a complete cross-service parent chain.
 
-For collector-exported Lambda spans, inspect the confirmed Transaction Search
-log group **`aws/spans` (no leading slash)**. It is distinct from the
-resource-specific AgentCore Runtime span log group. X-Ray summary search only
-covers the configured indexed percentage, so an empty summary result alone is
-not evidence of export failure. Use a bounded time window and event limit:
+Inspect collector-exported Lambda spans in **`aws/spans` (no leading slash)**,
+not the Runtime endpoint's span stream. Use a bounded existing invocation window:
 
 ```sh
 aws logs filter-log-events --profile praxis-dev --region us-east-1 \
@@ -377,65 +369,9 @@ aws logs filter-log-events --profile praxis-dev --region us-east-1 \
   --filter-pattern '"praxis.catalog.request"' --limit 2 --no-paginate
 ```
 
-Replace the timestamp placeholders with the invocation window. Do not increase
-indexing or repeat model calls just to populate summary search. See
-[AWS span storage documentation](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Transaction-Search-ingesting-span-log-groups.html).
-X-Ray conversion can alter the stored representation: API spans were observed
-with an empty top-level `name`, identity retained in `_aws.xray.name`, and
-HTTP 4xx mapped to stored ERROR status. The application span contract below
-describes the SDK output before that conversion.
-
-API and worker handlers create internal OpenTelemetry spans using the active
-provider, without configuring an exporter or extracting browser trace headers:
-
-| Span | Attributes | ERROR status |
-| --- | --- | --- |
-| `praxis.api.request` | `praxis.outcome`: `responded` or `unhandled_error`; `http.response.status_code` only when a response exists | Returned 5xx or escaping exception |
-| `praxis.worker.delivery` | `praxis.outcome`: `ready`, `failed`, or `retry` | Stored failure or escaping exception |
-| `praxis.catalog.request` | `praxis.outcome`: `success` or a normalized catalog error code | Any failed tool request, including invalid arguments |
-
-Other outcomes retain UNSET status. Span timestamps supply duration; automatic
-exception events and status descriptions are disabled. No request/response
-content, identity, route, or diagnostic text is attached. Existing application
-logs and exception/retry behavior are unchanged. A stored worker failure is an
-ERROR span even though its acknowledged-delivery log is INFO. These contracts
-do not scrub dependency spans or platform diagnostics, and hard termination
-can prevent span completion.
-
-The worker Runtime adapter forwards the active OpenTelemetry W3C
-`traceparent` through the SDK's `traceParent` parameter for recommendations and
-briefs, plus an equivalent X-Ray `traceId` header for the AWS service boundary.
-Both representations preserve the same trace, parent, and sampling flag and are
-omitted when no valid context exists. It does not copy incoming browser
-headers, vendor `tracestate`, or arbitrary baggage; the existing encoded
-`praxis.correlation_id` baggage remains separate.
-
-The API adds active server-generated `traceparent` as an SQS String message
-attribute, leaving the job body unchanged. The single-record worker uses that
-validated identity as its remote parent, preserving sampling without accepting
-vendor state or baggage. Absent or malformed metadata starts an independent
-trace; it neither invalidates the job nor inherits another delivery's context.
-See [trusted trace propagation](agent-runtime.md).
-
-The Lambda package includes a locked SDK and HTTP/protobuf exporter. Its
-application-only provider is enabled by `PRAXIS_LAMBDA_TRACING=true` inside Lambda;
-without that opt-in, handlers use the existing active provider. It synchronously
-hands spans to `127.0.0.1:4318` with a 2-second exporter timeout and does not
-inherit proxy/netrc settings or arbitrary exporter headers. No automatic library
-instrumentation or metrics are enabled. The provider requires a collector
-extension. OpenTofu attaches a pinned collector-only layer to API, worker, and
-catalog, with only `xray:PutTraceSegments` and `xray:PutTelemetryRecords` added to
-their execution roles. The packaged `collector.yaml` accepts loopback OTLP and
-exports directly to X-Ray; remote export latency can delay the local response.
-There are no metrics, batch processors, or debug payload exporters.
-Ingestion shares the ZIP but does not enable tracing or attach the extension.
-End-to-end linkage verification remains pending.
-Local tests exercise queue propagation and both Runtime call paths without AWS.
-
-The catalog handler also uses the active provider but does not extract context
-from tool arguments or assume Gateway forwards a parent. Its local span contract
-is verified separately; a deployed Runtime-to-Gateway-to-catalog parent chain is
-not yet established.
+An empty page or sampled X-Ray summary is not proof of missing export. Check
+pagination and the time window before drawing conclusions; do not increase
+indexing or repeat model calls just to populate a view.
 
 CloudWatch Transaction Search must accept OTEL spans before Runtime trace
 verification. This is a one-time account and Region setting. In the CloudWatch
@@ -445,7 +381,7 @@ indexing setting. Wait until **Ingest OpenTelemetry spans** reports enabled.
 AWS documents the same console procedure in its
 [AgentCore observability guide](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability-get-started.html#enabling-transaction-search).
 
-After deploying the ADOT-instrumented image and promoting its immutable Runtime
+After deploying the ADOT-instrumented image and verifying its live Runtime
 version, invoke and verify one evaluation-compatible trace:
 
 ```shell
@@ -537,13 +473,26 @@ the live endpoint and Runtime are `READY` with MMDSv2 enabled. No separate versi
 selection or promotion is required. Smoke and evaluation scripts resolve the live
 version from AWS, not a stored OpenTofu version output.
 
+## Teardown
+
 Before an extended pause or project completion, review and apply a saved
 destroy plan. Supply the private `TF_VAR_budget_notification_email` input as
 described under [operational alarms](#operational-alarms); a destroy plan still
 evaluates required configuration inputs. Before deleting resources, preserve
 privacy-reviewed demonstration evidence and record the exact Runtime log-group
-names from `application_log_group_names` in a private local inventory. Do not
-export raw prompts or telemetry into committed evidence.
+names in a private local inventory. Include service-created groups for unused
+endpoints, which may be absent from `application_log_group_names`. Record the
+Runtime ID, CloudFront distribution/OAC IDs, and trace-delivery IDs before state
+outputs disappear. Do not export raw prompts or telemetry into committed evidence.
+
+Inventory Runtime logs before teardown (read-only; replace the placeholder with
+the exact deployed Runtime ID and repeat for any other known project Runtime):
+
+```shell
+aws logs describe-log-groups --profile praxis-dev --region us-east-1 \
+  --log-group-name-prefix '/aws/bedrock-agentcore/runtimes/REPLACE_RUNTIME_ID-' \
+  --query 'logGroups[].logGroupName' --output json
+```
 
 ```shell
 make tofu-plan-destroy-dev
@@ -574,6 +523,45 @@ also have service-created groups; compare a narrowly scoped inventory with the
 recorded Runtime identities rather than deleting by a broad prefix. Any cleanup
 of exact residual resources requires separate explicit approval. Keep shared
 resources as documented exceptions until ownership is resolved.
+
+After Runtime deletion, remove each reviewed leftover group by its exact name.
+This permanently deletes its logs; obtain separate approval for each cleanup.
+Never substitute a broad prefix or the shared `aws/spans` group:
+
+```shell
+aws logs delete-log-group --profile praxis-dev --region us-east-1 \
+  --log-group-name 'REPLACE_WITH_EXACT_APPROVED_LOG_GROUP'
+```
+
+Re-run the log inventory to confirm absence. For the wider residual check, use
+the read-only service inventories below with the same profile and region. Filter
+to recorded IDs or project names; unrelated resources need not be absent.
+Do not treat an API error, incomplete page, or empty tag search as proof of deletion.
+
+| Resources | AWS CLI inventory command |
+| --- | --- |
+| Runtime, Gateway, generated identities | `bedrock-agentcore-control list-agent-runtimes`, `list-gateways`, `list-workload-identities` |
+| Lambda and queue bindings | `lambda list-functions`, `lambda list-event-source-mappings` |
+| API and users | `apigatewayv2 get-apis`, `cognito-idp list-user-pools --max-results 60` |
+| Tables and queues | `dynamodb list-tables`, `sqs list-queues --queue-name-prefix praxis-dev` |
+| Images and buckets | `ecr describe-repositories`, `s3api list-buckets` |
+| Hosting | `cloudfront list-distributions`, `cloudfront list-origin-access-controls` |
+| Roles and guardrails | `iam list-roles`, `bedrock list-guardrails` |
+| Logs and trace routing | `logs describe-log-groups`, `logs describe-deliveries`, `logs describe-delivery-sources`, `logs describe-delivery-destinations` |
+| Dashboard, alarms, notifications | `cloudwatch list-dashboards`, `cloudwatch describe-alarms`, `sns list-topics` |
+
+For example, check that no development Lambda functions remain:
+
+```shell
+aws lambda list-functions --profile praxis-dev --region us-east-1 \
+  --query 'Functions[?starts_with(FunctionName, `praxis-dev-`)].FunctionName' \
+  --output json
+```
+
+The CLI automatically paginates supported list operations unless disabled; follow
+service continuation tokens where necessary. Confirm the bootstrap bucket and
+budget still exist. Shared tracing settings and retained `aws/spans` data are
+documented exceptions, not proof of zero ongoing charges.
 
 Verify tracked development resources are gone (with the configured profile):
 

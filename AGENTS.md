@@ -1,14 +1,13 @@
 # Praxis agent guide
 
-`ROADMAP.md` is the source of truth for scope, sequencing, and progress. Read it
-completely before starting work, inspect the repository and git status, and
-preserve unrelated user changes.
+Follow the user's requested scope. Before starting work, read
+`docs/architecture.md`, inspect the repository and git status, and preserve
+unrelated user changes.
 
 ## Working conventions
 
-- Work on the earliest incomplete roadmap item unless the user selects other work.
-- Complete one small, verifiable checklist slice at a time. Update a roadmap
-  checkbox only after the implementation or external condition is verified.
+- Complete one small, verifiable slice at a time. Claim completion only after
+  the implementation or external condition is verified.
 - After each substantial verified slice, suggest a concise commit message unless
   the user says the changes will be bundled with other work.
 - Keep material architecture choices and constraints in `docs/architecture.md`.
@@ -16,11 +15,9 @@ preserve unrelated user changes.
   implementation boundaries. Update it whenever components, trust boundaries,
   data flows, authentication, or deployment topology change.
 - Write comments, documentation, examples, and file names for long-term readers.
-  Describe current behavior, intent, and constraints without roadmap sequencing
+  Describe current behavior, intent, and constraints without development sequencing
   labels, decision chronology, or session narratives. Describe what the code does,
   not the experiments or conversations that led to it.
-- Keep `ROADMAP.md` to open work, current blockers, and next actions. Do not keep
-  completed-work narratives, deployment identities, test counts, or run receipts.
 - Public documentation must describe current behavior, configuration, and limits.
   Keep generated results in ignored build/ artifacts and deployment settings,
   risk approvals, and private handoff notes in ignored local files. Commit reusable
@@ -76,5 +73,5 @@ Never modify them during ingestion. Derive current totals from the authoritative
 files and verify that deployed ingestion matches them.
 
 At handoff, leave the worktree understandable: report verification performed,
-keep roadmap state accurate, update current architecture constraints, and identify
-the next incomplete checklist item plus any blocker that requires user input.
+update current architecture constraints, and identify any remaining work or
+blocker that requires user input. Keep progress notes in ignored local files.

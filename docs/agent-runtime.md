@@ -94,7 +94,7 @@ The prompt requests repeatable actions and observable pass conditions, not claim
 of understanding or completion. Catalog citations identify related resources;
 they do not verify generated procedures. Selected subjective-completion and
 external-review checks remain enforced, but validation is not a quality judge.
-Use the [brief review rubric](../evals/README.md#brief-quality) for human assessment.
+Review feasibility and acceptance checks before acting on a generated brief.
 
 Generation uses the direct ProjectBrief schema, a 3,000-output-token cap, and
 bounded retry behavior. Brief jobs run through SQS and the worker, not inside an

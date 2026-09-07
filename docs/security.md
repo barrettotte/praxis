@@ -10,7 +10,7 @@ Use non-sensitive inputs. Generated plans are advice, not verified procedures.
 | --- | --- | --- |
 | Browser → API | Cognito JWT issuer/audience validation; exact-origin CORS; strict request schemas | CORS is not authentication. A stolen valid token can perform the user's operations. |
 | API → sessions/queue | JWT-subject ownership, expiry checks, server-owned candidate selection | Service roles can access state; TTL deletion is asynchronous. |
-| Worker → Runtime | IAM-scoped invocation of a named endpoint | A compromised privileged caller or AWS administrator can bypass application assumptions. |
+| Worker → Runtime | IAM-scoped invocation of the DEFAULT endpoint | A compromised privileged caller or AWS administrator can bypass application assumptions. |
 | Runtime → Gateway/catalog | Four read-only tools, strict contracts, bounded calls, citation validation | Citations establish provenance, not truth or technical feasibility. |
 | Services → telemetry | Metadata-only API access logs and application spans; restricted readers and retention | Strands traces contain prompts/results. SDK diagnostics can contain exception text. |
 
@@ -46,8 +46,8 @@ screened before entering the evidence ledger. See
 - **Compromise:** a compromised dependency, publisher, operator, or Runtime
   process retains its granted authority. General egress isolation is not established.
 - **Verification:** local tests do not establish deployed cloud
-  health, live saturation behavior, or managed-host isolation. Open release
-  checks remain in the [roadmap](../ROADMAP.md).
+  health, live saturation behavior, or managed-host isolation. Verify deployed
+  behavior separately before relying on these controls.
 
 The maintainer must approve exceptions explicitly. Revisit these limits before
 adding users, private data, write tools, URL fetching, HTML rendering, or new IAM

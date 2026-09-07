@@ -97,13 +97,13 @@ resource "aws_apigatewayv2_stage" "default" {
 
   # A single-user session route should not start concurrent metered agent runs.
   route_settings {
-    route_key              = "POST /v1/sessions"
+    route_key              = aws_apigatewayv2_route.application["POST /v1/sessions"].route_key
     throttling_burst_limit = 1
     throttling_rate_limit  = 0.1
   }
 
   route_settings {
-    route_key              = "POST /v1/projects/{candidateId}/select"
+    route_key              = aws_apigatewayv2_route.application["POST /v1/projects/{candidateId}/select"].route_key
     throttling_burst_limit = 1
     throttling_rate_limit  = 0.1
   }

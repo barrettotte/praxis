@@ -78,7 +78,7 @@ the reviewed infrastructure plan, publish a production bundle explicitly:
 
 ```bash
 make deploy-frontend-dev CONFIRM=deploy-frontend-dev
-make smoke-dev SUITE=frontend
+make smoke-dev SUITE=public
 ```
 
 The deployment reads the non-secret API URL, Cognito pool ID, and Cognito client

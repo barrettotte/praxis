@@ -97,7 +97,7 @@ Selection clients must handle a pending job and poll for `brief_ready`; they mus
 not expect a completed brief in the POST response. The API role only accesses
 sessions and SQS; only the worker invokes Runtime and reads source sessions.
 For incompatible changes, pause submissions and drain queued work, deploy matching
-artifacts and promote the intended Runtime version, then verify the complete flow
+artifacts and verify the live DEFAULT Runtime version and complete flow
 before resuming traffic. Do not remove a service dependency while a serving version
 still requires it. Frontend/API brief schemas must also remain compatible.
 Deployment, resource deletion, and metered verification require their usual approvals.
