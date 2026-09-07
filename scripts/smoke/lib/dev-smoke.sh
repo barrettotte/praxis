@@ -21,3 +21,17 @@ praxis_tofu_output() {
   AWS_PROFILE="${praxis_profile}" "${praxis_tofu}" \
     -chdir="${praxis_infra_dir}" output -raw "$1"
 }
+
+# DEFAULT moves during deployment; never infer its live version from OpenTofu state.
+praxis_runtime_endpoint_version() {
+  local praxis_endpoint
+  praxis_endpoint="$(
+    aws --profile "${praxis_profile}" --region "${praxis_region}" \
+      bedrock-agentcore-control get-agent-runtime-endpoint \
+      --agent-runtime-id "$(praxis_tofu_output agentcore_runtime_id)" \
+      --endpoint-name "$(praxis_tofu_output agentcore_runtime_endpoint_name)" \
+      --output json
+  )" || return
+  jq -er 'select(.status == "READY") | .liveVersion | select(type == "string" and length > 0)' \
+    <<<"${praxis_endpoint}"
+}

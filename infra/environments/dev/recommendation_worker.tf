@@ -76,7 +76,7 @@ data "aws_iam_policy_document" "recommendation_worker" {
     actions = ["bedrock-agentcore:InvokeAgentRuntime"]
     resources = [
       aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn,
-      aws_bedrockagentcore_agent_runtime_endpoint.stable.agent_runtime_endpoint_arn,
+      local.agentcore_runtime_endpoint_arn,
     ]
   }
 
@@ -127,7 +127,7 @@ resource "aws_lambda_function" "recommendation_worker" {
   environment {
     variables = merge(local.lambda_trace_environment, {
       PRAXIS_AGENT_RUNTIME_ARN       = aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn
-      PRAXIS_AGENT_RUNTIME_QUALIFIER = aws_bedrockagentcore_agent_runtime_endpoint.stable.name
+      PRAXIS_AGENT_RUNTIME_QUALIFIER = local.agentcore_runtime_endpoint_name
       PRAXIS_SESSION_TABLE_NAME      = aws_dynamodb_table.api_sessions.name
     })
   }
@@ -142,6 +142,7 @@ resource "aws_lambda_function" "recommendation_worker" {
   }
 
   depends_on = [
+    terraform_data.agentcore_runtime_mmdsv2,
     aws_cloudwatch_log_group.recommendation_worker,
     aws_iam_role_policy.recommendation_worker,
     aws_iam_role_policy.lambda_trace_export,

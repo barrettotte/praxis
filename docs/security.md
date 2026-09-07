@@ -61,16 +61,21 @@ make agent-image
 make security SCAN=image AGENT_IMAGE=praxis-agent:dev
 ```
 
-The pinned Trivy scanner checks development/runtime lockfiles, the Lambda
-requirements lock, and OS/language packages in the selected local image.
-It downloads public databases but does not access AWS or execute the image.
+Pinned Trivy checks development/runtime lockfiles, the Lambda requirements lock,
+and OS/language packages in the selected local image. A complementary Grype image
+scan detects upstream CPython binaries that Trivy's package checks do not cover.
+Both download public databases but do not access AWS or execute the image.
+The command requires Podman or Docker and `jq` for report validation.
 Use the ARM64 deployment image; a native AMD64 CI scan is not equivalent.
 
 HIGH/CRITICAL findings, including unfixed advisories, and scanner errors fail the
 command. Reports are `build/security/dependencies.json` and
-`build/security/image.json`; each selected scan replaces its previous report.
+`build/security/image.json`, and `build/security/image-binaries.json`; each selected
+scan replaces its previous reports.
 A missing or partial report is not a pass. The scanner mounts only inputs, its
 report directory, and database cache—not AWS credentials or the container socket.
+Image checks require Ubuntu identification and libc/zlib package inventory;
+an OS-detection failure cannot pass as a language-only scan.
 AWS-managed Lambda components and unknown advisories remain outside coverage.
 
 Review installed/fixed versions, affected behavior, and reachability. Update

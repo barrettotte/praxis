@@ -330,9 +330,11 @@ describes the service's session and immutable-version boundaries.
 ## Container contract
 
 `backend/Containerfile` packages the runtime as a non-root Python 3.13 ARM64
-container using a digest-pinned Debian 13 distroless Python base. A compatible
-Trixie builder installs the frozen dependencies as a non-editable package; only
-the virtual environment is copied into the serving image. ADOT launches `praxis.agent.runtime`,
+container assembled from Ubuntu 24.04 packages. A digest-pinned Ubuntu builder
+compiles checksum-verified CPython 3.13.15 source and installs frozen dependencies
+as a non-editable package. `scripts/package-python-runtime.sh`
+assembles the interpreter and supporting libraries, retaining Ubuntu package
+metadata and licenses. ADOT launches `praxis.agent.runtime`,
 which uses the AgentCore SDK to serve the required
 `GET /ping` and `POST /invocations` endpoints on `0.0.0.0:8080`. An invocation
 accepts `{"prompt": "..."}` and returns three validated candidates, bounded
@@ -357,13 +359,20 @@ before checking `/ping`, avoiding slow cross-architecture emulation during local
 development.
 
 Package installation finishes during the build. The serving image excludes
-pip, bootstrap wheels, uv/uvx, shells, and package-manager executables. Debian's
-`ensurepip` module remains but has no bundled installer wheels. The container
+pip, ensurepip, bootstrap wheels, uv/uvx, shells, and package-manager executables.
+SQLite, DBM, curses/readline, Tk and native UUID extensions are outside the serving
+contract and excluded along with their unused libraries. Standard `uuid.uuid4()`
+remains available without libuuid. New dependencies that need these optional
+modules require an explicit image change and security review. The container
 smoke runs with no network, a read-only root filesystem, and no capabilities;
 it verifies health, Python 3.13, non-root execution, native-library imports,
 CA certificates, and absence of installers and setuid/setgid files. See
 [architecture](architecture.md#deployment-and-constraints) for compatibility
 constraints and [security](security.md#scanning) for vulnerability review.
+
+The build installs Ubuntu security updates and checks the minimum patched glibc
+package version. Refresh the cached package-install layer when reviewing OS
+updates; a pinned builder digest alone does not pin the packages downloaded by apt.
 
 The image contains no local credentials or `.env` file. Deployed AWS calls use
 the runtime execution role; local Gateway invocations continue to use the

@@ -7,9 +7,9 @@ source "${praxis_script_dir}/smoke/lib/dev-smoke.sh"
 
 praxis_require_commands aws jq "${praxis_tofu}" uv
 
-# Use the exact model and guardrail attached to the stable Runtime.
+# Use the exact model and guardrail attached to the live Runtime.
 praxis_runtime_id="$(praxis_tofu_output agentcore_runtime_id)"
-praxis_runtime_version="$(praxis_tofu_output agentcore_runtime_endpoint_version)"
+praxis_runtime_version="$(praxis_runtime_endpoint_version)"
 praxis_runtime_environment="$(
   aws --profile "${praxis_profile}" --region "${praxis_region}" \
     bedrock-agentcore-control get-agent-runtime \

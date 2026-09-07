@@ -2,6 +2,8 @@
 locals {
   agentcore_runtime_name          = replace("${local.name_prefix}-agent", "-", "_")
   agentcore_runtime_container_uri = "${aws_ecr_repository.deployable["agent"].repository_url}@${var.agent_image_digest}"
+  agentcore_runtime_endpoint_name = "DEFAULT"
+  agentcore_runtime_endpoint_arn  = "${aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn}/runtime-endpoint/${local.agentcore_runtime_endpoint_name}"
   agentcore_runtime_environment = {
     AGENT_OBSERVABILITY_ENABLED = "true"
     AWS_REGION                  = var.aws_region
@@ -21,7 +23,7 @@ locals {
     max_lifetime                 = 3600
   }
   agentcore_runtime_log_group_names = [
-    for endpoint_name in ["DEFAULT", "stable"] :
+    for endpoint_name in [local.agentcore_runtime_endpoint_name] :
     "/aws/bedrock-agentcore/runtimes/${aws_bedrockagentcore_agent_runtime.agent.agent_runtime_id}-${endpoint_name}"
   ]
 }
@@ -241,21 +243,6 @@ resource "terraform_data" "agentcore_runtime_mmdsv2" {
   }
 }
 
-# A named endpoint stays on a reviewed version while newer Runtime versions are tested.
-resource "aws_bedrockagentcore_agent_runtime_endpoint" "stable" {
-  name                  = "stable"
-  agent_runtime_id      = aws_bedrockagentcore_agent_runtime.agent.agent_runtime_id
-  agent_runtime_version = var.agent_runtime_endpoint_version
-  description           = "Stable endpoint for the verified Praxis agent version"
-
-  tags = {
-    Name    = "${local.agentcore_runtime_name}_stable"
-    Purpose = "Pinned AgentCore Runtime promotion"
-  }
-
-  depends_on = [terraform_data.agentcore_runtime_mmdsv2]
-}
-
 # AgentCore creates these groups outside the AWS provider's resource lifecycle.
 resource "terraform_data" "agentcore_runtime_log_retention" {
   triggers_replace = [
@@ -273,5 +260,5 @@ resource "terraform_data" "agentcore_runtime_log_retention" {
     }
   }
 
-  depends_on = [aws_bedrockagentcore_agent_runtime_endpoint.stable]
+  depends_on = [terraform_data.agentcore_runtime_mmdsv2]
 }

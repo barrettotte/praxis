@@ -112,8 +112,8 @@ flowchart TD
     worker <-->|Read/complete subject-owned state| sessions
 
     subgraph runtime[Amazon Bedrock AgentCore Runtime]
-        runtimeEndpoint[stable endpoint<br/>Pinned Runtime version]
-        agent[Python 3.13 ARM64 distroless container<br/>Input/context screening + Strands agent<br/>Runtime execution role]
+        runtimeEndpoint[DEFAULT endpoint<br/>Latest Runtime version]
+        agent[Python 3.13 ARM64 minimal Ubuntu container<br/>Input/context screening + Strands agent<br/>Runtime execution role]
         runtimeEndpoint --> agent
     end
 
@@ -221,7 +221,7 @@ checks, backend/frontend tests, and schema checks without AWS calls.
 establishes the quality of current prompts or a deployed model.
 
 Run `make security` to scan locked dependencies and the built local Runtime
-image. It requires Podman (or `CONTAINER_TOOL=docker`) and network access, but
+image. It requires Podman (or `CONTAINER_TOOL=docker`), `jq`, and network access, but
 no AWS credentials. See [security scanning](docs/security.md#scanning) for
 coverage, reports, and finding triage.
 

@@ -191,18 +191,13 @@ output "agentcore_runtime_container_uri" {
 }
 
 output "agentcore_runtime_endpoint_arn" {
-  description = "ARN of the stable version-pinned AgentCore Runtime endpoint."
-  value       = aws_bedrockagentcore_agent_runtime_endpoint.stable.agent_runtime_endpoint_arn
+  description = "ARN of the automatically tracking development Runtime endpoint."
+  value       = local.agentcore_runtime_endpoint_arn
 }
 
 output "agentcore_runtime_endpoint_name" {
-  description = "Qualifier of the stable version-pinned AgentCore Runtime endpoint."
-  value       = aws_bedrockagentcore_agent_runtime_endpoint.stable.name
-}
-
-output "agentcore_runtime_endpoint_version" {
-  description = "Immutable Runtime version served by the stable endpoint."
-  value       = aws_bedrockagentcore_agent_runtime_endpoint.stable.agent_runtime_version
+  description = "Qualifier of the automatically tracking development Runtime endpoint."
+  value       = local.agentcore_runtime_endpoint_name
 }
 
 output "ingestion_lambda_name" {

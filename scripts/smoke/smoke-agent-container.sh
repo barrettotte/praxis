@@ -40,9 +40,12 @@ import stat
 import sys
 from pathlib import Path
 assert sys.version_info[:2] == (3, 13)
+assert sys.version_info[:3] >= (3, 13, 15)
 assert os.geteuid() != 0
+assert "DISTRIB_ID=Ubuntu" in Path("/etc/lsb-release").read_text()
+assert "VERSION_ID=\"24.04\"" in Path("/etc/os-release").read_text()
 assert importlib.util.find_spec("pip") is None
-# Debian retains ensurepip code but supplies no bootstrap wheels in distroless.
+assert importlib.util.find_spec("ensurepip") is None
 assert not list(Path("/usr").rglob("*.whl"))
 assert not list(Path("/app").rglob("*.whl"))
 assert not Path("/usr/local/lib/python3.13/site-packages/pip").exists()
@@ -56,18 +59,31 @@ for utility in (
 # Source-package advisories can name utilities absent from the library-only image.
 # Check outside PATH too, including the mount library that implements mount hooks.
 for root in (Path("/usr"), Path("/app")):
-    for name in ("mount", "umount", "nsenter", "infocmp", "tic", "libmount.so*"):
+    for name in (
+        "mount", "umount", "nsenter", "infocmp", "tic", "libmount.so*",
+        "libsqlite3.so*", "libncurses*.so*", "libtinfo.so*", "libuuid.so*",
+    ):
         assert not list(root.rglob(name)), name
+for module in ("sqlite3", "curses", "dbm", "tkinter", "readline", "_uuid"):
+    assert importlib.util.find_spec(module) is None, module
 # Exercise native dependencies and telemetry imports without cloud calls.
 import awscrt.auth
 import grpc
 import pydantic_core
-import sqlite3
+import bz2
+import ctypes
+import lzma
 import ssl
+import uuid
+import zlib
 import opentelemetry.instrumentation.auto_instrumentation
 import praxis.agent.runtime
 assert ssl.create_default_context().get_ca_certs()
-assert sqlite3.connect(":memory:").execute("select 1").fetchone() == (1,)
+assert uuid.uuid4().version == 4
+for codec in (bz2, lzma, zlib):
+    assert codec.decompress(codec.compress(b"runtime")) == b"runtime"
+for package in ("libbz2-1.0", "libffi8", "liblzma5"):
+    assert f"Package: {package}" in Path(f"/var/lib/dpkg/status.d/{package}").read_text()
 assert not any(
     path.is_file() and path.stat().st_mode & (stat.S_ISUID | stat.S_ISGID)
     for path in Path("/usr").rglob("*")

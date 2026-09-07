@@ -12,11 +12,11 @@ on exit. Review image scan findings before explicitly confirming publication.
 
 ## Prerequisites
 
-The development root requires an explicit `agent_image_digest` and
-`agent_runtime_endpoint_version`. Set them in ignored
+The development root requires an explicit `agent_image_digest`. Set it in ignored
 `infra/environments/dev/deployment.auto.tfvars` using the adjacent example file.
-Keep the stable endpoint pinned while staging a new image, then promote only
-after verification. Never reuse a saved plan after changing these inputs.
+The `DEFAULT` endpoint follows Runtime updates automatically. Pause submissions
+and drain queued work before applying; verify READY and MMDSv2 before resuming.
+Never reuse a saved plan after changing configuration or state.
 
 `make package-functions` and `make package-api-lambda` use the same Lambda packager
 with explicit handler profiles. Each ZIP includes its locked SDK and validation
@@ -334,7 +334,7 @@ and [Bedrock runtime metrics](https://docs.aws.amazon.com/bedrock/latest/usergui
 
 ## Runtime diagnostic
 
-`make smoke-dev SUITE=runtime` invokes one fresh session through the stable
+`make smoke-dev SUITE=runtime` invokes one fresh session through the development
 endpoint and validates its candidates, citations, and tool counts. Override its prompt with `PROMPT='your goal'` or
 its wall-clock deadline with `RUNTIME_SMOKE_TIMEOUT_SECONDS=seconds`.
 
@@ -460,7 +460,7 @@ Override the delivery wait with `RUNTIME_TRACE_TIMEOUT_SECONDS=seconds`.
 ## Deployed evaluation
 
 Run the canonical evaluation manually, with explicit approval for its metered
-work, after the stable endpoint and its Strands traces are verified:
+work, after the development endpoint and its Strands traces are verified:
 
 ```shell
 make eval-runtime-dev
@@ -488,14 +488,13 @@ and token usage before adopting it. Model evaluations require explicit approval.
 
 Set the intended `agent_model_id` in deployment configuration and review the
 saved plan. Runtime IAM permits only that configured model. Changing this policy
-affects all versions sharing the execution role, including the version behind
-`stable`; staging a version does not isolate IAM changes. Pause submissions and
+affects all versions sharing the execution role. Pause submissions and
 drain queued work during model transitions.
 
-Inspect versions with `make inspect-runtime-versions-dev`, then promote an
-explicit READY version with the intended model, image digest, and MMDSv2 setting.
+Inspect versions with `make inspect-runtime-versions-dev` and verify the live
+READY version has the intended model, image digest, and MMDSv2 setting.
 A rollback must restore compatible model permissions, image, API contract, and
-endpoint version—not just the endpoint pointer. Follow the normal reviewed
+Runtime configuration. Follow the normal reviewed
 plan/apply workflow and verify compatibility before resuming traffic.
 
 ## Agent image publication
@@ -530,13 +529,13 @@ applying it. The apply waits for the Runtime to return to `READY` and verifies
 that MMDSv2 is enabled. The compatibility update uses the same temporary AWS
 profile as OpenTofu and performs no invocation.
 
-The named `stable` Runtime endpoint uses the explicit
-`agent_runtime_endpoint_version` value. Runtime configuration changes create a
-new provider-managed version followed by an MMDSv2-enabled version, while the
-endpoint remains on its prior target. Verify the replacement Runtime version is
-`READY` with MMDSv2 enabled, then promote that version in a separate reviewed
-plan. Never point application callers at the automatically moving `DEFAULT`
-endpoint.
+The service-managed `DEFAULT` endpoint automatically follows Runtime updates.
+Configuration changes create a provider-managed version followed by an
+MMDSv2-enabled version. Do not submit requests or run evaluations during apply:
+the endpoint can temporarily serve the intermediate version. Resume only after
+the live endpoint and Runtime are `READY` with MMDSv2 enabled. No separate version
+selection or promotion is required. Smoke and evaluation scripts resolve the live
+version from AWS, not a stored OpenTofu version output.
 
 Before an extended pause or project completion, review and apply a saved
 destroy plan. Supply the private `TF_VAR_budget_notification_email` input as
@@ -565,7 +564,7 @@ state because those belong to the independent bootstrap root.
 | SNS topic, policy, and email subscription | Development root: `alarms.tf` | Confirm the topic is absent. A pending email subscription cannot be individually unsubscribed; topic deletion removes its subscriptions. |
 | Runtime/Gateway trace delivery sources, destinations, and connections | Development root: `runtime_tracing.tf`, `gateway_tracing.tf` | Confirm both named delivery sources/destinations and their recorded connections are absent. These are distinct from shared X-Ray destination settings. |
 | API, worker, catalog, ingestion, and API access log groups | Explicit development `aws_cloudwatch_log_group` resources | Confirm the recorded names are absent. |
-| Service-created Runtime `DEFAULT` and `stable` log groups | Retention-only provisioning, not managed log-group resources | Inspect the exact pre-destroy names. The retention script has no destroy hook; do not assume removing its `terraform_data` record deletes a group. |
+| Service-created Runtime log groups | Retention-only provisioning for `DEFAULT`, not managed log-group resources | Inspect all exact pre-destroy names, including unused endpoint groups. The retention script has no destroy hook; removing its `terraform_data` record does not delete a group. |
 | Shared `aws/spans`, X-Ray/Transaction Search configuration, and retained spans | Account/Region-level setup outside the development root | Review ownership and retention separately; never delete shared data or disable account-wide settings merely because Praxis is removed. |
 | Bootstrap state bucket/history and cost budget | Independent bootstrap root | Preserve until a separately approved bootstrap teardown. |
 

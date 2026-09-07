@@ -1,5 +1,18 @@
-# Build locked dependencies separately from the shell-free serving image.
-FROM python:3.13.15-slim-trixie AS build
+# Assemble a patched upstream interpreter and locked dependencies for a shell-free runtime.
+FROM ubuntu:24.04@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517 AS build
+
+# Build Python against the same distribution as every serving library.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential ca-certificates curl xz-utils libssl-dev zlib1g-dev \
+    libbz2-dev libffi-dev liblzma-dev tzdata \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libc6)" ge 2.39-0ubuntu8.8
+WORKDIR /tmp/python-build
+RUN curl -fsSLo python.tar.xz https://www.python.org/ftp/python/3.13.15/Python-3.13.15.tar.xz \
+    && echo '1e66a7945a48390ee4c2a4268a0e4185884059a13c4aab6d148aa208deea4a76  python.tar.xz' | sha256sum -c - \
+    && tar -xf python.tar.xz --strip-components=1 \
+    && ./configure --enable-shared --without-ensurepip --disable-test-modules \
+    && make -j4 && make install \
+    && ldconfig && ln -s python3 /usr/local/bin/python
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /uvx /bin/
 
@@ -11,20 +24,25 @@ ENV PATH="/app/.venv/bin:$PATH" \
 
 WORKDIR /app
 
+COPY scripts/package-python-runtime.sh /tmp/package-python-runtime.sh
+RUN bash /tmp/package-python-runtime.sh
+
 COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY backend/src ./backend/src
 
-# Match distroless's interpreter location so the copied virtualenv stays usable.
-RUN uv sync --frozen --no-cache --no-dev --no-editable \
-    && ln -sf /usr/bin/python3 /app/.venv/bin/python
+RUN uv sync --frozen --no-cache --no-dev --no-editable
 
-FROM gcr.io/distroless/python3-debian13:nonroot@sha256:f3d5ddc6c64a019fe520e7f005f2880be21e6afc461b10a3c15ef2e4edc71e33
+FROM scratch
 
-ENV PATH="/app/.venv/bin:/usr/bin" \
+ENV PATH="/app/.venv/bin:/usr/local/bin:/usr/bin" \
+    LD_LIBRARY_PATH="/usr/local/lib" \
+    LANG="C.UTF-8" \
+    SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 WORKDIR /app
+COPY --from=build /runtime/ /
 COPY --from=build /app/.venv /app/.venv
 USER 65532:65532
 

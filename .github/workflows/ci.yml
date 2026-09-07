@@ -50,6 +50,9 @@ jobs:
       - name: Build Runtime image for scanning
         run: make agent-image CONTAINER_TOOL=docker AGENT_PLATFORM=linux/amd64
 
+      - name: Check Runtime container contract
+        run: CONTAINER_TOOL=docker AGENT_PLATFORM=linux/amd64 ./scripts/smoke/smoke-agent-container.sh
+
       - name: Scan dependencies and Runtime image
         run: make security CONTAINER_TOOL=docker
 

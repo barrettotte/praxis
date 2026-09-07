@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Invoke the stable AgentCore Runtime endpoint with a signed development request.
+# Invoke the development AgentCore Runtime endpoint with a signed request.
 set -euo pipefail
 
 praxis_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,11 +9,11 @@ praxis_timeout_seconds="${RUNTIME_SMOKE_TIMEOUT_SECONDS:-180}"
 praxis_verify_traces="${VERIFY_RUNTIME_TRACES:-false}"
 praxis_trace_timeout_seconds="${RUNTIME_TRACE_TIMEOUT_SECONDS:-180}"
 
-# Resolve the Runtime and its immutable qualifier from deployed OpenTofu state.
+# Resolve the endpoint from state and its current version from AWS.
 printf 'Resolving the deployed Runtime endpoint...\n' >&2
 praxis_runtime_arn="$(praxis_tofu_output agentcore_runtime_arn)"
 praxis_endpoint_name="$(praxis_tofu_output agentcore_runtime_endpoint_name)"
-praxis_endpoint_version="$(praxis_tofu_output agentcore_runtime_endpoint_version)"
+praxis_endpoint_version="$(praxis_runtime_endpoint_version)"
 
 printf 'Invoking Runtime endpoint %s at version %s (timeout: %ss)...\n' \
   "${praxis_endpoint_name}" "${praxis_endpoint_version}" "${praxis_timeout_seconds}" >&2

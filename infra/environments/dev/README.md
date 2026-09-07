@@ -10,11 +10,12 @@ make tofu-init-dev
 
 ## Deployment selection
 
-Image digests and Runtime versions are environment inputs, not shared defaults.
+Image digests are environment inputs, not shared defaults.
 Copy `deployment.auto.tfvars.example` to ignored `deployment.auto.tfvars` and
-set both fields to the published image and verified endpoint version for your
+set the digest to the published image for your
 environment before planning. OpenTofu automatically loads this file. Never
-commit it, approve an image implicitly, or select `DEFAULT` as a shortcut.
+commit it or approve an image implicitly. The `DEFAULT` endpoint follows Runtime
+updates automatically; pause submissions and drain queued work during deployment.
 See the [deployment procedure](../../../docs/infrastructure-operations.md).
 
 All resources use the `praxis-dev` name prefix and inherit the required
@@ -60,7 +61,7 @@ or schedule can trigger ingestion unexpectedly.
 
 The application API Lambda uses an independent deployment ZIP with locked
 validation dependencies and no function URL. Its execution role can write only
-to its seven-day log group and invoke the configured Runtime plus its stable
+to its seven-day log group and invoke the configured Runtime plus its `DEFAULT`
 endpoint. A low-cost API Gateway HTTP API invokes it through payload format 2.0
 on three explicit Cognito JWT-authorized application routes. The authorizer is
 bound to the application user pool and public browser client. The default stage
@@ -112,7 +113,7 @@ text.
 All project-owned CloudWatch log groups use service-managed encryption and
 seven-day retention. AgentCore creates Runtime endpoint groups outside the AWS
 provider's resource lifecycle, so an idempotent OpenTofu provisioner applies
-the same retention to the `DEFAULT` and `stable` groups after endpoint changes.
+the same retention to the `DEFAULT` group.
 The account-level `aws/spans` group is shared and remains outside this stack.
 
 The Cognito Lite user pool is an admin-provisioned, single-user directory with
@@ -156,8 +157,6 @@ evidence validation, and tool allowlists remain independently authoritative.
 Session timeouts limit idle development cost. During apply, OpenTofu runs the
 MMDSv2 compatibility update documented in
 `docs/agent-runtime.md` and fails unless the Runtime
-returns to `READY` with MMDSv2 enabled. The named `stable` endpoint targets the
-explicitly configured immutable Runtime version and does not follow `DEFAULT`;
-new versions require a separate reviewed promotion.
-The `smoke-runtime-auth-dev` target checks the deployed stable version and
-proves a direct unsigned request is rejected before container dispatch.
+returns to `READY` with MMDSv2 enabled. The service-managed `DEFAULT` endpoint
+tracks updates automatically. Verify its live version is READY with MMDSv2 before
+resuming submissions; no manual Runtime version input is required.

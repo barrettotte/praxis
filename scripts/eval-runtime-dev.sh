@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Measure the canonical project evaluation against the stable development Runtime.
+# Measure the canonical project evaluation against the development Runtime.
 set -euo pipefail
 
-praxis_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$(dirname "${BASH_SOURCE[0]}")/smoke/lib/dev-smoke.sh"
 praxis_profile="${AWS_PROFILE:-praxis-dev}"
 praxis_region="${AWS_REGION:-us-east-1}"
 praxis_tofu="${TOFU:-tofu}"
@@ -35,10 +35,7 @@ praxis_endpoint_name="$(
   AWS_PROFILE="${praxis_profile}" "${praxis_tofu}" \
     -chdir="${praxis_infra_dir}" output -raw agentcore_runtime_endpoint_name
 )"
-praxis_endpoint_version="$(
-  AWS_PROFILE="${praxis_profile}" "${praxis_tofu}" \
-    -chdir="${praxis_infra_dir}" output -raw agentcore_runtime_endpoint_version
-)"
+praxis_endpoint_version="$(praxis_runtime_endpoint_version)"
 # Read model and image identity from the immutable version served by the endpoint.
 praxis_runtime_metadata="$(
   AWS_PROFILE="${praxis_profile}" aws bedrock-agentcore-control get-agent-runtime \

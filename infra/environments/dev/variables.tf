@@ -66,13 +66,3 @@ variable "agent_image_digest" {
     error_message = "Agent image digest must be a sha256 OCI digest."
   }
 }
-
-variable "agent_runtime_endpoint_version" {
-  description = "Verified immutable Runtime version promoted to the stable endpoint."
-  type        = string
-
-  validation {
-    condition     = can(regex("^[1-9][0-9]{0,4}$", var.agent_runtime_endpoint_version))
-    error_message = "Agent Runtime endpoint version must be an integer from 1 to 99999."
-  }
-}

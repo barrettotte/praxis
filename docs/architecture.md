@@ -48,12 +48,16 @@ OpenTofu manages on-demand services without a VPC, NAT gateway, provisioned
 capacity, external write tools, or multi-agent orchestration. Managed services
 reduce server operations but add cold starts, integration work, and AWS coupling.
 
-Runtime uses a non-root ARM64 distroless image built with locked Python
-dependencies. Its interpreter comes from the serving image, not the builder.
+Runtime uses a non-root ARM64 minimal image built with locked Python
+dependencies. CPython is compiled from checksum-verified source on Ubuntu 24.04;
+the shell-free serving rootfs contains libraries from that same distribution,
+including vendor-maintained glibc security updates. Optional database,
+terminal and GUI modules are excluded; UUID generation uses Python's fallback.
 Base updates require native-import, TLS, startup, and vulnerability checks.
-Deploy by immutable image digest and explicitly promote a READY Runtime version
-to `stable`; it never follows `DEFAULT` automatically. Verify MMDSv2 after the
-provider compatibility update. IAM authorization still protects public-network
+Deploy by immutable image digest. Development uses the automatically tracking
+`DEFAULT` endpoint, without manual version selection or promotion. Pause submissions
+and drain queued work during deployment; verify READY and MMDSv2 after the
+provider compatibility update before resuming. IAM authorization still protects public-network
 Runtime and Gateway endpoints.
 
 Buffered output simplifies schema validation but provides no token streaming.

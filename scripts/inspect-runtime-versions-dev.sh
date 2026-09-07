@@ -30,7 +30,7 @@ praxis_versions="$(
 
 printf '%-8s %-10s %-31s %-71s %s\n' 'VERSION' 'STATUS' 'MODEL' 'IMAGE DIGEST' 'MMDSV2'
 while IFS= read -r praxis_version; do
-  # Query only fields needed to review an immutable promotion candidate.
+  # Limit inspection to readiness and deployment configuration.
   praxis_metadata="$(
     AWS_PROFILE="${praxis_profile}" aws bedrock-agentcore-control get-agent-runtime \
       --region "${praxis_region}" \
