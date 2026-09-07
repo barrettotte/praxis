@@ -2,7 +2,7 @@
 
 Praxis uses one Strands agent to turn a project-planning goal into exactly three
 structured, evidence-backed candidates. The agent is hosted by AgentCore Runtime,
-uses Amazon Nova Lite through Bedrock, and reaches catalog data only through the
+uses Amazon Nova Pro through Bedrock, and reaches catalog data only through the
 IAM-authenticated AgentCore Gateway.
 
 ## Loop
@@ -11,7 +11,7 @@ IAM-authenticated AgentCore Gateway.
 validated user goal
         |
         v
-Strands Agent -----------> Bedrock Converse (Nova Lite)
+Strands Agent -----------> Bedrock Converse (Nova Pro)
         ^                            |
         |                            | tool request
         |                            v
@@ -47,7 +47,7 @@ streamable-HTTP transport that signs each Gateway request for the
 and calls tools. Tool names and schemas come from Gateway discovery. The MCP
 adapter retains each Gateway-qualified routing name while exposing its canonical
 tool name to the model. The strict Pydantic contracts and Lambda validation
-documented in ADR 0003 remain the authoritative boundary.
+documented in [architecture](architecture.md#agent-and-data) remain the authoritative boundary.
 
 AWS documents the supported Strands `MCPClient` lifecycle in its
 [Gateway agent integration guide](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-agent-integration.html).
@@ -76,7 +76,7 @@ tool budgets remain independent enforcement boundaries.
 
 ## Project-brief generation
 
-Candidate selection uses a separate tool-free Strands invocation. The API
+Candidate selection uses a separate tool-free Strands invocation. The worker
 resolves the normalized original goal, selected candidate, and cited catalog
 facts from the one-hour application session; the browser cannot replace any of
 that context. The brief generator preserves the learning intent while treating
@@ -84,13 +84,24 @@ the candidate's estimated scope as a hard budget. Ideas that require specialist
 facilities, unsafe work, novel materials, or an unverified premise are reframed
 as a simulation, design study, measurement exercise, or safe demonstrator.
 
-The strict brief contract requires an ordered technical approach naming
-accessible tools or methods and observable outputs, assumptions, explicit
-exclusions, named deliverables, milestone artifacts with self-service
-verification methods, project-specific risks, and measurable acceptance
-criteria with verification methods. Subjective completion claims and
-verification that depends on an unspecified expert are rejected.
-Comparative claims must define a baseline, metric, and measurement procedure.
+The brief requires objective, scope, at least one deliverable, ordered milestones,
+and final acceptance checks. Milestones carry implementation detail and
+self-service verification; a separate technical approach is not requested.
+Assumptions, exclusions, and risks are optional, included only when they affect
+feasibility. Existing populated sections remain valid.
+
+The prompt requests repeatable actions and observable pass conditions, not claims
+of understanding or completion. Catalog citations identify related resources;
+they do not verify generated procedures. Selected subjective-completion and
+external-review checks remain enforced, but validation is not a quality judge.
+Use the [brief review rubric](../evals/README.md#brief-quality) for human assessment.
+
+Generation uses the direct ProjectBrief schema, a 3,000-output-token cap, and
+bounded retry behavior. Brief jobs run through SQS and the worker, not inside an
+API HTTP request.
+There is no mandatory word count or section-filling quota. Token exhaustion does
+not trigger automatic continuation or a higher-budget retry.
+
 The brief path receives no Gateway tools and cannot add catalog facts beyond the
 already resolved evidence.
 
@@ -102,7 +113,7 @@ guardrail ID and version supplied through `PRAXIS_GUARDRAIL_ID` and
 may omit both to remain independent of deployed AWS resources.
 
 The guardrail evaluates only the raw user goal, which Strands sends in an
-explicit `guardContent` block. Server-added framing, catalog records, and memory
+explicit `guardContent` block. Server-added framing, catalog records
 records remain regular model context so their defensive labels do not create
 prompt-attack false positives. It blocks direct prompt attacks at high strength
 and does not apply broad topic, harmful-content, or output filters. System
@@ -110,25 +121,16 @@ instructions, strict structured-output validation, evidence ledgers, catalog
 budgets, and the Gateway tool allowlist remain the controls for untrusted
 retrieved content.
 
-The catalog injection smoke uses valid, synthetic in-memory projections with an
-instruction embedded in a record field. It performs one model inference and
-requires three cited candidates without the attack marker in generated output:
-
-```sh
-make smoke-dev SUITE=security
-```
-
-The check never writes DynamoDB or the authoritative sibling-repository files.
-Its sanitized result is stored in
-`docs/evidence/catalog-prompt-injection.json`; rerun it after changing the model,
-system instructions, prompt construction, or candidate contract.
+Catalog prompt-injection behavior is evaluated with synthetic in-memory records.
+See [evaluation instructions](../evals/README.md#prompt-injection) for the separately
+authorized metered test; it never modifies authoritative source data.
 
 ## Invocation budgets
 
 Each invocation may execute at most four model-selected catalog tool calls by
-default. A Strands pre-tool hook cancels excess calls before they reach Gateway
+default. A Strands pre-tool hook cancels excess calls before they reach the catalog
 and returns a safe error directing the model to use evidence already retrieved.
-The internal `GatewayCandidateOutput` structured-output tool does not consume
+The internal candidate structured-output tool does not consume
 this budget, nor does the deterministic initial Gateway search that precedes
 model execution. `PRAXIS_MAX_TOOL_CALLS` can lower or raise the positive integer
 limit when an evaluation demonstrates a different need. Strands model turns are
@@ -142,13 +144,13 @@ post-tool hook validates each response against its strict contract and replaces
 malformed or over-budget content with a tool error before the model receives it.
 Candidate scoring returns at most three supporting historical records per
 proposal so a valid three-candidate call fits within the invocation budget.
-The local planner applies the same `PRAXIS_MAX_CATALOG_RESULTS` setting to its
-retrieval limit.
+Both local and deployed generation use these hooks and retrieve at most three
+initial records before model execution.
 
 ## Evidence boundary
 
 - Each planning invocation deterministically derives a bounded lexical query and
-  retrieves initial evidence through the IAM-authenticated Gateway before model
+  retrieves initial evidence through the configured catalog transport before model
   generation. This makes retrieval a code-enforced prerequisite rather than a
   prompt-only behavior. The model may make additional bounded catalog calls
   when the initial evidence is insufficient.
@@ -161,26 +163,19 @@ retrieval limit.
   boundary: `evidence_id` references a retrieved record, while
   `generated_connection` contains the model's interpretation and is never
   represented as a retrieved fact.
-- Gateway and local generation both use the `ProjectCandidateSet` structured
-  output contract. It requires exactly three candidates and at least one
-  well-formed citation per candidate. The Nova-facing Gateway adapter presents
-  one atomic JSON-string field containing three candidates, preventing the model
-  from splitting numbered candidates across parallel structured-output calls.
-  The adapter validates the inner candidate contract, maps each constrained
-  evidence position to the exact ID retained by the invocation-scoped evidence
-  ledger, and normalizes the fields into the nested domain contract. Domain
-  validation remains authoritative after normalization.
+- Both transports use the same model-facing adapter and public `ProjectCandidateSet`
+  contract. The model returns a list of exactly three structured drafts. Each draft cites an evidence position, which the
+  shared generator maps to the exact ID in the initial retrieval. Domain validation
+  remains authoritative after normalization.
 - JSON Schema and Pydantic validation reject uncited, malformed, or incorrectly
   sized candidate output before it reaches an application client.
-- An invocation-scoped Gateway ledger records every returned evidence ID and
+- An invocation-scoped ledger records every returned evidence ID and
   stable fact. Final validation rejects empty evidence, citations absent from
   the ledger, or differing facts observed for the same ID.
-- The local planner rejects an empty retrieval, conflicting facts under one
-  stable ID, and citations that were not returned by its retrieval step.
 - Catalog records are untrusted data and cannot override system instructions.
 - The Gateway client exposes only the four expected read-only tool names and
-  refuses discovery results that omit or add a tool. A signed negative-call
-  smoke verifies the deployed Gateway also rejects an undeclared tool name.
+  refuses discovery results that omit or add a tool. Local tests verify rejection of
+  undeclared tool names.
 
 Empty or contradictory evidence produces an explicit planning error rather
 than an ungrounded recommendation. A conflicting Gateway tool response is also
@@ -204,6 +199,27 @@ restricted access and non-sensitive inputs; review this behavior on SDK updates.
 Malformed transport requests and abrupt termination are outside these probes.
 
 ## Tracing
+
+Public API spans never extract browser trace headers. The API sends its active
+server-generated W3C parent in an SQS String attribute; the worker continues it
+or starts a new trace for missing/invalid metadata. Runtime invocation carries
+both `traceParent` and the equivalent X-Ray `traceId`, with matching identity
+and sampling. Do not propagate arbitrary baggage or vendor state.
+
+ADOT injects MCP context per request. Gateway and Runtime managed trace deliveries
+are separate from container export. Catalog Lambda reads only the per-invocation
+`_X_AMZN_TRACE_ID`, never tool arguments; malformed metadata starts a fresh
+context and unsampled parents remain unsampled.
+
+Lambda uses a package-owned provider and collector-only ADOT extension, enabled
+by `PRAXIS_LAMBDA_TRACING=true`. Synchronous HTTP/protobuf export to
+`127.0.0.1:4318` has a two-second timeout, no proxy/netrc inheritance, and no
+custom headers. The collector owns AWS authentication. Do not replace the global
+provider or add automatic handler/library instrumentation. These choices avoid
+mixing the bundled SDK with a layer's Python SDK and flushing after Lambda freezes.
+
+Trace metadata never determines authorization. Correlation IDs remain separate.
+Verify parent linkage independently of application success or failure recovery.
 
 The Runtime image starts through the AWS Distro for OpenTelemetry (ADOT)
 auto-instrumentor. Strands automatically emits agent, model-cycle, inference,
@@ -232,9 +248,8 @@ AgentCore Evaluations consumes the standard Strands spans rather than a Praxis-
 specific trace schema. AgentCore stores them in the named Runtime endpoint's
 CloudWatch `spans` stream. Trace data may contain the user prompt, model response, and tool
 inputs and results required for quality and tool-use evaluation. Do not submit
-secrets in goals, catalog records, or memory: content tracing is not a secret
-redaction boundary. The Runtime trace smoke check records only
-scope, operation, service, span, and trace counts, omitting content and IDs.
+secrets in goals or catalog records: content tracing is not a secret
+redaction boundary. The Runtime trace diagnostic prints only the matching span count, omitting content and IDs.
 
 AWS documents the required ADOT entrypoint and X-Ray permissions in its
 [AgentCore observability setup](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability-configure.html),
@@ -254,19 +269,18 @@ Even synthetic credential examples can be rejected; describe the mechanism
 without including values. The browser displays a fixed correction message.
 
 The same detector screens JSON-like Runtime payloads before schema validation or
-memory lookup, returning a fixed HTTP 400 rather than a traceback with submitted
+model execution, returning a fixed HTTP 400 rather than a traceback with submitted
 values. The CLI checks goals before loading its catalog. Local planning,
 Gateway generation, and brief generation screen goals and assembled context
 before calling Strands. This includes selected candidates, initial catalog
-evidence, and recalled memory context. Model-selected tool results containing
+evidence. Model-selected tool results containing
 recognizable credentials are replaced with a fixed error by the evidence hook,
 without adding their facts to the evidence ledger. The hook uses Strands'
 [supported tool-result modification boundary](https://strandsagents.com/docs/user-guide/concepts/agents/hooks/).
 
 This screening is intentionally limited: unlabelled passwords, unknown token
 formats, encoded or obfuscated secrets, and ordinary sensitive prose may pass.
-It screens retrieved context on the model path, not the underlying catalog or
-memory stores, and does not scrub existing sessions or generated output. A
+It screens retrieved context on the model path, not the underlying catalog store, and does not scrub existing sessions or generated output. A
 dependency may log raw results or exception details before the application
 screens them. CLI arguments also exist in shell history/process listings before
 screening. Do not treat a successful request as proof that its content is safe to log.
@@ -277,14 +291,14 @@ Cognito bearer tokens authenticate browser requests; the API forwards only
 validated application fields to the queue and Runtime, not authorization headers,
 cookies, or unused JWT claims. AWS credentials stay in SDK authentication; they
 are not part of agent prompts or tool arguments. Runtime generation receives
-only the goal, validated evidence, explicit memory context, and, for briefs, the
+only the goal, validated evidence and, for briefs, the
 selected candidate. Strands console
 callbacks are disabled, and API access logs use a fixed metadata-only schema.
 
 Local regression tests cover synthetic authentication markers across API jobs,
 Runtime requests, stored sessions, public responses, and captured application
 logs on success and handled dependency failure. Runtime tests also verify the
-agent receives only the expected prompt and memory with synthetic AWS credentials
+agent receives only the expected prompt with synthetic AWS credentials
 in the environment. Runtime HTTP rejection tests exercise the SDK application
 and inspect captured logs; generation tests verify blocked context never reaches
 the model call. These checks do not prove absence from every SDK log or
@@ -305,16 +319,8 @@ artifacts before sharing any captures.
 The runtime adapter owns model, MCP, and Strands construction. An MCP connection
 may be reused only inside its AgentCore Runtime session; it must never become a
 cross-session conversation store. AgentCore Runtime assigns sessions isolated
-execution environments. AgentCore Memory stores long-lived preferences and
-decisions, while authoritative catalog records remain in DynamoDB.
-
-Memory uses direct, actor-scoped records rather than automatic conversation
-extraction. Only strict `preference` and `decision` content is allowed under
-`/actors/{actorId}/`; prompts, candidates, Gateway responses, evidence IDs, and
-catalog facts are never written. Runtime has read-only Memory permission and
-presents retrieved records to the model as untrusted personalization context.
-The authenticated application boundary owns explicit, idempotently keyed
-writes and records actor, session, operation, and kind metadata.
+execution environments. Authoritative catalog records remain in DynamoDB.
+There is no cross-session personalization store.
 
 Each invocation returns a buffered structured response. Streaming, multi-agent
 orchestration, and cross-session in-process state are outside the MVP. The
@@ -324,20 +330,19 @@ describes the service's session and immutable-version boundaries.
 ## Container contract
 
 `backend/Containerfile` packages the runtime as a non-root Python 3.13 ARM64
-container using the Debian Trixie slim base. ADOT launches `praxis.agent.runtime`,
+container using a digest-pinned Debian 13 distroless Python base. A compatible
+Trixie builder installs the frozen dependencies as a non-editable package; only
+the virtual environment is copied into the serving image. ADOT launches `praxis.agent.runtime`,
 which uses the AgentCore SDK to serve the required
 `GET /ping` and `POST /invocations` endpoints on `0.0.0.0:8080`. An invocation
-accepts `{"actor_id": "...", "prompt": "..."}` and returns three validated
-candidates, their bounded supporting fact records, the sanitized Memory
-retrieval count, and bounded tool-call counts as one buffered JSON response. The
-authenticated API derives `actor_id`; clients must not select another user's
-Memory scope. The single-user deployment reads that actor from API Lambda
-configuration; the Cognito boundary will derive it from authenticated claims
-without changing the Runtime payload contract.
+accepts `{"prompt": "..."}` and returns three validated candidates, bounded
+supporting fact records, and tool-call counts as one buffered JSON response.
+Subject ownership is enforced at the API/session boundary; Runtime receives no
+user identity or personalization namespace.
 
-The private project-brief operation accepts the actor ID, normalized original
-goal, server-selected candidate, and its cited evidence. It returns one
-validated brief and is not a public client contract.
+The private project-brief operation accepts `operation: "create_project_brief"`,
+the normalized goal, server-selected candidate, and cited evidence. It returns
+one validated brief and is not a public client contract.
 
 Build and verify the service contract without invoking AWS:
 
@@ -352,12 +357,13 @@ before checking `/ping`, avoiding slow cross-architecture emulation during local
 development.
 
 Package installation finishes during the build. The serving image excludes
-pip, its `ensurepip` bootstrap bundle, and uv/uvx; dependencies are frozen in
-the application virtual environment. The container smoke check verifies the
-health endpoint, Python version, non-root user, and absence of those installers.
-The build also strips setuid/setgid bits from files under `/usr`; the smoke
-check verifies they remain absent. See the [container risk review](container-risk-review.md)
-for advisory applicability and unresolved findings.
+pip, bootstrap wheels, uv/uvx, shells, and package-manager executables. Debian's
+`ensurepip` module remains but has no bundled installer wheels. The container
+smoke runs with no network, a read-only root filesystem, and no capabilities;
+it verifies health, Python 3.13, non-root execution, native-library imports,
+CA certificates, and absence of installers and setuid/setgid files. See
+[architecture](architecture.md#deployment-and-constraints) for compatibility
+constraints and [security](security.md#scanning) for vulnerability review.
 
 The image contains no local credentials or `.env` file. Deployed AWS calls use
 the runtime execution role; local Gateway invocations continue to use the
@@ -365,8 +371,13 @@ developer profile outside the container.
 
 ## Local and deployed paths
 
-The local planner retrieves from `InMemoryCatalog` before the model call, which
-keeps development and evaluation usable without AWS. The deployed agent gives
-`create_agent` a Gateway-backed MCP tool provider. Explicit tool/result budgets,
-the AgentCore Runtime entry point, container packaging, and session-isolation
-tests complete the runtime boundary without removing the local path.
+Both paths use `agent/generation.py` for query normalization, initial retrieval,
+guardrail framing, model-facing output, model-turn limits, and citation validation.
+They also share the agent factory, tool schemas, tool handlers, and invocation
+budget hooks.
+
+The local adapter binds all four tools to `InMemoryCatalog`; the deployed adapter
+keeps an IAM-authenticated MCP connection open through generation. Local planning
+therefore needs no deployed catalog, but model generation still invokes Bedrock.
+Local evaluation collects provider metrics from the same generation result.
+Local checks do not verify AWS authentication, network behavior, or deployed data.

@@ -14,7 +14,6 @@ from time import perf_counter
 from praxis.agent.planner import ProjectPlanningRun, invoke_project_candidates_with_trace
 from praxis.catalog import InMemoryCatalog
 from praxis.config import AgentSettings
-from praxis.domain import ProjectCandidateSet
 from praxis.evaluation.models import (
     CaseExpectation,
     EvaluationCategory,
@@ -25,11 +24,11 @@ from praxis.evaluation.results import (
     BaselineMetadata,
     BaselineResult,
     BaselineSummary,
-    CitationSupportResult,
+    CitationResolutionResult,
     DatasetIdentity,
     DeploymentIdentity,
     EvaluationCaseResult,
-    QualityResult,
+    MechanicalChecks,
     RetrievalRelevanceResult,
     SourceIdentity,
     TokenUsageResult,
@@ -38,27 +37,10 @@ from praxis.evaluation.results import (
 
 type PlanningInvoker = Callable[[str, InMemoryCatalog, AgentSettings | None], ProjectPlanningRun]
 
-ACTION_WORDS = frozenset(
-    {
-        "build",
-        "create",
-        "display",
-        "implement",
-        "load",
-        "parse",
-        "produce",
-        "render",
-        "return",
-        "run",
-        "test",
-        "write",
-    }
-)
 DATASET_FILES = ("books.json", "projects.json", "bytes.json", "museum.json")
 SOURCE_PATHS = (
     Path("backend/src/praxis"),
     Path("evals/project-recommendations/business-assertions.json"),
-    Path("evals/project-recommendations/dspy-split.json"),
     Path("evals/project-recommendations/prompts.json"),
     Path("evals/project-recommendations/expectations.json"),
     Path("pyproject.toml"),
@@ -137,17 +119,7 @@ def _trajectory_met(expectation: CaseExpectation, observed: Iterable[str]) -> bo
     )
 
 
-def has_concrete_first_milestones(candidates: ProjectCandidateSet) -> bool:
-    """Return whether every candidate starts with an independently testable action."""
-    for candidate in candidates.candidates:
-        words = candidate.first_milestone.casefold().replace("-", " ").split()
-        normalized_words = {word.strip(".,:;!?()[]{}") for word in words}
-        if len(words) < 6 or not normalized_words & ACTION_WORDS:
-            return False
-    return True
-
-
-def _quality(run: ProjectPlanningRun, expectation: CaseExpectation) -> QualityResult:
+def _mechanical_checks(run: ProjectPlanningRun, expectation: CaseExpectation) -> MechanicalChecks:
     cited_ids = {
         reference.evidence_id
         for candidate in run.candidates.candidates
@@ -165,26 +137,21 @@ def _quality(run: ProjectPlanningRun, expectation: CaseExpectation) -> QualityRe
         cited_ids <= set(run.retrieved_evidence_ids),
         expected_evidence_met,
         _trajectory_met(expectation, run.local_tool_calls),
-        has_concrete_first_milestones(run.candidates),
     )
-    return QualityResult(
+    return MechanicalChecks(
         structured_output_valid=checks[0],
-        citations_grounded=checks[1],
+        citation_ids_retrieved=checks[1],
         expected_evidence_met=checks[2],
         expected_trajectory_met=checks[3],
-        concrete_first_milestones=checks[4],
-        score=sum(checks) / len(checks),
     )
 
 
-def _failure_quality() -> QualityResult:
-    return QualityResult(
+def _failed_checks() -> MechanicalChecks:
+    return MechanicalChecks(
         structured_output_valid=False,
-        citations_grounded=False,
+        citation_ids_retrieved=False,
         expected_evidence_met=False,
         expected_trajectory_met=False,
-        concrete_first_milestones=False,
-        score=0.0,
     )
 
 
@@ -210,10 +177,10 @@ def measure_retrieval_relevance(
     )
 
 
-def measure_citation_support(
+def measure_citation_resolution(
     run: ProjectPlanningRun,
-) -> CitationSupportResult:
-    """Measure whether generated connection claims cite their retrieval context."""
+) -> CitationResolutionResult:
+    """Measure ID membership in retrieval, not whether sources support generated claims."""
     citations = [
         citation
         for candidate in run.candidates.candidates
@@ -221,15 +188,13 @@ def measure_citation_support(
     ]
     retrieved = set(run.retrieved_evidence_ids)
     resolved_count = sum(citation.evidence_id in retrieved for citation in citations)
-    claim_count = len(citations)
-    unsupported_count = claim_count - resolved_count
-    return CitationSupportResult(
-        claim_count=claim_count,
+    citation_count = len(citations)
+    unsupported_count = citation_count - resolved_count
+    return CitationResolutionResult(
+        citation_count=citation_count,
         resolved_citation_count=resolved_count,
-        supported_claim_count=resolved_count,
-        unsupported_claim_count=unsupported_count,
-        citation_correctness_rate=resolved_count / claim_count if claim_count else 0.0,
-        unsupported_claim_rate=unsupported_count / claim_count if claim_count else 0.0,
+        unresolved_citation_count=unsupported_count,
+        citation_resolution_rate=resolved_count / citation_count if citation_count else 0.0,
     )
 
 
@@ -261,9 +226,9 @@ def _run_case(
             time_to_first_byte_ms=None,
             token_usage=None,
             cycle_count=None,
-            quality=_failure_quality(),
+            checks=_failed_checks(),
             retrieval_relevance=None,
-            citation_support=None,
+            citation_resolution=None,
             error_type=type(error).__name__,
             error_message=str(error),
         )
@@ -305,9 +270,9 @@ def _run_case(
             else None
         ),
         cycle_count=metrics.cycle_count if metrics else None,
-        quality=_quality(run, expectation),
+        checks=_mechanical_checks(run, expectation),
         retrieval_relevance=measure_retrieval_relevance(run.retrieved_evidence_ids, expectation),
-        citation_support=measure_citation_support(run),
+        citation_resolution=measure_citation_resolution(run),
     )
 
 
@@ -321,23 +286,17 @@ def _summary(results: list[EvaluationCaseResult]) -> BaselineSummary:
         result.retrieval_relevance for result in results if result.retrieval_relevance is not None
     ]
     citation_results = [
-        result.citation_support for result in results if result.citation_support is not None
+        result.citation_resolution for result in results if result.citation_resolution is not None
     ]
-    claim_count = sum(result.claim_count for result in citation_results)
-    supported_claim_count = sum(result.supported_claim_count for result in citation_results)
-    unsupported_claim_count = sum(result.unsupported_claim_count for result in citation_results)
+    citation_count = sum(result.citation_count for result in citation_results)
+    resolved_citation_count = sum(result.resolved_citation_count for result in citation_results)
+    unresolved_citation_count = sum(result.unresolved_citation_count for result in citation_results)
     return BaselineSummary(
         case_count=len(results),
         success_count=sum(result.succeeded for result in results),
-        average_quality_score=sum(result.quality.score for result in results) / len(results),
-        expected_evidence_pass_count=sum(
-            result.quality.expected_evidence_met for result in results
-        ),
+        expected_evidence_pass_count=sum(result.checks.expected_evidence_met for result in results),
         expected_trajectory_pass_count=sum(
-            result.quality.expected_trajectory_met for result in results
-        ),
-        concrete_milestone_pass_count=sum(
-            result.quality.concrete_first_milestones for result in results
+            result.checks.expected_trajectory_met for result in results
         ),
         wall_latency_p50_ms=_percentile([result.wall_latency_ms for result in results], 0.5),
         wall_latency_p95_ms=_percentile([result.wall_latency_ms for result in results], 0.95),
@@ -359,11 +318,12 @@ def _summary(results: list[EvaluationCaseResult]) -> BaselineSummary:
         mean_reciprocal_rank=(
             sum(result.reciprocal_rank for result in retrieval_results) / len(results)
         ),
-        citation_claim_count=claim_count,
-        supported_claim_count=supported_claim_count,
-        unsupported_claim_count=unsupported_claim_count,
-        citation_correctness_rate=(supported_claim_count / claim_count if claim_count else 0.0),
-        unsupported_claim_rate=(unsupported_claim_count / claim_count if claim_count else 0.0),
+        citation_count=citation_count,
+        resolved_citation_count=resolved_citation_count,
+        unresolved_citation_count=unresolved_citation_count,
+        citation_resolution_rate=(
+            resolved_citation_count / citation_count if citation_count else 0.0
+        ),
     )
 
 
@@ -399,7 +359,7 @@ def run_baseline(
         suite=evaluation_set.suite,
         prompts_version=evaluation_set.version,
         expectations_version=expectations.version,
-        result_version=3,
+        result_version=5,
         metadata=BaselineMetadata(
             generated_at=datetime.now(UTC),
             model_id=settings.model_id,
@@ -416,8 +376,7 @@ def run_baseline(
 __all__ = [
     "PlanningInvoker",
     "dataset_identity",
-    "has_concrete_first_milestones",
-    "measure_citation_support",
+    "measure_citation_resolution",
     "measure_retrieval_relevance",
     "run_baseline",
     "source_identity",

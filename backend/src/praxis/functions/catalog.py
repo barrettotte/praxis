@@ -456,6 +456,17 @@ def _gateway_tool_name(context: object) -> CatalogGatewayToolName | None:
     return cast("CatalogGatewayToolName", tool_name)
 
 
+def execute_catalog_tool(
+    tool_name: CatalogGatewayToolName, event: object, repository: CatalogRepository
+) -> dict[str, object]:
+    """Apply identical tool contracts to in-memory and Lambda-backed requests."""
+    arguments = validate_tool_input(tool_name, event).model_dump(mode="json", exclude_none=True)
+    response = handle_catalog_request({"operation": tool_name, "arguments": arguments}, repository)
+    gateway_response = {key: value for key, value in response.items() if key != "operation"}
+    validated = validate_tool_output(tool_name, gateway_response)
+    return cast("dict[str, object]", validated.model_dump(mode="json", exclude_none=True))
+
+
 def handle_catalog_invocation(
     event: object, context: object, repository: CatalogRepository
 ) -> dict[str, object]:
@@ -466,13 +477,7 @@ def handle_catalog_invocation(
         if tool_name is None:
             return handle_catalog_request(event, repository)
 
-        arguments = validate_tool_input(tool_name, event).model_dump(mode="json", exclude_none=True)
-        response = handle_catalog_request(
-            {"operation": tool_name, "arguments": arguments}, repository
-        )
-        gateway_response = {key: value for key, value in response.items() if key != "operation"}
-        validated = validate_tool_output(tool_name, gateway_response)
-        return cast("dict[str, object]", validated.model_dump(mode="json", exclude_none=True))
+        return execute_catalog_tool(tool_name, event, repository)
     except Exception as error:
         raise _safe_tool_error(error) from error
 

@@ -1,7 +1,0 @@
-{
-  "cloudfront_deployed": true,
-  "default_https": true,
-  "private_s3_origin": true,
-  "security_headers_policy": true,
-  "spa_fallback": true
-}

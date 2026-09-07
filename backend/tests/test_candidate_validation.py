@@ -7,7 +7,7 @@ from praxis.domain import (
     candidate_output_schema,
     validate_candidate_output,
 )
-from praxis.domain.candidate_validation import JsonValue
+from praxis.domain.candidate_validation import JsonValue, require_retrieved_citations
 
 EVIDENCE_ID = "book:0000000000000000"
 
@@ -50,6 +50,18 @@ def test_validate_candidate_output_accepts_valid_payload() -> None:
     validated = validate_candidate_output(candidate_payload())
 
     assert len(validated.candidates) == 3
+
+
+def test_citations_allow_shared_evidence_and_unused_retrieved_records() -> None:
+    candidates = validate_candidate_output(candidate_payload())
+    require_retrieved_citations(candidates, frozenset({EVIDENCE_ID, "project:1111111111111111"}))
+
+
+@pytest.mark.parametrize("evidence_ids", [set[str](), {"project:1111111111111111"}])
+def test_citations_reject_identifiers_outside_retrieval(evidence_ids: set[str]) -> None:
+    candidates = validate_candidate_output(candidate_payload())
+    with pytest.raises(CandidateOutputValidationError, match="was not retrieved"):
+        require_retrieved_citations(candidates, evidence_ids)
 
 
 def test_validate_candidate_output_rejects_schema_violation() -> None:

@@ -6,9 +6,7 @@ praxis_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${praxis_script_dir}/lib/dev-smoke.sh"
 praxis_prompt="${PROMPT:-compiler}"
 praxis_timeout_seconds="${RUNTIME_SMOKE_TIMEOUT_SECONDS:-180}"
-praxis_verify_session_isolation="${VERIFY_SESSION_ISOLATION:-false}"
 praxis_verify_traces="${VERIFY_RUNTIME_TRACES:-false}"
-praxis_require_prompt_cache_read="${REQUIRE_PROMPT_CACHE_READ:-false}"
 praxis_trace_timeout_seconds="${RUNTIME_TRACE_TIMEOUT_SECONDS:-180}"
 
 # Resolve the Runtime and its immutable qualifier from deployed OpenTofu state.
@@ -23,24 +21,16 @@ printf 'Invoking Runtime endpoint %s at version %s (timeout: %ss)...\n' \
 # Bound the entire buffered request, including Runtime startup and model/tool cycles.
 praxis_arguments=()
 praxis_command_timeout_seconds="${praxis_timeout_seconds}"
-if [[ "${praxis_verify_session_isolation}" == "true" ]]; then
-  praxis_arguments+=(--verify-session-isolation)
-fi
 if [[ "${praxis_verify_traces}" == "true" ]]; then
   praxis_arguments+=(--verify-traces --trace-timeout-seconds "${praxis_trace_timeout_seconds}")
   praxis_command_timeout_seconds="$((praxis_timeout_seconds + praxis_trace_timeout_seconds))"
-fi
-if [[ "${praxis_require_prompt_cache_read}" == "true" ]]; then
-  praxis_arguments+=(--require-prompt-cache-read)
 fi
 UV_CACHE_DIR="${praxis_repo_root}/.cache/uv" timeout --foreground "${praxis_command_timeout_seconds}s" \
   uv run --project "${praxis_repo_root}" \
   python -m praxis.agent.runtime_smoke \
   --runtime-arn "${praxis_runtime_arn}" \
   --qualifier "${praxis_endpoint_name}" \
-  --endpoint-version "${praxis_endpoint_version}" \
   --profile "${praxis_profile}" \
   --region "${praxis_region}" \
   --prompt "${praxis_prompt}" \
-  "${praxis_arguments[@]}" \
-  --evidence-directory "${praxis_repo_root}/docs/evidence"
+  "${praxis_arguments[@]}"

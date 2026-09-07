@@ -11,19 +11,20 @@ preserve unrelated user changes.
   checkbox only after the implementation or external condition is verified.
 - After each substantial verified slice, suggest a concise commit message unless
   the user says the changes will be bundled with other work.
-- Record material architectural decisions in `docs/adr/`.
-- Keep the architecture diagram in `README.md` aligned with accepted ADRs and
+- Keep material architecture choices and constraints in `docs/architecture.md`.
+- Keep the architecture diagram in `README.md` aligned with that guide and
   implementation boundaries. Update it whenever components, trust boundaries,
   data flows, authentication, or deployment topology change.
 - Write comments, documentation, examples, and file names for long-term readers.
   Describe current behavior, intent, and constraints without roadmap sequencing
-  labels or implementation chronology. Keep decision history in ADRs rather
-  than scattering it through the codebase.
-- Keep `ROADMAP.md` concise: current scope, status, blockers, and next actions.
-  Replace superseded handoff notes rather than appending session narratives.
-  Link verification artifacts and operational docs instead of repeating logs,
-  test-count history, deployment hashes, or troubleshooting transcripts. Summarize
-  completed work; preserve open checklist items and their verification requirements.
+  labels, decision chronology, or session narratives. Describe what the code does,
+  not the experiments or conversations that led to it.
+- Keep `ROADMAP.md` to open work, current blockers, and next actions. Do not keep
+  completed-work narratives, deployment identities, test counts, or run receipts.
+- Public documentation must describe current behavior, configuration, and limits.
+  Keep generated results in ignored build/ artifacts and deployment settings,
+  risk approvals, and private handoff notes in ignored local files. Commit reusable
+  evaluation inputs and synthetic test fixtures, not experiment outputs.
 - Keep local development usable before requiring deployed AWS services.
 - Give every shell script a `.sh` file extension.
 - Add deployed checks to the named `smoke-dev` suites instead of creating new
@@ -35,10 +36,10 @@ preserve unrelated user changes.
   Keep other AWS-mutating commands manual unless the user explicitly requests
   them. Read-only, no-cost validation, planning, and inspection are allowed.
 - Treat deployed development environments as temporary. Prefer on-demand
-  services, avoid provisioned capacity, and keep the initial total AWS spend
+  services, avoid provisioned capacity, and keep the total development AWS spend
   below $10. Preserve only documented bootstrap resources when tearing down.
-- Prefer local tests and existing evidence over fresh AWS executions. Obtain
-  explicit approval before metered model smoke tests, evaluations, or DSPy runs;
+- Prefer local tests and available local diagnostics over fresh AWS executions. Obtain
+  explicit approval before metered model smoke tests or evaluations;
   do not repeat them merely to refresh evidence. Keep cloud inspection bounded.
 - Keep source data in the sibling repository authoritative and read-only;
   ingested cloud copies must be disposable and reproducible.
@@ -55,19 +56,18 @@ preserve unrelated user changes.
 - Python agent: Strands Agents SDK, hosted on Amazon Bedrock AgentCore Runtime.
 - Model: Amazon Nova Pro (`amazon.nova-pro-v1:0`) in `us-east-1`, using
   on-demand in-region inference. Keep the model ID in configuration and require
-  evaluation evidence for future default-model changes. Retain Nova Lite and
-  Nova Micro as measured rollback models.
+  evaluation evidence for future model changes. One structured-output contract
+  is supported; other models require validation rather than compatibility adapters.
 - Tool boundary: AgentCore Gateway with strict MCP schemas and least-privilege
   Lambda targets.
-- Memory boundary: AgentCore Memory stores only explicit actor-scoped
-  preferences and prior decisions. Runtime access is read-only; never store
-  prompts, model responses, Gateway results, catalog facts, or evidence IDs.
+- Personalization across sessions is outside scope; retain only expiring,
+  subject-owned application sessions and authoritative catalog data.
 - Application boundary: API Gateway backed by an API Lambda. AgentCore Runtime
   must not be directly callable by arbitrary public clients.
 - Infrastructure: OpenTofu with the AWS provider.
 - Frontend: React and TypeScript in this repository.
 - MVP topology: serverless, single-user, buffered responses, and no VPC or
-  multi-agent orchestration unless a demonstrated requirement changes the ADRs.
+  multi-agent orchestration unless a demonstrated requirement changes the architecture.
 
 ## Data and handoff
 
@@ -76,5 +76,5 @@ Never modify them during ingestion. Derive current totals from the authoritative
 files and verify that deployed ingestion matches them.
 
 At handoff, leave the worktree understandable: report verification performed,
-keep roadmap state accurate, document material tradeoffs in an ADR, and identify
+keep roadmap state accurate, update current architecture constraints, and identify
 the next incomplete checklist item plus any blocker that requires user input.

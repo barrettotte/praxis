@@ -196,13 +196,13 @@ function isProjectBrief(value: unknown): value is ProjectBrief {
     isRecord(value) &&
     isNonEmptyString(value.objective) &&
     isNonEmptyString(value.scope) &&
-    isBoundedList(value.technical_approach, 3, 6, isNonEmptyString) &&
-    isBoundedList(value.assumptions, 2, 5, isNonEmptyString) &&
-    isBoundedList(value.out_of_scope, 2, 5, isNonEmptyString) &&
-    isBoundedList(value.deliverables, 2, 6, isNonEmptyString) &&
-    isBoundedList(value.milestones, 3, 5, isProjectMilestone) &&
-    isBoundedList(value.risks, 2, 4, isProjectRisk) &&
-    isBoundedList(value.acceptance_criteria, 3, 6, isProjectAcceptanceCriterion)
+    isBoundedList(value.technical_approach, 0, 6, isNonEmptyString) &&
+    isBoundedList(value.assumptions, 0, 5, isNonEmptyString) &&
+    isBoundedList(value.out_of_scope, 0, 5, isNonEmptyString) &&
+    isBoundedList(value.deliverables, 1, 6, isNonEmptyString) &&
+    isBoundedList(value.milestones, 1, 5, isProjectMilestone) &&
+    isBoundedList(value.risks, 0, 4, isProjectRisk) &&
+    isBoundedList(value.acceptance_criteria, 1, 6, isProjectAcceptanceCriterion)
   );
 }
 
@@ -477,7 +477,39 @@ export function createApiClient(
       if (!response.ok) {
         throw new Error(`API request failed with status ${response.status.toString()}`);
       }
-      return parseSelectCandidateResponse(await response.json());
+      const pending = parsePendingSessionResponse(await response.json());
+      for (let attempt = 0; attempt < SESSION_POLL_ATTEMPTS; attempt += 1) {
+        await wait(SESSION_POLL_INTERVAL_MS);
+        const statusResponse = await request(
+          `${configuration.baseUrl}/v1/sessions/${pending.sessionId}`,
+          {
+            credentials: "omit",
+            headers: { authorization: `Bearer ${accessToken}` },
+            method: "GET",
+          },
+        );
+        if (!statusResponse.ok) {
+          throw new Error(`API request failed with status ${statusResponse.status.toString()}`);
+        }
+        const body: unknown = await statusResponse.json();
+        if (!isRecord(body) || !isRecord(body.data) || body.data.sessionId !== pending.sessionId) {
+          throw new Error("Invalid brief-status response");
+        }
+        if (body.data.status === "brief_ready") {
+          const result = parseSelectCandidateResponse(body);
+          if (result.candidateId !== candidateId) {
+            throw new Error("Invalid brief candidate");
+          }
+          return result;
+        }
+        if (body.data.status === "failed") {
+          throw new Error("Project brief failed");
+        }
+        if (body.data.status !== "pending") {
+          throw new Error("Invalid brief-status response");
+        }
+      }
+      throw new Error("Project brief timed out");
     },
   };
 }

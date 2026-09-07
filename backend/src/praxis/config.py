@@ -44,20 +44,6 @@ class GatewaySettings:
     profile: str | None = None
 
 
-@dataclass(frozen=True, slots=True)
-class MemorySettings:
-    """Configuration for actor-scoped AgentCore Memory access."""
-
-    memory_id: str
-    region: str
-    profile: str | None = None
-    top_k: int = 5
-
-    def __post_init__(self) -> None:
-        if self.top_k < 1:
-            raise ValueError("memory retrieval budget must be positive")
-
-
 def _required(source: Mapping[str, str], name: str) -> str:
     value = source.get(name, "").strip()
     if not value:
@@ -110,18 +96,6 @@ def load_gateway_settings(environ: Mapping[str, str] | None = None) -> GatewaySe
         url=_required(source, "PRAXIS_GATEWAY_URL"),
         region=_required(source, "AWS_REGION"),
         profile=profile,
-    )
-
-
-def load_memory_settings(environ: Mapping[str, str] | None = None) -> MemorySettings:
-    """Load the AgentCore Memory identifier and bounded retrieval settings."""
-    source = os.environ if environ is None else environ
-    profile = source.get("AWS_PROFILE", "").strip() or None
-    return MemorySettings(
-        memory_id=_required(source, "PRAXIS_MEMORY_ID"),
-        region=_required(source, "AWS_REGION"),
-        profile=profile,
-        top_k=_positive_int(source, "PRAXIS_MEMORY_TOP_K", 5),
     )
 
 

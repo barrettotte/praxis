@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Exercise every deployed catalog tool through signed AgentCore Gateway requests.
+# Check Gateway authorization, discovery, and a catalog round trip.
 set -euo pipefail
 
 praxis_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -11,5 +11,4 @@ UV_CACHE_DIR="${praxis_repo_root}/.cache/uv" uv run --project "${praxis_repo_roo
   python -m praxis.gateway_smoke \
   --url "${praxis_gateway_url}" \
   --profile "${praxis_profile}" \
-  --region "${praxis_region}" \
-  --evidence-directory "${praxis_repo_root}/docs/evidence"
+  --region "${praxis_region}"

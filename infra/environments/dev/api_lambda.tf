@@ -34,17 +34,6 @@ data "aws_iam_policy_document" "api_lambda" {
     resources = ["${aws_cloudwatch_log_group.api_lambda.arn}:*"]
   }
 
-  # Both resources participate in authorization for a qualified invocation.
-  statement {
-    sid     = "InvokeStableAgentRuntime"
-    effect  = "Allow"
-    actions = ["bedrock-agentcore:InvokeAgentRuntime"]
-    resources = [
-      aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn,
-      aws_bedrockagentcore_agent_runtime_endpoint.stable.agent_runtime_endpoint_arn,
-    ]
-  }
-
   statement {
     sid    = "ManageRecommendationSessions"
     effect = "Allow"
@@ -87,9 +76,6 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = merge(local.lambda_trace_environment, {
-      PRAXIS_AGENT_RUNTIME_ARN        = aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn
-      PRAXIS_AGENT_RUNTIME_QUALIFIER  = aws_bedrockagentcore_agent_runtime_endpoint.stable.name
-      PRAXIS_API_ACTOR_ID             = local.api_actor_id
       PRAXIS_RECOMMENDATION_QUEUE_URL = aws_sqs_queue.recommendations.url
       PRAXIS_SESSION_TABLE_NAME       = aws_dynamodb_table.api_sessions.name
     })

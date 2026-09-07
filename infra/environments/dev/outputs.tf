@@ -170,16 +170,6 @@ output "agentcore_gateway_url" {
   value       = aws_bedrockagentcore_gateway.catalog.gateway_url
 }
 
-output "agentcore_memory_id" {
-  description = "Identifier of the actor-scoped AgentCore Memory resource."
-  value       = aws_bedrockagentcore_memory.personalization.id
-}
-
-output "agentcore_memory_arn" {
-  description = "ARN of the actor-scoped AgentCore Memory resource."
-  value       = aws_bedrockagentcore_memory.personalization.arn
-}
-
 output "agentcore_catalog_target_id" {
   description = "Identifier of the read-only catalog Lambda Gateway target."
   value       = aws_bedrockagentcore_gateway_target.catalog.target_id

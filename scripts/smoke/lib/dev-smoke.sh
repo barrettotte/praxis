@@ -6,8 +6,6 @@ praxis_profile="${AWS_PROFILE:-praxis-dev}"
 praxis_region="${AWS_REGION:-us-east-1}"
 praxis_tofu="${TOFU:-tofu}"
 praxis_infra_dir="${praxis_repo_root}/infra/environments/dev"
-praxis_build_dir="${praxis_repo_root}/build"
-praxis_evidence_dir="${praxis_repo_root}/docs/evidence"
 
 praxis_require_commands() {
   local praxis_command

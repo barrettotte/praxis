@@ -12,10 +12,11 @@ from praxis.api.runtime import (
     ApiRuntimeError,
     RuntimeClient,
     create_worker_runtime_client,
+    invoke_project_brief_runtime,
     invoke_runtime,
     load_runtime_settings,
 )
-from praxis.api.sessions import create_session_store
+from praxis.api.sessions import PendingSession, create_session_store
 from praxis.functions.tracing import lambda_tracer
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,30 @@ def runtime_client() -> RuntimeClient:
 def process_job(job: RecommendationJob) -> Literal["ready", "failed"]:
     """Generate and persist one queued recommendation set."""
     store = create_session_store()
+    if job.source_session_id is not None and job.candidate_id is not None:
+        # Terminal/expired deliveries must not start another paid generation.
+        if not isinstance(store.get_record(job.session_id, job.actor_id), PendingSession):
+            return "ready"
+        source = store.get(job.source_session_id, job.actor_id)
+        candidate = source.selected_candidate(job.candidate_id) if source else None
+        if source is None or candidate is None:
+            store.fail(job.session_id, job.actor_id)
+            return "failed"
+        try:
+            selection = invoke_project_brief_runtime(
+                runtime_client(),
+                load_runtime_settings(),
+                job.session_id,
+                source.goal,
+                candidate,
+                source.evidence_for(candidate),
+                job.correlation_id,
+            )
+        except ApiRuntimeError:
+            store.fail(job.session_id, job.actor_id)
+            return "failed"
+        store.complete_brief(selection, job.actor_id, source.goal)
+        return "ready"
     try:
         session = invoke_runtime(
             runtime_client(),

@@ -36,9 +36,11 @@ than a separate DynamoDB table. Bootstrap state remains local so the bootstrap
 stack can destroy the bucket cleanly; do not delete `terraform.tfstate` from
 this directory while the bootstrap resources exist.
 
-The durable bootstrap stack also owns the annual `$10` MVP cost budget. AWS
+The durable bootstrap stack also owns the annual `$10` development cost budget. AWS
 Budgets has no non-resetting project-total period, so the annual period is the
-closest enforceable match for the time-bounded initial build. Its
+reporting period for the temporary development environment. This unfiltered
+budget includes all account spending, not only Praxis, and does not stop services
+or cap charges. Its
 email subscriber is a sensitive runtime input and must not be committed. Supply
 it when planning and applying:
 

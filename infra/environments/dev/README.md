@@ -8,6 +8,15 @@ uses native S3 state locking. Initialize it after the bootstrap stack:
 make tofu-init-dev
 ```
 
+## Deployment selection
+
+Image digests and Runtime versions are environment inputs, not shared defaults.
+Copy `deployment.auto.tfvars.example` to ignored `deployment.auto.tfvars` and
+set both fields to the published image and verified endpoint version for your
+environment before planning. OpenTofu automatically loads this file. Never
+commit it, approve an image implicitly, or select `DEFAULT` as a shortcut.
+See the [deployment procedure](../../../docs/infrastructure-operations.md).
+
 All resources use the `praxis-dev` name prefix and inherit the required
 `Project`, `Environment`, and `ManagedBy` tags. A coding agent may apply the
 exact saved plan it generated, reviewed, and summarized. Teardown requires
@@ -30,7 +39,7 @@ teardown removes copied objects with the bucket.
 
 The catalog table uses on-demand billing, a `record_id` partition key, and the
 `kind-date-index` GSI defined in
-`docs/adr/0002-dynamodb-catalog-access-patterns.md`. AWS-owned encryption is
+[architecture](../../../docs/architecture.md#agent-and-data). AWS-owned encryption is
 enabled. Point-in-time recovery and deletion protection are intentionally off
 because the table is a reproducible development copy and must not obstruct the
 guarded teardown workflow.
@@ -132,9 +141,8 @@ shared roles, unexpected bindings, and managed-policy attachments.
 
 The AgentCore Runtime runs the digest-pinned Strands container with IAM inbound
 authorization and public outbound networking. Its execution role can pull only
-the agent image, invoke the configured Nova Pro model, retain Nova Lite and Nova
-Micro as measured rollback models, invoke the catalog Gateway, read Memory only
-for the application and verification actors, write only its generated Runtime
+the agent image, invoke the configured model, invoke the catalog Gateway, and
+write only its generated Runtime
 log groups, and submit ADOT traces to X-Ray. It has no direct access to catalog
 storage or ingestion. The ADOT entrypoint exports evaluation-compatible Strands
 spans correlated with AgentCore Runtime sessions to CloudWatch.
@@ -147,7 +155,7 @@ technical project domains and unnecessary guardrail charges. Strict schemas,
 evidence validation, and tool allowlists remain independently authoritative.
 Session timeouts limit idle development cost. During apply, OpenTofu runs the
 MMDSv2 compatibility update documented in
-`docs/adr/0004-agentcore-runtime-deployment.md` and fails unless the Runtime
+`docs/agent-runtime.md` and fails unless the Runtime
 returns to `READY` with MMDSv2 enabled. The named `stable` endpoint targets the
 explicitly configured immutable Runtime version and does not follow `DEFAULT`;
 new versions require a separate reviewed promotion.

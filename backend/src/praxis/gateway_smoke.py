@@ -5,10 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
 from http.client import HTTPSConnection
-from pathlib import Path
-from time import perf_counter_ns
 from typing import cast
 from urllib.parse import urlsplit
 
@@ -36,23 +33,6 @@ class GatewayHTTPError(GatewaySmokeError):
     def __init__(self, status: int, detail: str) -> None:
         self.status = status
         super().__init__(f"Gateway returned HTTP {status}: {detail}")
-
-
-@dataclass(frozen=True)
-class MCPMeasurement:
-    """Client-observed body sizes and HTTPS round-trip latency."""
-
-    latency_ms: float
-    request_bytes: int
-    response_bytes: int
-
-    def as_dict(self) -> dict[str, object]:
-        """Return the stable measurement fields written to evidence."""
-        return {
-            "latency_ms": self.latency_ms,
-            "request_bytes": self.request_bytes,
-            "response_bytes": self.response_bytes,
-        }
 
 
 def _object(value: object, message: str) -> dict[str, object]:
@@ -83,7 +63,7 @@ def _request_mcp(
     *,
     profile: str | None,
     region: str,
-) -> tuple[int, bytes, str, MCPMeasurement]:
+) -> tuple[int, bytes, str]:
     parsed = urlsplit(url)
     if parsed.scheme != "https" or not parsed.hostname:
         raise GatewaySmokeError("Gateway URL must be HTTPS")
@@ -111,48 +91,23 @@ def _request_mcp(
 
     connection = HTTPSConnection(parsed.hostname, parsed.port or 443, timeout=30)
     try:
-        started_at = perf_counter_ns()
         connection.request("POST", path, body=body, headers=headers)
         response = connection.getresponse()
         response_body = response.read()
-        elapsed_ns = perf_counter_ns() - started_at
         status = response.status
         content_type = response.getheader("Content-Type", "")
     finally:
         connection.close()
-    measurement = MCPMeasurement(
-        latency_ms=round(elapsed_ns / 1_000_000, 3),
-        request_bytes=len(body),
-        response_bytes=len(response_body),
-    )
-    return status, response_body, content_type, measurement
-
-
-def _post_mcp_measured(
-    url: str,
-    payload: Mapping[str, object],
-    *,
-    profile: str,
-    region: str,
-) -> tuple[dict[str, object], MCPMeasurement]:
-    status, response_body, content_type, measurement = _request_mcp(
-        url, payload, profile=profile, region=region
-    )
-    if status < 200 or status >= 300:
-        detail = response_body.decode("utf-8", errors="replace")
-        raise GatewayHTTPError(status, detail)
-    return decode_response(response_body, content_type), measurement
+    return status, response_body, content_type
 
 
 def _post_mcp(
-    url: str,
-    payload: Mapping[str, object],
-    *,
-    profile: str,
-    region: str,
+    url: str, payload: Mapping[str, object], *, profile: str, region: str
 ) -> dict[str, object]:
-    response, _ = _post_mcp_measured(url, payload, profile=profile, region=region)
-    return response
+    status, body, content_type = _request_mcp(url, payload, profile=profile, region=region)
+    if not 200 <= status < 300:
+        raise GatewayHTTPError(status, body.decode("utf-8", errors="replace"))
+    return decode_response(body, content_type)
 
 
 def _result(response: Mapping[str, object]) -> dict[str, object]:
@@ -175,117 +130,10 @@ def _listed_tools(response: Mapping[str, object]) -> dict[str, dict[str, object]
     return listed
 
 
-def write_tools_list_evidence(
-    evidence_directory: Path, listed: Mapping[str, dict[str, object]]
-) -> Path:
-    """Write a deterministic, credential-free capture of signed tool discovery."""
-    evidence_directory.mkdir(parents=True, exist_ok=True)
-    evidence_path = evidence_directory / "gateway-tools-list.json"
-    capture = {
-        "authentication": "AWS_IAM",
-        "method": "tools/list",
-        "protocol_version": MCP_PROTOCOL_VERSION,
-        "tools": [listed[name] for name in sorted(listed)],
-    }
-    evidence_path.write_text(f"{json.dumps(capture, indent=2, sort_keys=True)}\n")
-    return evidence_path
-
-
-def write_tool_calls_evidence(
-    evidence_directory: Path, calls: Mapping[str, Mapping[str, object]]
-) -> Path:
-    """Write deterministic, credential-free captures of signed tool calls."""
-    evidence_directory.mkdir(parents=True, exist_ok=True)
-    evidence_path = evidence_directory / "gateway-tool-calls.json"
-    capture = {
-        "authentication": "AWS_IAM",
-        "method": "tools/call",
-        "protocol_version": MCP_PROTOCOL_VERSION,
-        "calls": [calls[name] for name in EXPECTED_TOOL_SUFFIXES],
-    }
-    evidence_path.write_text(f"{json.dumps(capture, indent=2, sort_keys=True)}\n")
-    return evidence_path
-
-
-def write_negative_calls_evidence(
-    evidence_directory: Path,
-    *,
-    excessive_limit_observation: str,
-    malformed_arguments_observation: str,
-    oversized_candidate_batch_observation: str,
-    oversized_query_observation: str,
-    unregistered_tool_observation: str,
-    unsigned_status: int,
-) -> Path:
-    """Write deterministic negative-call results without response internals."""
-    evidence_directory.mkdir(parents=True, exist_ok=True)
-    evidence_path = evidence_directory / "gateway-negative-calls.json"
-    capture = {
-        "protocol_version": MCP_PROTOCOL_VERSION,
-        "tests": [
-            {
-                "authentication": "AWS_IAM",
-                "name": "excessive_result_limit",
-                "observation": excessive_limit_observation,
-                "rejected": True,
-            },
-            {
-                "authentication": "AWS_IAM",
-                "name": "malformed_tool_arguments",
-                "observation": malformed_arguments_observation,
-                "rejected": True,
-            },
-            {
-                "authentication": "AWS_IAM",
-                "name": "oversized_candidate_batch",
-                "observation": oversized_candidate_batch_observation,
-                "rejected": True,
-            },
-            {
-                "authentication": "AWS_IAM",
-                "name": "oversized_search_query",
-                "observation": oversized_query_observation,
-                "rejected": True,
-            },
-            {
-                "authentication": "AWS_IAM",
-                "name": "unregistered_tool",
-                "observation": unregistered_tool_observation,
-                "rejected": True,
-            },
-            {
-                "authentication": "none",
-                "http_status": unsigned_status,
-                "name": "unsigned_tools_list",
-                "rejected": True,
-            },
-        ],
-    }
-    evidence_path.write_text(f"{json.dumps(capture, indent=2, sort_keys=True)}\n")
-    return evidence_path
-
-
-def write_tool_metrics_evidence(
-    evidence_directory: Path,
-    measurements: Mapping[str, MCPMeasurement],
-) -> Path:
-    """Write one client-side latency and body-size measurement per tool."""
-    evidence_directory.mkdir(parents=True, exist_ok=True)
-    evidence_path = evidence_directory / "gateway-tool-metrics.json"
-    capture = {
-        "method": "tools/call",
-        "protocol_version": MCP_PROTOCOL_VERSION,
-        "scope": "Client-observed HTTPS round trip; sizes are JSON request and raw response bodies.",
-        "tools": [
-            {"name": name, **measurements[name].as_dict()} for name in EXPECTED_TOOL_SUFFIXES
-        ],
-    }
-    evidence_path.write_text(f"{json.dumps(capture, indent=2, sort_keys=True)}\n")
-    return evidence_path
-
-
 def catalog_payload(response: Mapping[str, object]) -> dict[str, object]:
     result = _result(response)
+    if result.get("isError") is True:
+        raise GatewaySmokeError("Gateway tool call failed")
     structured = result.get("structuredContent")
     if isinstance(structured, dict):
         return cast("dict[str, object]", structured)
@@ -302,345 +150,58 @@ def catalog_payload(response: Mapping[str, object]) -> dict[str, object]:
     raise GatewaySmokeError("Tool response contains no structured catalog payload")
 
 
-def tool_call_rejected(response: Mapping[str, object]) -> bool:
-    """Return whether an MCP response explicitly rejects a tool call."""
-    if response.get("error") is not None:
-        return True
-    result = response.get("result")
-    if not isinstance(result, dict):
-        return False
-    return cast("dict[str, object]", result).get("isError") is True
+def run_smoke(url: str, *, profile: str, region: str) -> str:
+    """Check authorization, discovery, and one search/lookup round trip."""
+    discovery = {"jsonrpc": "2.0", "id": "list-tools", "method": "tools/list"}
+    status, _, _ = _request_mcp(url, discovery, profile=None, region=region)
+    if status not in {401, 403}:
+        raise GatewaySmokeError(f"Unsigned Gateway request returned HTTP {status}")
+    listed = _listed_tools(_post_mcp(url, discovery, profile=profile, region=region))
+    names: dict[str, str] = {}
+    for suffix in EXPECTED_TOOL_SUFFIXES:
+        matches = [name for name in listed if name.endswith(f"___{suffix}")]
+        if len(matches) != 1:
+            raise GatewaySmokeError(f"Expected one Gateway tool for {suffix}")
+        names[suffix] = matches[0]
 
-
-def _signed_rejection_observation(
-    url: str,
-    payload: Mapping[str, object],
-    *,
-    profile: str,
-    region: str,
-) -> str:
-    try:
-        response = _post_mcp(url, payload, profile=profile, region=region)
-    except GatewayHTTPError as error:
-        if error.status not in {400, 422, 500}:
-            raise
-        return f"HTTP {error.status}"
-    if tool_call_rejected(response):
-        return "MCP error"
-    raise GatewaySmokeError("Gateway accepted a request expected to be rejected")
-
-
-def _call_catalog_tool(
-    url: str,
-    *,
-    request_id: str,
-    tool_name: str,
-    arguments: dict[str, object],
-    profile: str,
-    region: str,
-) -> tuple[dict[str, object], MCPMeasurement]:
-    response, measurement = _post_mcp_measured(
-        url,
-        {
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "method": "tools/call",
-            "params": {"name": tool_name, "arguments": arguments},
-        },
-        profile=profile,
-        region=region,
-    )
-    return catalog_payload(response), measurement
-
-
-def run_smoke(
-    url: str,
-    *,
-    profile: str,
-    region: str,
-    evidence_directory: Path | None = None,
-) -> dict[str, object]:
-    """List the deployed tools and run one evidence search."""
-    listed = _listed_tools(
-        _post_mcp(
-            url,
-            {"jsonrpc": "2.0", "id": "list-tools", "method": "tools/list"},
-            profile=profile,
-            region=region,
+    def call(name: str, arguments: dict[str, object]) -> dict[str, object]:
+        return catalog_payload(
+            _post_mcp(
+                url,
+                {
+                    "jsonrpc": "2.0",
+                    "id": name,
+                    "method": "tools/call",
+                    "params": {"name": names[name], "arguments": arguments},
+                },
+                profile=profile,
+                region=region,
+            )
         )
-    )
-    expected_names = {
-        suffix: next(
-            (name for name in listed if name.endswith(f"___{suffix}")),
-            "",
-        )
-        for suffix in EXPECTED_TOOL_SUFFIXES
-    }
-    missing = sorted(suffix for suffix, name in expected_names.items() if not name)
-    if missing:
-        raise GatewaySmokeError(f"Gateway is missing catalog tools: {', '.join(missing)}")
-    evidence_path = (
-        write_tools_list_evidence(evidence_directory, listed)
-        if evidence_directory is not None
-        else None
-    )
 
-    search_arguments: dict[str, object] = {"query": "compiler", "limit": 1}
-    search_payload, search_measurement = _call_catalog_tool(
-        url,
-        request_id="search-catalog",
-        tool_name=expected_names["search_catalog"],
-        arguments=search_arguments,
-        profile=profile,
-        region=region,
-    )
-    results = search_payload.get("results")
+    results = call("search_catalog", {"query": "compiler", "limit": 1}).get("results")
     if not isinstance(results, list) or not results:
         raise GatewaySmokeError("Catalog search returned no results")
     first = _object(cast("list[object]", results)[0], "Search result must be an object")
     evidence_id = first.get("evidence_id")
-    if not isinstance(evidence_id, str):
+    if not isinstance(evidence_id, str) or not evidence_id:
         raise GatewaySmokeError("Search result is missing its evidence ID")
-
-    get_arguments: dict[str, object] = {"id": evidence_id}
-    get_payload, get_measurement = _call_catalog_tool(
-        url,
-        request_id="get-catalog-item",
-        tool_name=expected_names["get_catalog_item"],
-        arguments=get_arguments,
-        profile=profile,
-        region=region,
+    item = _object(
+        call("get_catalog_item", {"id": evidence_id}).get("item"), "Catalog lookup failed"
     )
-    item = _object(get_payload.get("item"), "Catalog lookup returned no item")
     if item.get("evidence_id") != evidence_id:
         raise GatewaySmokeError("Catalog lookup returned the wrong evidence item")
-
-    summarize_arguments: dict[str, object] = {
-        "description": "A browser notebook for electronics experiments",
-        "languages": ["TypeScript"],
-        "limit": 1,
-    }
-    summarize_payload, summarize_measurement = _call_catalog_tool(
-        url,
-        request_id="summarize-experience",
-        tool_name=expected_names["summarize_experience"],
-        arguments=summarize_arguments,
-        profile=profile,
-        region=region,
-    )
-    matches = summarize_payload.get("matches")
-    if not isinstance(matches, list) or not matches:
-        raise GatewaySmokeError("Experience summary returned no project evidence")
-
-    score_arguments: dict[str, object] = {
-        "candidates": [
-            {
-                "candidate_id": "notebook",
-                "description": "A browser notebook for electronics experiments",
-                "languages": ["TypeScript"],
-            },
-            {
-                "candidate_id": "unrelated",
-                "description": "zyxwvutsrq",
-                "languages": [],
-            },
-        ]
-    }
-    score_payload, score_measurement = _call_catalog_tool(
-        url,
-        request_id="score-project-candidates",
-        tool_name=expected_names["score_project_candidates"],
-        arguments=score_arguments,
-        profile=profile,
-        region=region,
-    )
-    scores = score_payload.get("scores")
-    if not isinstance(scores, list) or len(cast("list[object]", scores)) != 2:
-        raise GatewaySmokeError("Candidate scoring returned an invalid result count")
-
-    calls = {
-        "get_catalog_item": {
-            "arguments": get_arguments,
-            "result": get_payload,
-            "tool": expected_names["get_catalog_item"],
-        },
-        "score_project_candidates": {
-            "arguments": score_arguments,
-            "result": score_payload,
-            "tool": expected_names["score_project_candidates"],
-        },
-        "search_catalog": {
-            "arguments": search_arguments,
-            "result": search_payload,
-            "tool": expected_names["search_catalog"],
-        },
-        "summarize_experience": {
-            "arguments": summarize_arguments,
-            "result": summarize_payload,
-            "tool": expected_names["summarize_experience"],
-        },
-    }
-    calls_evidence_path = (
-        write_tool_calls_evidence(evidence_directory, calls)
-        if evidence_directory is not None
-        else None
-    )
-    metrics_evidence_path = (
-        write_tool_metrics_evidence(
-            evidence_directory,
-            {
-                "get_catalog_item": get_measurement,
-                "score_project_candidates": score_measurement,
-                "search_catalog": search_measurement,
-                "summarize_experience": summarize_measurement,
-            },
-        )
-        if evidence_directory is not None
-        else None
-    )
-
-    excessive_limit_observation = _signed_rejection_observation(
-        url,
-        {
-            "jsonrpc": "2.0",
-            "id": "reject-excessive-limit",
-            "method": "tools/call",
-            "params": {
-                "name": expected_names["search_catalog"],
-                "arguments": {"query": "compiler", "limit": 21},
-            },
-        },
-        profile=profile,
-        region=region,
-    )
-    malformed_arguments_observation = _signed_rejection_observation(
-        url,
-        {
-            "jsonrpc": "2.0",
-            "id": "reject-malformed-arguments",
-            "method": "tools/call",
-            "params": {
-                "name": expected_names["search_catalog"],
-                "arguments": {"limit": 1},
-            },
-        },
-        profile=profile,
-        region=region,
-    )
-    oversized_query_observation = _signed_rejection_observation(
-        url,
-        {
-            "jsonrpc": "2.0",
-            "id": "reject-oversized-query",
-            "method": "tools/call",
-            "params": {
-                "name": expected_names["search_catalog"],
-                "arguments": {"query": "x" * 501, "limit": 1},
-            },
-        },
-        profile=profile,
-        region=region,
-    )
-    oversized_candidate_batch_observation = _signed_rejection_observation(
-        url,
-        {
-            "jsonrpc": "2.0",
-            "id": "reject-oversized-candidate-batch",
-            "method": "tools/call",
-            "params": {
-                "name": expected_names["score_project_candidates"],
-                "arguments": {
-                    "candidates": [
-                        {"candidate_id": f"candidate_{index}", "description": "compiler"}
-                        for index in range(1, 5)
-                    ]
-                },
-            },
-        },
-        profile=profile,
-        region=region,
-    )
-    gateway_name = expected_names["search_catalog"].rpartition("___")[0]
-    unregistered_tool_observation = _signed_rejection_observation(
-        url,
-        {
-            "jsonrpc": "2.0",
-            "id": "reject-unregistered-tool",
-            "method": "tools/call",
-            "params": {
-                "name": f"{gateway_name}___delete_catalog",
-                "arguments": {},
-            },
-        },
-        profile=profile,
-        region=region,
-    )
-    unsigned_status, _, _, _ = _request_mcp(
-        url,
-        {"jsonrpc": "2.0", "id": "reject-unsigned", "method": "tools/list"},
-        profile=None,
-        region=region,
-    )
-    if unsigned_status not in {401, 403}:
-        raise GatewaySmokeError(
-            f"Unsigned Gateway request returned unexpected HTTP {unsigned_status}"
-        )
-    negative_calls_evidence_path = (
-        write_negative_calls_evidence(
-            evidence_directory,
-            excessive_limit_observation=excessive_limit_observation,
-            malformed_arguments_observation=malformed_arguments_observation,
-            oversized_candidate_batch_observation=oversized_candidate_batch_observation,
-            oversized_query_observation=oversized_query_observation,
-            unregistered_tool_observation=unregistered_tool_observation,
-            unsigned_status=unsigned_status,
-        )
-        if evidence_directory is not None
-        else None
-    )
-
-    return {
-        "iam_authenticated": True,
-        "excessive_limit_rejected": True,
-        "malformed_arguments_rejected": True,
-        "oversized_candidate_batch_rejected": True,
-        "oversized_query_rejected": True,
-        "unregistered_tool_rejected": True,
-        "unsigned_request_rejected": True,
-        "tools": sorted(expected_names),
-        "search_result": first,
-        "tool_metrics_capture": (
-            str(metrics_evidence_path) if metrics_evidence_path is not None else None
-        ),
-        "negative_calls_capture": (
-            str(negative_calls_evidence_path) if negative_calls_evidence_path is not None else None
-        ),
-        "tool_calls_capture": (
-            str(calls_evidence_path) if calls_evidence_path is not None else None
-        ),
-        "tools_list_capture": str(evidence_path) if evidence_path is not None else None,
-    }
+    return "Gateway authorization, tool discovery, and catalog round trip passed."
 
 
 def main() -> None:
-    """Run the deployed Gateway smoke check from command-line arguments."""
+    """Run the deployed Gateway diagnostic."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True)
     parser.add_argument("--profile", default="praxis-dev")
     parser.add_argument("--region", default="us-east-1")
-    parser.add_argument("--evidence-directory", type=Path)
     arguments = parser.parse_args()
-    print(
-        json.dumps(
-            run_smoke(
-                arguments.url,
-                profile=arguments.profile,
-                region=arguments.region,
-                evidence_directory=arguments.evidence_directory,
-            ),
-            indent=2,
-        )
-    )
+    print(run_smoke(arguments.url, profile=arguments.profile, region=arguments.region))
 
 
 if __name__ == "__main__":

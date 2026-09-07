@@ -1,5 +1,6 @@
 """JSON Schema validation for generated project candidates."""
 
+from collections.abc import Set
 from copy import deepcopy
 from typing import cast
 
@@ -23,6 +24,20 @@ CANDIDATE_OUTPUT_VALIDATOR: Validator = Draft202012Validator(CANDIDATE_OUTPUT_SC
 
 class CandidateOutputValidationError(ValueError):
     """Raised when generated candidate output violates its contract."""
+
+
+def require_retrieved_citations(candidates: ProjectCandidateSet, evidence_ids: Set[str]) -> None:
+    """Require every citation to resolve in the caller's validated retrieval context."""
+    cited_ids = {
+        citation.evidence_id
+        for candidate in candidates.candidates
+        for citation in candidate.evidence_citations
+    }
+    unsupported_ids = cited_ids - evidence_ids
+    if unsupported_ids:
+        raise CandidateOutputValidationError(
+            f"Candidates cited evidence that was not retrieved: {sorted(unsupported_ids)}"
+        )
 
 
 def candidate_output_schema() -> dict[str, JsonValue]:

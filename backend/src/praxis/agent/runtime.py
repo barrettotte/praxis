@@ -9,20 +9,15 @@ from pydantic import Field, TypeAdapter, ValidationError
 from starlette.exceptions import HTTPException
 
 from praxis.agent.brief import invoke_project_brief as generate_project_brief
-from praxis.agent.gateway import GatewayAgentRun, invoke_gateway_agent
-from praxis.agent.memory import (
-    AgentCoreMemoryStore,
-    MemoryRecord,
-    actor_namespace,
-    memory_prompt_context,
-)
-from praxis.config import load_gateway_settings, load_memory_settings, load_settings
+from praxis.agent.gateway import invoke_gateway_agent
+from praxis.agent.generation import CandidateRun
+from praxis.config import load_gateway_settings, load_settings
 from praxis.domain import ProjectCandidate
 from praxis.domain.briefs import ProjectBrief
 from praxis.domain.prompt_safety import SensitiveInputError, require_safe_content
 from praxis.tools.contracts import Evidence
 
-RuntimeInvoker = Callable[[str, Sequence[str]], GatewayAgentRun]
+RuntimeInvoker = Callable[[str], CandidateRun]
 BriefInvoker = Callable[[str, ProjectCandidate, Sequence[Evidence]], ProjectBrief]
 RuntimeHandler = Callable[[dict[str, object]], dict[str, object]]
 type BriefGoal = Annotated[str, Field(min_length=1, max_length=4_000)]
@@ -45,12 +40,6 @@ class RuntimeRequestError(ValueError):
     """Raised when an AgentCore invocation payload is invalid."""
 
 
-class RuntimeMemory(Protocol):
-    """Read-only memory surface available to the recommendation Runtime."""
-
-    def recall(self, actor_id: str, query: str) -> tuple[MemoryRecord, ...]: ...
-
-
 def _prompt_from_payload(payload: Mapping[str, object]) -> str:
     prompt = payload.get("prompt")
     if not isinstance(prompt, str) or not prompt.strip():
@@ -58,29 +47,15 @@ def _prompt_from_payload(payload: Mapping[str, object]) -> str:
     return prompt.strip()
 
 
-def _actor_from_payload(payload: Mapping[str, object]) -> str:
-    actor_id = payload.get("actor_id")
-    if not isinstance(actor_id, str) or not actor_id.strip():
-        raise RuntimeRequestError("actor_id must be a non-empty string")
-    normalized = actor_id.strip()
-    try:
-        actor_namespace(normalized)
-    except ValueError as error:
-        raise RuntimeRequestError("actor_id has an invalid format") from error
-    return normalized
-
-
 def invoke_runtime(
     payload: Mapping[str, object],
     invoke_agent: RuntimeInvoker | None = None,
-    memory: RuntimeMemory | None = None,
     invoke_brief: BriefInvoker | None = None,
 ) -> dict[str, object]:
     """Validate one request and return a buffered recommendation or project brief."""
     require_safe_content(payload)
     if payload.get("operation") == "create_project_brief":
-        _actor_from_payload(payload)
-        if set(payload) != {"actor_id", "candidate", "evidence", "goal", "operation"}:
+        if set(payload) != {"candidate", "evidence", "goal", "operation"}:
             raise RuntimeRequestError("request contains unsupported fields")
         try:
             goal = _BRIEF_GOAL_ADAPTER.validate_python(payload.get("goal"), strict=True)
@@ -99,24 +74,12 @@ def invoke_runtime(
         return {"brief": brief.model_dump(mode="json")}
 
     prompt = _prompt_from_payload(payload)
-    actor_id = _actor_from_payload(payload)
-    if set(payload) != {"actor_id", "prompt"}:
+    if set(payload) != {"prompt"}:
         raise RuntimeRequestError("request contains unsupported fields")
-    memory_store = memory
     if invoke_agent is None:
-        agent_settings = load_settings()
-        gateway_settings = load_gateway_settings()
-        memory_store = memory_store or AgentCoreMemoryStore(load_memory_settings())
-        memories = memory_store.recall(actor_id, prompt)
-        run = invoke_gateway_agent(
-            prompt,
-            agent_settings,
-            gateway_settings,
-            memory_context=memory_prompt_context(memories),
-        )
+        run = invoke_gateway_agent(prompt, load_settings(), load_gateway_settings())
     else:
-        memories = memory_store.recall(actor_id, prompt) if memory_store is not None else ()
-        run = invoke_agent(prompt, memory_prompt_context(memories))
+        run = invoke_agent(prompt)
 
     candidates = run.candidates.model_dump(mode="json")["candidates"]
     evidence = [item.model_dump(mode="json") for item in run.evidence]
@@ -124,7 +87,6 @@ def invoke_runtime(
     return {
         "candidates": candidates,
         "evidence": evidence,
-        "memory": {"retrieved_count": len(memories)},
         "tool_calls": tool_calls,
     }
 

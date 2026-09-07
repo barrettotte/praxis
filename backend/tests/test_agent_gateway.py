@@ -12,7 +12,7 @@ from strands.agent.agent_result import AgentResult
 from strands.hooks import BeforeToolCallEvent
 from strands.tools.mcp import MCPAgentTool, MCPClient, MCPTransport
 
-from praxis.agent import gateway
+from praxis.agent import gateway, generation
 from praxis.agent.budget import ToolCallBudget
 from praxis.agent.evidence import EvidenceState
 from praxis.config import AgentSettings, GatewaySettings
@@ -89,13 +89,9 @@ def gateway_candidate_records() -> list[dict[str, object]]:
 
 def gateway_candidate_output(
     records: list[dict[str, object]] | None = None,
-) -> gateway.GatewayCandidateOutput:
-    return gateway.GatewayCandidateOutput.model_validate(
-        {
-            "candidates_json": json.dumps(
-                {"candidates": records if records is not None else gateway_candidate_records()}
-            )
-        }
+) -> generation.CandidateDraftSet:
+    return generation.CandidateDraftSet.model_validate(
+        {"candidates": records if records is not None else gateway_candidate_records()}
     )
 
 
@@ -167,7 +163,7 @@ def test_create_gateway_client_uses_sigv4_and_catalog_allowlist() -> None:
     assert not allowed[0].fullmatch("praxis-dev-catalog___delete_records")
 
 
-@pytest.mark.parametrize("source", ["goal", "memory", "catalog"])
+@pytest.mark.parametrize("source", ["goal", "catalog"])
 def test_gateway_screens_content_before_model_invocation(source: str) -> None:
     agent = MagicMock()
     context, client = stub_gateway_session(agent)
@@ -183,9 +179,8 @@ def test_gateway_screens_content_before_model_invocation(source: str) -> None:
     ):
         gateway.invoke_gateway_agent(
             marker if source == "goal" else "compiler",
-            AgentSettings(model_id="amazon.nova-lite-v1:0", region="us-east-1"),
+            AgentSettings(model_id="amazon.nova-pro-v1:0", region="us-east-1"),
             gateway_settings(),
-            memory_context=(marker,) if source == "memory" else (),
         )
     agent.assert_not_called()
     if source != "catalog":
@@ -196,7 +191,9 @@ def test_validate_gateway_tools_requires_exact_catalog_boundary() -> None:
     tools = catalog_tools()
     assert gateway.validate_gateway_tools(tools) == tuple(tools)
 
-    with pytest.raises(gateway.GatewayAgentError, match="expected read-only catalog boundary"):
+    with pytest.raises(
+        generation.CandidatePlanningError, match="expected read-only catalog boundary"
+    ):
         gateway.validate_gateway_tools(catalog_tools()[:-1])
 
     unexpected = MCPAgentTool(
@@ -207,34 +204,25 @@ def test_validate_gateway_tools_requires_exact_catalog_boundary() -> None:
         ),
         cast("MCPClient", MagicMock()),
     )
-    with pytest.raises(gateway.GatewayAgentError, match="expected read-only catalog boundary"):
+    with pytest.raises(
+        generation.CandidatePlanningError, match="expected read-only catalog boundary"
+    ):
         gateway.validate_gateway_tools([*catalog_tools(), unexpected])
 
 
-def test_gateway_candidate_schema_uses_one_atomic_string_field() -> None:
-    schema = gateway.GatewayCandidateOutput.model_json_schema()
-
-    assert "$defs" not in schema
-    assert set(schema["properties"]) == {"candidates_json"}
-    assert schema["properties"]["candidates_json"]["type"] == "string"
-
-
-def test_gateway_candidate_output_model_uses_native_shape_for_nova_pro() -> None:
-    assert (
-        gateway.gateway_candidate_output_model("amazon.nova-pro-v1:0")
-        is gateway.GatewayCandidateDraftSet
-    )
-    assert (
-        gateway.gateway_candidate_output_model("amazon.nova-lite-v1:0")
-        is gateway.GatewayCandidateOutput
-    )
+def test_candidate_schema_requires_three_structured_drafts() -> None:
+    schema = generation.CandidateDraftSet.model_json_schema()
+    assert set(schema["properties"]) == {"candidates"}
+    candidates = schema["properties"]["candidates"]
+    assert candidates["type"] == "array"
+    assert candidates["minItems"] == candidates["maxItems"] == 3
 
 
 def test_gateway_candidate_schema_rejects_incomplete_inner_candidate_sets() -> None:
     records = gateway_candidate_records()
     records.pop()
 
-    with pytest.raises(ValueError, match=r"candidates: List should have at least 3 items"):
+    with pytest.raises(ValueError, match=r"List should have at least 3 items"):
         gateway_candidate_output(records)
 
 
@@ -245,7 +233,7 @@ def test_gateway_candidate_schema_reports_safe_inner_field_errors() -> None:
     with pytest.raises(
         ValueError,
         match=(
-            r"candidates -> 0 -> estimated_scope: Input should be "
+            r"Input should be "
             r"'weekend', 'multi-week' or 'multi-month'"
         ),
     ) as error:
@@ -262,26 +250,8 @@ def test_gateway_candidate_schema_bounds_verbose_generated_connections() -> None
     candidates = validate_candidate_output(output.as_payload(("book:0f5ba253568e4836",)))
     connection = candidates.candidates[0].evidence_citations[0].generated_connection
 
-    assert len(connection) <= gateway.MAX_GENERATED_CONNECTION_LENGTH
+    assert len(connection) <= generation.MAX_GENERATED_CONNECTION_LENGTH
     assert connection.endswith("evidence")
-
-
-def test_gateway_candidate_schema_removes_redundant_closing_braces() -> None:
-    encoded = json.dumps({"candidates": gateway_candidate_records()})
-
-    output = gateway.GatewayCandidateOutput(candidates_json=f"{encoded}}}}}")
-
-    assert output.candidates_json == json.dumps(
-        {"candidates": gateway_candidate_records()},
-        separators=(",", ":"),
-    )
-
-
-def test_gateway_candidate_schema_rejects_other_trailing_content() -> None:
-    encoded = json.dumps({"candidates": gateway_candidate_records()})
-
-    with pytest.raises(ValueError, match="trailing characters"):
-        gateway.GatewayCandidateOutput(candidates_json=f"{encoded} another value")
 
 
 def test_gateway_agent_session_keeps_client_open_while_constructing_agent() -> None:
@@ -289,7 +259,7 @@ def test_gateway_agent_session_keeps_client_open_while_constructing_agent() -> N
     tools = catalog_tools()
     fake_client.list_tools_sync.return_value = tools
     agent_settings = AgentSettings(
-        model_id="amazon.nova-micro-v1:0",
+        model_id="amazon.nova-pro-v1:0",
         region="us-east-1",
         guardrail_id="guardrail-123",
         guardrail_version="7",
@@ -314,7 +284,7 @@ def test_gateway_agent_session_keeps_client_open_while_constructing_agent() -> N
 
 def test_catalog_query_preserves_first_eight_meaningful_terms() -> None:
     assert (
-        gateway.catalog_query(
+        generation.catalog_query(
             "Build a compiler backend in Python with LLVM and WebAssembly for learning"
         )
         == "build compiler backend python llvm webassembly learning"
@@ -330,7 +300,7 @@ def test_invoke_gateway_agent_keeps_session_open_during_model_invocation() -> No
                 tool_metrics={
                     "search_catalog": SimpleNamespace(call_count=0),
                     "get_catalog_item": SimpleNamespace(call_count=0),
-                    "GatewayCandidateOutput": SimpleNamespace(call_count=1),
+                    "CandidateDraftSet": SimpleNamespace(call_count=1),
                 }
             )
 
@@ -354,7 +324,7 @@ def test_invoke_gateway_agent_keeps_session_open_during_model_invocation() -> No
     fake_agent = MagicMock(side_effect=invoke_stub)
     session, client = stub_gateway_session(fake_agent)
     agent_settings = AgentSettings(
-        model_id="amazon.nova-micro-v1:0",
+        model_id="amazon.nova-pro-v1:0",
         region="us-east-1",
         guardrail_id="guardrail-123",
         guardrail_version="7",
@@ -367,7 +337,6 @@ def test_invoke_gateway_agent_keeps_session_open_during_model_invocation() -> No
             "Recommend a compiler project",
             agent_settings,
             gateway_settings(),
-            memory_context=('{"kind":"preference","text":"Prefer weekend scope."}',),
         )
 
     session.__enter__.assert_called_once_with()
@@ -384,9 +353,7 @@ def test_invoke_gateway_agent_keeps_session_open_during_model_invocation() -> No
     }
     application_context = cast("str", generation_prompt[1]["text"])
     assert '"evidence_id":"book:0f5ba253568e4836"' in application_context
-    assert "user-authored preferences and prior decisions" in application_context
-    assert "Prefer weekend scope" in application_context
-    assert fake_agent.call_args.kwargs["structured_output_model"] is gateway.GatewayCandidateOutput
+    assert fake_agent.call_args.kwargs["structured_output_model"] is generation.CandidateDraftSet
     assert fake_agent.call_args.kwargs["limits"] == {"turns": 6}
     assert result.candidates == candidate_set()
     assert result.tool_calls == (("search_catalog", 1),)
@@ -409,8 +376,8 @@ def test_validate_gateway_candidate_result_applies_domain_validation() -> None:
     duplicate = gateway_candidate_output(records)
     result = cast("AgentResult", SimpleNamespace(structured_output=duplicate))
 
-    with pytest.raises(gateway.GatewayAgentError, match="invalid structured"):
-        gateway.validate_gateway_candidate_result(
+    with pytest.raises(generation.CandidatePlanningError, match="invalid structured"):
+        generation.validate_candidate_result(
             result,
             evidence_state("book:0f5ba253568e4836"),
         )
@@ -419,19 +386,31 @@ def test_validate_gateway_candidate_result_applies_domain_validation() -> None:
 def test_validate_gateway_candidate_result_rejects_empty_evidence() -> None:
     result = cast("AgentResult", SimpleNamespace(structured_output=candidate_set()))
 
-    with pytest.raises(gateway.GatewayAgentError, match="No catalog evidence"):
-        gateway.validate_gateway_candidate_result(result, evidence_state())
+    with pytest.raises(generation.CandidatePlanningError, match="No catalog evidence"):
+        generation.validate_candidate_result(result, evidence_state())
 
 
 def test_validate_gateway_candidate_result_rejects_conflicting_evidence() -> None:
     evidence_id = "book:0f5ba253568e4836"
     result = cast("AgentResult", SimpleNamespace(structured_output=candidate_set()))
 
-    with pytest.raises(gateway.GatewayAgentError, match="conflicting evidence"):
-        gateway.validate_gateway_candidate_result(
+    with pytest.raises(generation.CandidatePlanningError, match="conflicting evidence"):
+        generation.validate_candidate_result(
             result,
             evidence_state(evidence_id, conflicts=frozenset({evidence_id})),
         )
+
+
+def test_gateway_citations_cannot_expand_the_allowed_retrieval_context() -> None:
+    output = gateway_candidate_output(gateway_candidate_records())
+    result = cast("AgentResult", SimpleNamespace(structured_output=output))
+    state = EvidenceState(
+        evidence_ids=frozenset({"project:1111111111111111"}),
+        conflicting_ids=frozenset(),
+        ordered_evidence_ids=("book:0f5ba253568e4836",),
+    )
+    with pytest.raises(generation.CandidatePlanningError, match="was not retrieved"):
+        generation.validate_candidate_result(result, state)
 
 
 def test_validate_gateway_candidate_result_maps_evidence_positions_to_exact_ids() -> None:
@@ -446,7 +425,7 @@ def test_validate_gateway_candidate_result_maps_evidence_positions_to_exact_ids(
         "byte:0000000000000003",
     )
 
-    candidates = gateway.validate_gateway_candidate_result(result, evidence_state(*evidence_ids))
+    candidates = generation.validate_candidate_result(result, evidence_state(*evidence_ids))
 
     assert (
         tuple(candidate.evidence_citations[0].evidence_id for candidate in candidates.candidates)
@@ -455,12 +434,12 @@ def test_validate_gateway_candidate_result_maps_evidence_positions_to_exact_ids(
 
 
 def test_validate_gateway_candidate_result_accepts_native_candidate_set() -> None:
-    output = gateway.GatewayCandidateDraftSet.model_validate(
+    output = generation.CandidateDraftSet.model_validate(
         {"candidates": gateway_candidate_records()}
     )
     result = cast("AgentResult", SimpleNamespace(structured_output=output))
 
-    candidates = gateway.validate_gateway_candidate_result(
+    candidates = generation.validate_candidate_result(
         result,
         evidence_state("book:0f5ba253568e4836"),
     )
@@ -476,8 +455,8 @@ def test_validate_gateway_candidate_result_rejects_unavailable_evidence_position
         SimpleNamespace(structured_output=gateway_candidate_output(records)),
     )
 
-    with pytest.raises(gateway.GatewayAgentError, match="unavailable evidence position 2"):
-        gateway.validate_gateway_candidate_result(
+    with pytest.raises(generation.CandidatePlanningError, match="unavailable evidence position 2"):
+        generation.validate_candidate_result(
             result,
             evidence_state("book:0f5ba253568e4836"),
         )
@@ -490,7 +469,7 @@ def test_invoke_gateway_agent_reports_exhausted_model_turn_budget() -> None:
             structured_output=None,
             metrics=SimpleNamespace(
                 tool_metrics={
-                    "GatewayCandidateOutput": SimpleNamespace(call_count=3),
+                    "CandidateDraftSet": SimpleNamespace(call_count=3),
                     "search_catalog": SimpleNamespace(call_count=2),
                 }
             ),
@@ -507,7 +486,7 @@ def test_invoke_gateway_agent_reports_exhausted_model_turn_budget() -> None:
                         "content": [
                             {
                                 "text": (
-                                    "Validation failed for GatewayCandidateOutput. "
+                                    "Validation failed for CandidateDraftSet. "
                                     "Please fix the following errors:\n"
                                     "- Field 'candidates -> 1 -> title': duplicate title"
                                 )
@@ -523,15 +502,15 @@ def test_invoke_gateway_agent_reports_exhausted_model_turn_budget() -> None:
     with (
         patch.object(gateway, "gateway_agent_session", return_value=session),
         pytest.raises(
-            gateway.GatewayAgentError,
+            generation.CandidatePlanningError,
             match=(
-                r"model-turn budget.*GatewayCandidateOutput=3, search_catalog=2[\s\S]*"
+                r"model-turn budget.*CandidateDraftSet=3, search_catalog=2[\s\S]*"
                 r"candidates -> 1 -> title.*duplicate title"
             ),
         ),
     ):
         gateway.invoke_gateway_agent(
             "Recommend a compiler project",
-            AgentSettings(model_id="amazon.nova-micro-v1:0", region="us-east-1"),
+            AgentSettings(model_id="amazon.nova-pro-v1:0", region="us-east-1"),
             gateway_settings(),
         )

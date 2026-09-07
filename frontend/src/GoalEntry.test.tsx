@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { GoalEntry } from "./GoalEntry";
+import { ProjectBriefView } from "./ProjectBriefView";
 import { SensitiveInputError } from "./api";
 import type {
   ApiClient,
@@ -108,6 +109,36 @@ function createApiClient(
 }
 
 describe("GoalEntry", () => {
+  it("hides empty optional brief sections without hiding delivery checks", () => {
+    const compact = selectionResult(candidate);
+    Object.assign(compact.brief, {
+      technical_approach: [],
+      assumptions: [],
+      out_of_scope: [],
+      risks: [],
+    });
+    render(<ProjectBriefView result={compact} />);
+    for (const name of [
+      "Technical approach",
+      "Assumptions",
+      "Out of scope",
+      "Risks and mitigations",
+    ]) {
+      expect(screen.queryByRole("heading", { name })).not.toBeInTheDocument();
+    }
+    for (const name of ["Deliverables", "Milestones", "Acceptance criteria"]) {
+      expect(screen.getByRole("heading", { name })).toBeVisible();
+    }
+  });
+
+  it("shows an assumption without an empty exclusions section", () => {
+    const selected = selectionResult(candidate);
+    selected.brief.out_of_scope = [];
+    render(<ProjectBriefView result={selected} />);
+    expect(screen.getByRole("heading", { name: "Assumptions" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Out of scope" })).not.toBeInTheDocument();
+  });
+
   it("submits a normalized goal within the public API limit", async () => {
     const createSession = vi.fn().mockResolvedValue(result);
     render(<GoalEntry api={createApiClient(createSession)} />);

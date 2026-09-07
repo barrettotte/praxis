@@ -30,7 +30,7 @@ recommendation job, and returns `202 Accepted` with `sessionId` and status
 `failed`. A ready response contains exactly three validated, evidence-backed
 candidates plus the one to three cited catalog fact records under `evidence`.
 The adapter removes internal search scores and rejects citations that do not
-resolve to those records. Runtime Memory and tool-call metrics are validated
+resolve to those records. Runtime tool-call metrics are validated
 internally but are not part of the public response. The normalized goal is
 retained only in the expiring application session so candidate selection can
 produce a goal-aligned brief; session responses do not return it. Invalid
@@ -71,16 +71,36 @@ more `evidence_citations` containing stable evidence IDs and generated
 connections. `data.evidence` contains the separately validated book, project,
 technical-note, or museum records referenced by those citations.
 
-A successful candidate-selection response contains the server-selected
-candidate, its resolved evidence, and a generated project brief. The brief
-defines its objective and bounded scope, a three-to-six-step technical approach,
-assumptions, explicit exclusions, named deliverables, three to five ordered
-milestones, two to four risks, and three to six acceptance criteria. Technical
-approach steps name accessible tools or methods, inputs, and observable outputs.
-Every milestone contains a deliverable and self-service verification method;
-every acceptance criterion contains the condition and its verification method.
-Feasibility-driven reframing must remain within the selected candidate's
-declared scope and appear explicitly in the scope and exclusions.
+Candidate selection returns `202 Accepted` with a new job `sessionId` and
+`pending` status. Poll that identifier through the existing session GET route.
+A `brief_ready` response contains the server-selected candidate, its resolved
+evidence, and a generated project brief. A `failed` response exposes no provider
+details. The original recommendation session remains available for another selection.
+Each selection creates a distinct expiring job; repeat clicks can repeat paid work.
+Terminal job redeliveries skip inference, but concurrent queue deliveries are not
+an exactly-once guarantee. The brief
+defines its objective and bounded scope, one to six deliverables, one to five
+ordered milestones, and one to six acceptance criteria. Each milestone contains
+a title, implementation deliverable, and self-service verification method; each
+acceptance criterion contains a condition and verification method.
+
+Assumptions (up to five), exclusions (up to five), risks (up to four), and a
+technical approach (up to six) may be omitted by the generator. The API serializes
+these as empty arrays and the frontend hides empty sections. Populated sections
+in saved briefs remain valid. Feasibility-driven reframing must be explicit in
+scope; related catalog resources do not verify generated technical procedures.
+
+Deploy the API/worker and Runtime as a compatible request/response contract.
+Runtime candidate requests contain only `prompt`; responses contain only
+`candidates`, `evidence`, and `tool_calls`. Both sides reject unsupported fields.
+Selection clients must handle a pending job and poll for `brief_ready`; they must
+not expect a completed brief in the POST response. The API role only accesses
+sessions and SQS; only the worker invokes Runtime and reads source sessions.
+For incompatible changes, pause submissions and drain queued work, deploy matching
+artifacts and promote the intended Runtime version, then verify the complete flow
+before resuming traffic. Do not remove a service dependency while a serving version
+still requires it. Frontend/API brief schemas must also remain compatible.
+Deployment, resource deletion, and metered verification require their usual approvals.
 
 Errors contain a stable machine-readable code and safe display text:
 
@@ -123,8 +143,6 @@ strict downstream response validation, and public response envelope in one
 process without AWS credentials or model calls. The deployed
 `make smoke-dev SUITE=api` check separately verifies API authorization and the
 complete API Gateway-to-Runtime success path.
-The non-inference `make smoke-dev` configuration suite verifies that both a
-body above 16 KiB and a 4,001-character goal stop before queued Runtime work.
-The targeted `scripts/smoke/smoke-api-lambda-dev.sh` diagnostic additionally
-uses two synthetic authorizer subjects to prove that status and selection data
-cannot cross the session-owner boundary.
+The default smoke checks anonymous rejection and CORS without submitting a valid
+goal. Local tests cover payload limits, credential screening, and cross-subject
+status and selection rejection.

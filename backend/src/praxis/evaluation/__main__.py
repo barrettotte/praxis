@@ -15,7 +15,7 @@ from praxis.evaluation.runner import run_baseline
 REPOSITORY = Path(__file__).parents[4]
 DEFAULT_PROMPTS = REPOSITORY / "evals" / "project-recommendations" / "prompts.json"
 DEFAULT_EXPECTATIONS = REPOSITORY / "evals" / "project-recommendations" / "expectations.json"
-DEFAULT_OUTPUT_DIRECTORY = REPOSITORY / "evals" / "project-recommendations" / "results"
+DEFAULT_OUTPUT_DIRECTORY = REPOSITORY / "build" / "evals"
 
 
 def build_parser() -> argparse.ArgumentParser:

@@ -19,7 +19,6 @@ from praxis.api.requests import (
 )
 from praxis.api.runtime import (
     CreateSessionData,
-    SelectCandidateData,
     SessionCandidate,
 )
 from praxis.api.sessions import (
@@ -30,12 +29,6 @@ from praxis.api.sessions import (
     StoredSession,
 )
 from praxis.domain import EvidenceCitation
-from praxis.domain.briefs import (
-    ProjectAcceptanceCriterion,
-    ProjectBrief,
-    ProjectMilestone,
-    ProjectRisk,
-)
 from praxis.functions import api as api_function
 from praxis.tools.contracts import BookEvidence
 
@@ -472,91 +465,16 @@ def test_api_lambda_returns_ready_session_candidates(monkeypatch: pytest.MonkeyP
     assert "goal" not in payload
 
 
-def test_api_lambda_returns_generated_brief_for_session_candidate(
+def test_api_lambda_accepts_brief_job_without_exposing_private_fields(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    selected = SessionCandidate(
-        candidate_id="candidate_2",
-        title="Candidate 2",
-        summary="Build a focused compiler project.",
-        rationale="The evidence provides relevant implementation context.",
-        estimated_scope="multi-week",
-        technologies=["Python"],
-        first_milestone="Implement one instruction-selection rule.",
-        evidence_citations=[
-            EvidenceCitation(
-                evidence_id="book:0f5ba253568e4836",
-                generated_connection="The evidence supports this learning path.",
-            )
-        ],
+    pending = PendingSession(
+        session_id=SESSION_ID,
+        actor_id=ACTOR_ID,
+        goal="private goal",
+        expires_at=2000000000,
     )
-    evidence = BookEvidence(
-        evidence_id="book:0f5ba253568e4836",
-        kind="book",
-        title="Compiler Backend Development",
-        author=None,
-        year=2025,
-        category="Compilers",
-        tags=[],
-    )
-    brief = ProjectBrief(
-        objective="Build a small compiler backend.",
-        scope="Implement one expression-lowering path.",
-        technical_approach=[
-            "Define a JSON expression model and validate sample inputs.",
-            "Lower expressions into target instructions with Python.",
-            "Execute the instructions and compare their numeric result.",
-        ],
-        assumptions=[
-            "Python and a local test runner are available.",
-            "One expression form is enough for the exercise.",
-        ],
-        out_of_scope=[
-            "Register allocation is outside this project.",
-            "Multiple target architectures are outside this project.",
-        ],
-        deliverables=[
-            "A documented input representation for expressions.",
-            "A tested instruction selector with example output.",
-        ],
-        milestones=[
-            ProjectMilestone(
-                title=f"Milestone {number}",
-                deliverable="A concrete implementation artifact.",
-                verification="An automated check validates the artifact.",
-            )
-            for number in range(1, 4)
-        ],
-        risks=[
-            ProjectRisk(risk=f"Risk {number}", mitigation="Use a bounded fallback.")
-            for number in range(1, 3)
-        ],
-        acceptance_criteria=[
-            ProjectAcceptanceCriterion(
-                criterion=f"Criterion {number} has a measurable result.",
-                verification="An automated test records the expected result.",
-            )
-            for number in range(1, 4)
-        ],
-    )
-    observed: list[tuple[str, str, str, str]] = []
-
-    def select_candidate(
-        session_id: str,
-        candidate_id: str,
-        correlation_id: str,
-        actor_id: str,
-    ) -> SelectCandidateData:
-        observed.append((session_id, candidate_id, correlation_id, actor_id))
-        return SelectCandidateData(
-            session_id=session_id,
-            candidate_id=candidate_id,
-            candidate=selected,
-            brief=brief,
-            evidence=[evidence],
-        )
-
-    monkeypatch.setattr(api_function, "select_candidate", select_candidate)
+    monkeypatch.setattr(api_function, "select_candidate", Mock(return_value=pending))
     response = api_function.lambda_handler(
         http_event(
             "POST /v1/projects/{candidateId}/select",
@@ -566,17 +484,10 @@ def test_api_lambda_returns_generated_brief_for_session_candidate(
         ),
         object(),
     )
-
-    assert response["statusCode"] == 200
-    payload = json.loads(str(response["body"]))["data"]
-    assert payload["sessionId"] == SESSION_ID
-    assert payload["candidateId"] == "candidate_2"
-    assert payload["candidate"]["title"] == "Candidate 2"
-    assert payload["brief"]["acceptance_criteria"][0] == {
-        "criterion": "Criterion 1 has a measurable result.",
-        "verification": "An automated test records the expected result.",
+    assert response["statusCode"] == 202
+    assert json.loads(str(response["body"])) == {
+        "data": {"sessionId": SESSION_ID, "status": "pending"},
     }
-    assert observed == [(SESSION_ID, "candidate_2", CORRELATION_ID, ACTOR_ID)]
 
 
 def test_api_lambda_returns_not_found_for_expired_selection(

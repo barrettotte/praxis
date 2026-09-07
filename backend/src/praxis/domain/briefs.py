@@ -1,6 +1,6 @@
 """Structured project-brief output models."""
 
-from typing import Annotated, cast
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -74,25 +74,27 @@ class ProjectBrief(BriefModel):
     scope: Annotated[str, Field(min_length=1, max_length=600)]
     technical_approach: Annotated[
         list[Annotated[str, Field(min_length=20, max_length=400)]],
-        Field(min_length=3, max_length=6),
-    ]
+        Field(max_length=6),
+    ] = Field(default_factory=list)
     assumptions: Annotated[
         list[Annotated[str, Field(min_length=10, max_length=300)]],
-        Field(min_length=2, max_length=5),
-    ]
+        Field(max_length=5),
+    ] = Field(default_factory=list)
     out_of_scope: Annotated[
         list[Annotated[str, Field(min_length=10, max_length=300)]],
-        Field(min_length=2, max_length=5),
-    ]
+        Field(max_length=5),
+    ] = Field(default_factory=list)
     deliverables: Annotated[
         list[Annotated[str, Field(min_length=10, max_length=300)]],
-        Field(min_length=2, max_length=6),
+        Field(min_length=1, max_length=6),
     ]
-    milestones: Annotated[list[ProjectMilestone], Field(min_length=3, max_length=5)]
-    risks: Annotated[list[ProjectRisk], Field(min_length=2, max_length=4)]
+    milestones: Annotated[list[ProjectMilestone], Field(min_length=1, max_length=5)]
+    risks: Annotated[list[ProjectRisk], Field(max_length=4)] = Field(
+        default_factory=list[ProjectRisk]
+    )
     acceptance_criteria: Annotated[
         list[ProjectAcceptanceCriterion],
-        Field(min_length=3, max_length=6),
+        Field(min_length=1, max_length=6),
     ]
 
     @field_validator("objective")
@@ -118,20 +120,3 @@ class ProjectBrief(BriefModel):
         if learning_only and not any(term in normalized for term in artifact_terms):
             raise ValueError("objective must name an artifact or observable result")
         return value
-
-    @field_validator("assumptions", mode="before")
-    @classmethod
-    def remove_motivation_assumptions(cls, value: object) -> object:
-        """Discard generic motivation statements before enforcing list bounds."""
-        if not isinstance(value, list):
-            return value
-        items = cast("list[object]", value)
-        generic_terms = ("user is interested", "user is willing")
-        concrete = [
-            item
-            for item in items
-            if not (
-                isinstance(item, str) and any(term in item.casefold() for term in generic_terms)
-            )
-        ]
-        return concrete if len(concrete) >= 2 else items

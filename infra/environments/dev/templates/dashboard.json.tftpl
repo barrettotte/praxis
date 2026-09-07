@@ -1,0 +1,65 @@
+{
+  "start": "-PT1H",
+  "periodOverride": "inherit",
+  "widgets": [
+    {
+      "type": "text", "x": 0, "y": 0, "width": 24, "height": 3,
+      "properties": {
+        "markdown": "# Praxis operations\nLambda duration is component time, not end-to-end user latency. Tokens include all callers of the configured model in this account/Region, not only Praxis. Catalog invocations include direct checks and failed calls, but exclude local agent tools. Missing data is not proof of zero failures. The API log panel runs a metered Logs Insights query when viewed/refreshed; keep the time range short and auto-refresh off."
+      }
+    },
+    {
+      "type": "metric", "x": 0, "y": 3, "width": 12, "height": 6,
+      "properties": {
+        "region": ${jsonencode(region)}, "title": "Component duration p95 (ms)",
+        "view": "timeSeries", "period": 300, "stat": "p95",
+        "metrics": [
+          ["AWS/Lambda", "Duration", "FunctionName", ${jsonencode(api_function)}],
+          ["AWS/Lambda", "Duration", "FunctionName", ${jsonencode(worker_function)}],
+          ["AWS/Lambda", "Duration", "FunctionName", ${jsonencode(catalog_function)}]
+        ]
+      }
+    },
+    {
+      "type": "metric", "x": 12, "y": 3, "width": 12, "height": 6,
+      "properties": {
+        "region": ${jsonencode(region)}, "title": "Model tokens (account/Region; not project-attributed)",
+        "view": "timeSeries", "period": 300, "stat": "Sum",
+        "metrics": [
+          ["AWS/Bedrock", "InputTokenCount", "ModelId", ${jsonencode(model_id)}],
+          ["AWS/Bedrock", "OutputTokenCount", "ModelId", ${jsonencode(model_id)}]
+        ]
+      }
+    },
+    {
+      "type": "metric", "x": 0, "y": 9, "width": 12, "height": 6,
+      "properties": {
+        "region": ${jsonencode(region)}, "title": "Lambda execution errors (excludes handled HTTP errors)",
+        "view": "timeSeries", "period": 300, "stat": "Sum",
+        "metrics": [
+          ["AWS/Lambda", "Errors", "FunctionName", ${jsonencode(api_function)}],
+          ["AWS/Lambda", "Errors", "FunctionName", ${jsonencode(worker_function)}],
+          ["AWS/Lambda", "Errors", "FunctionName", ${jsonencode(catalog_function)}]
+        ]
+      }
+    },
+    {
+      "type": "metric", "x": 12, "y": 9, "width": 12, "height": 6,
+      "properties": {
+        "region": ${jsonencode(region)}, "title": "Catalog tool-handler calls (includes direct checks)",
+        "view": "timeSeries", "period": 300, "stat": "Sum",
+        "metrics": [
+          ["AWS/Lambda", "Invocations", "FunctionName", ${jsonencode(catalog_function)}]
+        ]
+      }
+    },
+    {
+      "type": "log", "x": 0, "y": 15, "width": 24, "height": 6,
+      "properties": {
+        "region": ${jsonencode(region)}, "title": "API handler responses by status (includes handled 503s)",
+        "view": "table",
+        "query": ${jsonencode("SOURCE '${api_log_group}' | filter message = 'api_request' | stats count(*) as requests by status_code, outcome | sort requests desc")}
+      }
+    }
+  ]
+}

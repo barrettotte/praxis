@@ -84,6 +84,7 @@ data "aws_iam_policy_document" "recommendation_worker" {
     sid    = "CompleteRecommendationSessions"
     effect = "Allow"
     actions = [
+      "dynamodb:GetItem",
       "dynamodb:PutItem",
       "dynamodb:UpdateItem",
     ]
@@ -127,7 +128,6 @@ resource "aws_lambda_function" "recommendation_worker" {
     variables = merge(local.lambda_trace_environment, {
       PRAXIS_AGENT_RUNTIME_ARN       = aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn
       PRAXIS_AGENT_RUNTIME_QUALIFIER = aws_bedrockagentcore_agent_runtime_endpoint.stable.name
-      PRAXIS_API_ACTOR_ID            = local.api_actor_id
       PRAXIS_SESSION_TABLE_NAME      = aws_dynamodb_table.api_sessions.name
     })
   }

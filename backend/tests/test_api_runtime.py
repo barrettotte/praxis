@@ -13,7 +13,6 @@ from praxis.api.runtime import (
     ApiRuntimeError,
     ApiRuntimeSettings,
     SessionCandidate,
-    create_runtime_client,
     create_worker_runtime_client,
     invoke_project_brief_runtime,
     invoke_runtime,
@@ -146,7 +145,6 @@ def valid_response() -> dict[str, object]:
                 "tags": [],
             }
         ],
-        "memory": {"retrieved_count": 1},
         "tool_calls": [{"name": "search_catalog", "count": 1}],
     }
     return {
@@ -219,7 +217,6 @@ def settings() -> ApiRuntimeSettings:
     return ApiRuntimeSettings(
         runtime_arn=RUNTIME_ARN,
         qualifier="stable",
-        actor_id="praxis-single-user",
     )
 
 
@@ -227,7 +224,6 @@ def test_loads_complete_runtime_settings() -> None:
     assert (
         load_runtime_settings(
             {
-                "PRAXIS_API_ACTOR_ID": "praxis-single-user",
                 "PRAXIS_AGENT_RUNTIME_ARN": RUNTIME_ARN,
                 "PRAXIS_AGENT_RUNTIME_QUALIFIER": "stable",
             }
@@ -241,9 +237,8 @@ def test_loads_complete_runtime_settings() -> None:
     [
         {},
         {
-            "PRAXIS_API_ACTOR_ID": "user:other",
             "PRAXIS_AGENT_RUNTIME_ARN": RUNTIME_ARN,
-            "PRAXIS_AGENT_RUNTIME_QUALIFIER": "stable",
+            "PRAXIS_AGENT_RUNTIME_QUALIFIER": "invalid qualifier",
         },
     ],
 )
@@ -252,7 +247,7 @@ def test_rejects_invalid_runtime_settings(environment: dict[str, str]) -> None:
         load_runtime_settings(environment)
 
 
-def test_runtime_client_stops_before_the_api_lambda_deadline(
+def test_worker_runtime_client_has_a_bounded_deadline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     observed: dict[str, object] = {}
@@ -264,13 +259,6 @@ def test_runtime_client_stops_before_the_api_lambda_deadline(
             return expected_client
 
     monkeypatch.setattr(api_runtime, "Session", FakeSession)
-
-    assert create_runtime_client() is expected_client
-    assert observed["service_name"] == "bedrock-agentcore"
-    config = cast("ObservedRuntimeConfig", observed["config"])
-    assert config.connect_timeout == 3
-    assert config.read_timeout == 25
-    assert config.retries == {"mode": "standard", "total_max_attempts": 1}
 
     assert create_worker_runtime_client() is expected_client
     worker_config = cast("ObservedRuntimeConfig", observed["config"])
@@ -295,7 +283,7 @@ def test_invokes_runtime_and_returns_only_public_session_data() -> None:
         "agentRuntimeArn": RUNTIME_ARN,
         "baggage": f"praxis.correlation_id={CORRELATION_ID}",
         "contentType": "application/json",
-        "payload": b'{"actor_id":"praxis-single-user","prompt":"Recommend a compiler project"}',
+        "payload": b'{"prompt":"Recommend a compiler project"}',
         "qualifier": "stable",
         "runtimeSessionId": SESSION_ID,
     }
@@ -318,8 +306,20 @@ def test_invokes_runtime_and_returns_only_public_session_data() -> None:
     }
 
 
-def test_invokes_runtime_for_selected_candidate_brief() -> None:
-    client = FakeRuntimeClient(valid_brief_response())
+@pytest.mark.parametrize("compact", [False, True])
+def test_invokes_runtime_for_selected_candidate_brief(compact: bool) -> None:
+    response = valid_brief_response()
+    if compact:
+        payload = cast(
+            "dict[str, object]", json.loads(cast("FakeBody", response["response"]).read())
+        )
+        brief_payload = cast("dict[str, object]", payload["brief"])
+        for name in ("technical_approach", "assumptions", "out_of_scope", "risks"):
+            brief_payload.pop(name)
+        for name in ("deliverables", "milestones", "acceptance_criteria"):
+            brief_payload[name] = cast("list[object]", brief_payload[name])[:1]
+        response["response"] = FakeBody(json.dumps(payload).encode())
+    client = FakeRuntimeClient(response)
     selected = SessionCandidate.model_validate(
         {"candidate_id": "candidate_2", **candidate(2)},
     )
@@ -346,7 +346,6 @@ def test_invokes_runtime_for_selected_candidate_brief() -> None:
     assert client.request is not None
     payload = json.loads(cast("bytes", client.request["payload"]))
     assert payload == {
-        "actor_id": "praxis-single-user",
         "operation": "create_project_brief",
         "goal": "Learn compiler backends over a weekend",
         "candidate": candidate(2),
@@ -355,7 +354,14 @@ def test_invokes_runtime_for_selected_candidate_brief() -> None:
     assert result.session_id == SESSION_ID
     assert result.candidate_id == "candidate_2"
     assert result.candidate == selected
-    assert len(result.brief.milestones) == 3
+    assert len(result.brief.milestones) == (1 if compact else 3)
+    if compact:
+        serialized = result.model_dump(mode="json")
+        serialized_brief = cast("dict[str, object]", serialized["brief"])
+        assert all(
+            serialized_brief[name] == []
+            for name in ("technical_approach", "assumptions", "out_of_scope", "risks")
+        )
     assert result.evidence == [evidence]
 
 

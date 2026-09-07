@@ -13,15 +13,88 @@ DynamoDB—not a semantic Knowledge Base or externally fetched book contents.
 This is a single-user demonstration. Citations identify retrieved evidence;
 they do not prove generated advice is correct or feasible. Do not submit secrets
 or sensitive material. Security findings and deployment-verification gaps remain
-open in the [residual-risk register](docs/residual-risks.md).
+open in the [security guide](docs/security.md#known-limitations).
+
+## Try it
+
+Sign in to the configured frontend and submit a non-sensitive goal, such as
+“Suggest a weekend Python project about computing history using only my laptop.”
+Compare the three candidates, inspect their cited resources, and select one for
+a brief. Review its first step and completion checks before acting on it.
+Both submission and selection can incur model costs; local Vite uses the
+configured AWS backend, not an offline agent. Stop rather than repeatedly retrying
+failures. See [operations](docs/infrastructure-operations.md) for setup and tokens.
 
 ## Architecture
 
-Praxis follows this serverless architecture. Lambda trace export is configured;
-complete cross-service trace linkage remains under verification
-([trace boundary](docs/adr/0028-trusted-trace-propagation.md)). The diagram shows
-the deployed observability configuration. Gateway-to-catalog parent linkage is
-verified; complete workflow parent linkage remains to be verified:
+### Tradeoffs and limitations
+
+- Serverless services avoid always-on application servers but add AWS integration
+  and cold-start overhead. AgentCore integration is an explicit goal of this demo.
+- Lexical retrieval is sufficient for the small metadata catalog; citations do
+  not substantiate unseen book contents or generated technical procedures.
+- Recommendations and briefs use the same queue and worker. Retries can repeat
+  paid inference, and budget alerts are not a spending cap.
+- Sessions are subject-owned, but the catalog is shared. Additional users require
+  explicit catalog authorization and data-isolation design, not merely another login.
+  Private networking is justified only by a concrete traffic need.
+
+
+The diagram describes the implementation, not current deployment health.
+Use the [operating procedures](docs/infrastructure-operations.md) to inspect a deployment.
+
+```mermaid
+flowchart TB
+    subgraph client[Browser and identity]
+        hosting[CloudFront + private S3] -->|Serve assets| browser[React + TypeScript]
+        browser <-->|Sign in / JWT| identity[Amazon Cognito]
+    end
+
+    subgraph application[Authenticated application boundary]
+        http[API Gateway HTTP API] -->|Validated JWT subject| api[API Lambda]
+        api <-->|Owned session / status| session[(DynamoDB sessions)]
+        api -->|Recommendation / brief job| queue[SQS]
+        queue --> worker[Worker Lambda]
+        worker <-->|Candidates / briefs / status| session
+    end
+
+    subgraph intelligence[IAM-protected agent and read-only tools]
+        runtime[AgentCore Runtime / Strands]
+        model[Bedrock Nova Pro + Guardrail]
+        gateway[AgentCore Gateway / MCP]
+        tools[Catalog Lambda]
+        catalog[(DynamoDB catalog)]
+        runtime -->|Guarded inference| model
+        runtime -->|Signed tool calls| gateway
+        gateway --> tools
+        tools -->|Read evidence| catalog
+    end
+
+    browser -->|JWT: create, poll, select| http
+    worker -->|Generate recommendations / briefs| runtime
+    sources[Site JSON / S3 / ingestion Lambda] -->|Reproducible ingestion| catalog
+
+    classDef entry fill:#e8f0fe,stroke:#355b86,color:#172b4d
+    classDef compute fill:#eef5ed,stroke:#476b45,color:#233b22
+    classDef data fill:#fff4df,stroke:#89642a,color:#493411
+    class browser,identity,http,hosting entry
+    class api,worker,runtime,model,gateway,tools compute
+    class session,queue,catalog,sources data
+```
+
+Recommendations and briefs run asynchronously: the browser polls subject-owned
+job state for each buffered result. These
+are logical access boundaries, not VPCs. Catalog evidence comes from curated
+site JSON, not a semantic Knowledge Base. Each generation uses its supplied goal
+and retrieved catalog evidence, without cross-session personalization.
+
+CloudWatch logs, ADOT/X-Ray traces, the operations dashboard, and SNS alarm
+routing support the workflow. The detailed view includes those flows,
+image publication, and the manual evaluation path.
+
+<details>
+<summary>Detailed deployment, data, and observability view</summary>
+
 
 ```mermaid
 flowchart TD
@@ -33,21 +106,18 @@ flowchart TD
     ui -->|JWT request| apiGateway[Amazon API Gateway HTTP API]
     apiGateway -->|Validated JWT claims| apiLambda[API Lambda<br/>Goal credential screening + API execution role]
     apiLambda -->|Store/read subject-owned state| sessions[(Encrypted DynamoDB sessions<br/>Subject bound + TTL enabled)]
-    apiLambda -->|Queue subject + validated goal| jobs[[Encrypted SQS<br/>recommendation jobs]]
+    apiLambda -->|Queue owned generation job| jobs[[Encrypted SQS<br/>recommendation / brief jobs]]
     jobs --> worker[Recommendation worker Lambda<br/>Worker execution role]
     jobs -.->|Retries exhausted| deadLetter[[Encrypted SQS<br/>dead-letter queue]]
-    worker -->|Complete subject-owned state| sessions
+    worker <-->|Read/complete subject-owned state| sessions
 
     subgraph runtime[Amazon Bedrock AgentCore Runtime]
         runtimeEndpoint[stable endpoint<br/>Pinned Runtime version]
-        agent[Python 3.13 ARM64 container<br/>Input/context screening + Strands agent<br/>Runtime execution role]
-        memory[Encrypted AgentCore Memory]
+        agent[Python 3.13 ARM64 distroless container<br/>Input/context screening + Strands agent<br/>Runtime execution role]
         runtimeEndpoint --> agent
-        agent -->|Read typed preferences and decisions| memory
     end
 
-    worker -->|Generate candidates| runtimeEndpoint
-    apiLambda -->|Generate selected project brief| runtimeEndpoint
+    worker -->|Generate candidates / briefs| runtimeEndpoint
     agent -->|Guarded Converse requests| guardrail[Amazon Bedrock Guardrail<br/>Prompt-attack input filter]
     guardrail --> bedrock[Amazon Bedrock<br/>Nova Pro]
     agentImage[(Encrypted Amazon ECR<br/>agent image)] -->|Immutable image digest| agent
@@ -63,13 +133,23 @@ flowchart TD
         xray[AWS X-Ray ingest]
         lambdaCollector[ADOT collector extension<br/>API, worker, and catalog]
         cloudwatch[CloudWatch transaction search]
+        operationsDashboard[CloudWatch operations dashboard<br/>Metrics and aggregate API statuses]
+        apiErrorAlarm[HTTP API error-rate alarm]
+        operationsTopic[SNS operational notifications<br/>Budget email recipient]
         xray --> cloudwatch
     end
 
     apiGateway -->|Privacy-safe access records| apiAccessLogs
+    apiGateway -->|5xx / Count| apiErrorAlarm
+    apiErrorAlarm -->|Alarm and recovery metadata| operationsTopic
     worker -->|Outcome + duration metadata| workerLogs
     apiLambda -->|Status + duration metadata| apiLogs
     catalogLambda -->|Outcome + duration metadata| catalogLogs
+    apiLogs -->|Aggregate status query on view| operationsDashboard
+    apiLambda -->|Duration and error metrics| operationsDashboard
+    worker -->|Duration and error metrics| operationsDashboard
+    catalogLambda -->|Duration, errors, and invocation metrics| operationsDashboard
+    bedrock -->|Account/model token metrics| operationsDashboard
     ingestion -->|Outcome + aggregate counts| ingestionLogs
     apiLambda -->|Application spans over loopback OTLP| lambdaCollector
     worker -->|Application spans over loopback OTLP| lambdaCollector
@@ -78,6 +158,7 @@ flowchart TD
     agent -->|SDK JSON logs| runtimeLogs
     agent -->|Strands OTEL spans via ADOT| xray
     agent -->|Session-correlated OTEL spans| runtimeSpans
+    runtimeEndpoint -->|Managed service trace delivery| xray
 
     subgraph evaluation[Manual evaluation path]
         evalRunner[Local evaluation runner]
@@ -102,6 +183,11 @@ flowchart TD
     sourceBucket -->|Manual invocation reads| ingestion[Ingestion Lambda<br/>Ingestion execution role]
     ingestion --> catalog
 ```
+
+</details>
+
+Operational alerting is deployed; email subscription confirmation and delivery
+verification remain open in the roadmap.
 
 API Gateway is the application boundary, while AgentCore Gateway is the
 authenticated tool boundary. Application routes use Cognito JWT authorization
@@ -129,19 +215,20 @@ make help
 ```
 
 Dependency installation needs network access. `make check` runs Ruff, type
-checks, backend/frontend tests, schema checks, and the recorded evaluation
-regression gate without AWS calls. `make eval-check` runs the focused offline
-evaluation checks.
+checks, backend/frontend tests, and schema checks without AWS calls.
+`make eval-check` runs the focused offline tests;
+`make eval-artifact-check EVAL_RESULT=path` checks a local result against its policy. Neither
+establishes the quality of current prompts or a deployed model.
 
 Run `make security` to scan locked dependencies and the built local Runtime
 image. It requires Podman (or `CONTAINER_TOOL=docker`) and network access, but
-no AWS credentials. See [security scanning](docs/security-scanning.md) for
+no AWS credentials. See [security scanning](docs/security.md#scanning) for
 coverage, reports, and finding triage.
 
 ## Run with AWS
 
 Model commands incur AWS charges even when run locally or with synthetic
-fixtures. After following [account setup](docs/account-setup.md), configure
+fixtures. After following [account setup](docs/infrastructure-operations.md#account-access), configure
 `.env` from `.env.example` and refresh the `praxis-dev` session before running:
 
 ```bash
@@ -157,18 +244,16 @@ For the browser, follow [frontend setup](frontend/README.md) and run
 it is not an offline application mode.
 
 Deployed checks use `make smoke-dev`; the default is the non-inference
-configuration suite. `./scripts/smoke/smoke-dev.sh --help` lists metered suites.
-Review [cost controls](evals/README.md#cost-and-token-controls) before model smoke
-tests, evaluations, or DSPy. Deployment and teardown require the reviewed
+public-boundary suite. `./scripts/smoke/smoke-dev.sh --help` lists metered suites.
+Review [cost controls](evals/README.md#cost-controls) before model smoke
+tests or evaluations. Deployment and teardown require the reviewed
 procedures in the [operations guide](docs/infrastructure-operations.md).
 
 ## Project guides
 
-- [Five-minute demo](docs/demo.md): evidence walkthrough requiring no AWS calls.
 - [Agent runtime](docs/agent-runtime.md) and [API](docs/api.md): execution and contracts.
-- [Evaluations](evals/README.md): measured quality, model comparisons, and token controls.
-- [Threat model](docs/threat-model.md): trust boundaries and verification limits.
-- [Architectural tradeoffs](docs/architecture-tradeoffs.md): decisions and constraints.
-- [Multi-user requirements](docs/multi-user-deployment.md): proposed evolution and
-  enterprise retrieval mapping, not deployed features.
+- [Evaluations](evals/README.md): test cases, metrics, and token controls.
+- [Architecture](docs/architecture.md): component boundaries and design constraints.
+- [Security](docs/security.md): trust boundaries, scanning, and known limitations.
+- [Operations](docs/infrastructure-operations.md): account access, deployment, and teardown.
 - [Roadmap](ROADMAP.md): implementation progress and open release gates.

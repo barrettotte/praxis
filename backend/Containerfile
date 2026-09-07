@@ -1,4 +1,5 @@
-FROM python:3.13.15-slim-trixie
+# Build locked dependencies separately from the shell-free serving image.
+FROM python:3.13.15-slim-trixie AS build
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /uvx /bin/
 
@@ -10,22 +11,23 @@ ENV PATH="/app/.venv/bin:$PATH" \
 
 WORKDIR /app
 
-RUN useradd --create-home --uid 10001 praxis
-
 COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY backend/src ./backend/src
 
-# Package installation is build-only; do not ship installers or bootstrap wheels.
-RUN uv sync --frozen --no-cache --no-dev \
-    && /usr/local/bin/python -m pip uninstall --yes pip \
-    && rm -rf /usr/local/lib/python3.13/ensurepip \
-    && rm /bin/uv /bin/uvx
+# Match distroless's interpreter location so the copied virtualenv stays usable.
+RUN uv sync --frozen --no-cache --no-dev --no-editable \
+    && ln -sf /usr/bin/python3 /app/.venv/bin/python
 
-# The service never needs a utility to elevate its non-root execution identity.
-RUN find /usr -xdev -type f -perm /6000 -exec chmod a-s {} +
+FROM gcr.io/distroless/python3-debian13:nonroot@sha256:f3d5ddc6c64a019fe520e7f005f2880be21e6afc461b10a3c15ef2e4edc71e33
 
-USER praxis
+ENV PATH="/app/.venv/bin:/usr/bin" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+COPY --from=build /app/.venv /app/.venv
+USER 65532:65532
 
 EXPOSE 8080
 
-CMD ["opentelemetry-instrument", "python", "-m", "praxis.agent.runtime"]
+ENTRYPOINT ["/app/.venv/bin/opentelemetry-instrument", "/app/.venv/bin/python", "-m", "praxis.agent.runtime"]

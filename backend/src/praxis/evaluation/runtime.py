@@ -51,9 +51,8 @@ DEFAULT_EXPECTATIONS = REPOSITORY / "evals" / "project-recommendations" / "expec
 DEFAULT_BUSINESS_ASSERTIONS = (
     REPOSITORY / "evals" / "project-recommendations" / "business-assertions.json"
 )
-DEFAULT_OUTPUT_DIRECTORY = REPOSITORY / "evals" / "project-recommendations" / "results"
+DEFAULT_OUTPUT_DIRECTORY = REPOSITORY / "build" / "evals"
 GATEWAY_TOOL_ALIASES = {"summarize_experience": "compare_project_history"}
-EVALUATION_ACTOR_ID = "praxis-evaluation"
 
 
 def _empty_assertions() -> dict[str, tuple[str, ...]]:
@@ -168,7 +167,6 @@ class RuntimeEvaluationInvoker:
             self.qualifier,
             prompt,
             session_id,
-            EVALUATION_ACTOR_ID,
         )
         trace = wait_for_runtime_traces(
             self.logs_client,
@@ -332,7 +330,7 @@ def attach_agentcore_evaluations(
         for case in result.cases
     ]
     summary = result.summary.model_copy(update={"agentcore_evaluations": _agentcore_summary(cases)})
-    return result.model_copy(update={"result_version": 3, "summary": summary, "cases": cases})
+    return result.model_copy(update={"result_version": 5, "summary": summary, "cases": cases})
 
 
 def write_result(result: BaselineResult, output_directory: Path) -> Path:

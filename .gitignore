@@ -1,5 +1,8 @@
 # Local configuration
 .env
+.local/
+*.auto.tfvars
+*.auto.tfvars.json
 .cache/
 
 # Python

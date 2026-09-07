@@ -106,13 +106,13 @@ def _trace(session_id: str = "test-session") -> RuntimeTraceResult:
                 "execute_tool",
                 session_id=session_id,
                 span_id="span-tool-1",
-                attributes={"gen_ai.tool.name": "GatewayCandidateOutput"},
+                attributes={"gen_ai.tool.name": "CandidateDraftSet"},
             ),
             _span(
                 "execute_tool",
                 session_id=session_id,
                 span_id="span-tool-2",
-                attributes={"gen_ai.tool.name": "GatewayCandidateOutput"},
+                attributes={"gen_ai.tool.name": "CandidateDraftSet"},
             ),
             _span("execute_event_loop_cycle", session_id=session_id, span_id="span-cycle-1"),
             _span("execute_event_loop_cycle", session_id=session_id, span_id="span-cycle-2"),
@@ -128,7 +128,7 @@ def test_trace_generation_metrics_matches_local_measurement_contract() -> None:
     assert metrics.token_usage.total_tokens == 150
     assert metrics.model_latency_ms == 450
     assert metrics.time_to_first_byte_ms == 40
-    assert metrics.model_tool_calls == (("GatewayCandidateOutput", 2),)
+    assert metrics.model_tool_calls == (("CandidateDraftSet", 2),)
     assert metrics.cycle_count == 2
 
 
@@ -160,7 +160,6 @@ def test_runtime_invoker_adapts_response_tools_and_correlated_trace() -> None:
                         "tags": [],
                     }
                 ],
-                "memory": {"retrieved_count": 0},
                 "tool_calls": [
                     {"name": "search_catalog", "count": 1},
                     {"name": "summarize_experience", "count": 1},
@@ -207,5 +206,5 @@ def test_runtime_invoker_adapts_response_tools_and_correlated_trace() -> None:
     session_id = str(runtime_client.request["runtimeSessionId"])
     request_payload = runtime_client.request["payload"]
     assert isinstance(request_payload, bytes)
-    assert json.loads(request_payload)["actor_id"] == "praxis-evaluation"
+    assert set(json.loads(request_payload)) == {"prompt"}
     assert session_id in str(logs_client.request["filterPattern"])

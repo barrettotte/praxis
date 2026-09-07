@@ -18,20 +18,16 @@ TOFU_BOOTSTRAP_DESTROY_PLAN ?= bootstrap-destroy.tfplan
 TOFU_DEV_PLAN ?= dev.tfplan
 TOFU_DEV_DESTROY_PLAN ?= dev-destroy.tfplan
 PROMPT ?=
-SUITE ?= config
+SUITE ?= public
 SCAN ?= all
 SOURCE_DATA_DIR ?= $(abspath ../barrettotte.github.io/data)
-DSPY_MODEL_ID ?= amazon.nova-lite-v1:0
-REGRESSION_RESULT ?= evals/project-recommendations/results/agentcore-v46-20260904T175002Z.json
+EVAL_RESULT ?=
 PYTHON_SOURCES := backend/src backend/tests
 EVALUATION_TESTS := \
 	backend/tests/test_agentcore_evaluation.py \
-	backend/tests/test_dspy_optimization.py \
 	backend/tests/test_evaluation_regression.py \
 	backend/tests/test_evaluation_runner.py \
 	backend/tests/test_evaluation_set.py \
-	backend/tests/test_projection_comparison.py \
-	backend/tests/test_retrieval_limit_comparison.py \
 	backend/tests/test_runtime_evaluation.py
 FRONTEND_NPM := $(NPM) --prefix frontend
 
@@ -42,7 +38,7 @@ export UV_CACHE_DIR
 security: ## Scan locked dependencies and the local agent image; SCAN=all|dependencies|image
 	CONTAINER_TOOL=$(CONTAINER_TOOL) AGENT_IMAGE=$(AGENT_IMAGE) ./scripts/security.sh "$(SCAN)"
 
-.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-api-lambda package-functions agent agent-image smoke-agent-container preview-agent-image-dev push-agent-image-dev deploy-frontend-dev eval-baseline eval-check eval-dspy-instructions eval-projections eval-regression eval-retrieval-limits eval-runtime-dev inspect-runtime-versions-dev tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-dev smoke-memory-dev dev-frontend
+.PHONY: help bootstrap lock format format-check lint typecheck test check build tool-schemas tool-schemas-check package-api-lambda package-functions agent agent-image smoke-agent-container preview-agent-image-dev push-agent-image-dev deploy-frontend-dev eval-baseline eval-injection eval-check eval-artifact-check eval-runtime-dev inspect-runtime-versions-dev tofu-init tofu-init-dev tofu-format tofu-format-check tofu-validate tofu-lint tofu-plan-bootstrap tofu-apply-bootstrap tofu-plan-destroy-bootstrap tofu-destroy-bootstrap tofu-plan-dev tofu-apply-dev tofu-plan-destroy-dev tofu-destroy-dev seed-dev smoke-dev dev-frontend
 
 help: ## Show the available Make targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-30s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -76,7 +72,7 @@ test: ## Run backend and frontend tests
 	$(UV) run pytest
 	$(FRONTEND_NPM) run test
 
-check: format-check lint typecheck test tool-schemas-check eval-regression ## Run all repository quality checks
+check: format-check lint typecheck test tool-schemas-check ## Run local code and contract checks
 
 build: ## Build backend packages and the frontend production bundle
 	$(UV) build
@@ -89,10 +85,10 @@ tool-schemas-check: ## Verify AgentCore Gateway schemas match strict tool contra
 	./scripts/generate-agentcore-tool-schemas.sh --check
 
 package-functions: ## Build the reproducible Python 3.13 Lambda ZIP
-	./scripts/package-functions.sh
+	./scripts/package-lambda.sh functions
 
 package-api-lambda: ## Build the isolated Python 3.13 API Lambda ZIP
-	./scripts/package-api-lambda.sh
+	./scripts/package-lambda.sh api
 
 agent: ## Run the local Strands agent; pass PROMPT='your goal'
 	@test -n "$(PROMPT)" || { echo "PROMPT is required (example: make agent PROMPT='Suggest a project')"; exit 2; }
@@ -117,24 +113,15 @@ deploy-frontend-dev: ## Build and publish the frontend; requires CONFIRM=deploy-
 eval-baseline: ## Run the project-recommendation model baseline and save versioned results
 	@set -a; if [ -f .env ]; then . ./.env; fi; set +a; $(UV) run python -m praxis.evaluation
 
-eval-check: eval-regression ## Verify versioned evaluation contracts and the accepted baseline offline
+eval-injection: ## Evaluate synthetic catalog prompt injection; invokes the configured model
+	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/eval-catalog-injection.sh
+
+eval-check: ## Test evaluation contracts and scoring offline
 	$(UV) run pytest $(EVALUATION_TESTS)
 
-eval-dspy-instructions: ## Compare DSPy-optimized instructions on held-out cases
-	@set -a; if [ -f .env ]; then . ./.env; fi; set +a; \
-		AWS_PROFILE=$(AWS_PROFILE) AWS_DEFAULT_REGION=us-east-1 \
-		DSPY_CACHEDIR=$(CURDIR)/.cache/dspy PRAXIS_DATA_DIR=$(SOURCE_DATA_DIR) \
-		PRAXIS_MODEL_ID=$(DSPY_MODEL_ID) \
-		$(UV) run python -m praxis.evaluation.dspy_optimization
-
-eval-projections: ## Compare full catalog records with agent-facing projections
-	$(UV) run python -m praxis.evaluation.projections --data-dir "$(SOURCE_DATA_DIR)"
-
-eval-regression: ## Check an evaluation result against the reviewed regression gates
-	$(UV) run python -m praxis.evaluation.regression "$(REGRESSION_RESULT)"
-
-eval-retrieval-limits: ## Compare catalog retrieval quality and payload size by result limit
-	$(UV) run python -m praxis.evaluation.retrieval_limits --data-dir "$(SOURCE_DATA_DIR)"
+eval-artifact-check: ## Check a local evaluation result; requires EVAL_RESULT=path
+	@test -n "$(EVAL_RESULT)" || { echo "Set EVAL_RESULT to a local evaluation result path." >&2; exit 2; }
+	$(UV) run python -m praxis.evaluation.regression "$(EVAL_RESULT)"
 
 eval-runtime-dev: ## Measure all evaluation cases against the deployed stable Runtime
 	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) SOURCE_DATA_DIR=$(SOURCE_DATA_DIR) ./scripts/eval-runtime-dev.sh
@@ -203,11 +190,8 @@ tofu-destroy-dev: ## Apply the reviewed development teardown; requires CONFIRM=d
 seed-dev: ## Upload authoritative JSON and invoke ingestion; requires CONFIRM=seed-dev
 	CONFIRM=$(CONFIRM) AWS_PROFILE=$(AWS_PROFILE) TOFU=$(TOFU) SOURCE_DATA_DIR=$(SOURCE_DATA_DIR) ./scripts/seed-dev.sh
 
-smoke-dev: ## Run a deployed smoke suite; SUITE defaults to config
+smoke-dev: ## Run a deployed smoke suite; SUITE defaults to public
 	AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) PROMPT="$(PROMPT)" ./scripts/smoke/smoke-dev.sh "$(SUITE)"
-
-smoke-memory-dev: ## Verify typed AgentCore Memory; requires CONFIRM=smoke-memory-dev
-	CONFIRM=$(CONFIRM) AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=us-east-1 TOFU=$(TOFU) ./scripts/smoke/smoke-memory-dev.sh
 
 dev-frontend: ## Start the frontend development server
 	$(FRONTEND_NPM) run dev

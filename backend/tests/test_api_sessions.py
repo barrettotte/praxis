@@ -7,7 +7,7 @@ from typing import cast
 import pytest
 from botocore.exceptions import ClientError
 
-from praxis.api.runtime import CreateSessionData, SessionCandidate
+from praxis.api.runtime import CreateSessionData, SelectCandidateData, SessionCandidate
 from praxis.api.sessions import (
     SESSION_TTL_SECONDS,
     ApiSessionError,
@@ -15,10 +15,12 @@ from praxis.api.sessions import (
     PendingSession,
     SessionStatus,
     SessionStore,
+    StoredBrief,
     StoredSession,
     load_session_table_name,
 )
 from praxis.domain import EvidenceCitation
+from praxis.domain.briefs import ProjectBrief
 from praxis.tools.contracts import BookEvidence
 
 SESSION_ID = "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4"
@@ -243,3 +245,46 @@ def test_requires_session_table_configuration() -> None:
     )
     with pytest.raises(ApiSessionError, match="invalid recommendation session configuration"):
         load_session_table_name({})
+
+
+def test_completed_brief_is_owned_expiring_and_conditionally_persisted() -> None:
+    session = session_data()
+    brief = ProjectBrief.model_validate(
+        {
+            "objective": "Build an expression evaluator.",
+            "scope": "One weekend, addition only.",
+            "deliverables": ["An executable evaluator."],
+            "milestones": [
+                {
+                    "title": "Addition",
+                    "deliverable": "Implement integer addition.",
+                    "verification": "Assert add(2, 3) equals 5.",
+                }
+            ],
+            "acceptance_criteria": [
+                {
+                    "criterion": "Integer sums match expected values.",
+                    "verification": "Run the evaluator test suite.",
+                }
+            ],
+        }
+    )
+    selection = SelectCandidateData(
+        session_id=SESSION_ID,
+        candidate_id="candidate_1",
+        candidate=session.candidates[0],
+        evidence=session.evidence,
+        brief=brief,
+    )
+    table = FakeTable()
+    store = SessionStore(table, now=lambda: NOW)
+    stored = store.complete_brief(selection, ACTOR_ID, GOAL)
+    assert table.put_request is not None
+    assert table.put_request["ConditionExpression"] == (
+        "#status = :pending AND actor_id = :actor_id AND expires_at > :now"
+    )
+    table.item = stored.model_dump(mode="python")
+    assert isinstance(store.get_record(SESSION_ID, ACTOR_ID), StoredBrief)
+    assert store.get_record(SESSION_ID, OTHER_ACTOR_ID) is None
+    expired = SessionStore(table, now=lambda: NOW + timedelta(seconds=SESSION_TTL_SECONDS))
+    assert expired.get_record(SESSION_ID, ACTOR_ID) is None

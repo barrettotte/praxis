@@ -1,4 +1,4 @@
-# Enforce the project-wide cost target with durable email notifications.
+# Notify on annual account spending thresholds; notifications do not cap or stop spending.
 resource "aws_budgets_budget" "mvp" {
   name         = "${var.project_name}-mvp-annual"
   budget_type  = "COST"

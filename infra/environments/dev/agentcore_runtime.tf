@@ -2,18 +2,6 @@
 locals {
   agentcore_runtime_name          = replace("${local.name_prefix}-agent", "-", "_")
   agentcore_runtime_container_uri = "${aws_ecr_repository.deployable["agent"].repository_url}@${var.agent_image_digest}"
-  # Keep the default and measured fallback callable while staging a comparison model.
-  agentcore_runtime_model_ids = distinct([
-    "amazon.nova-micro-v1:0",
-    "amazon.nova-lite-v1:0",
-    var.agent_model_id,
-  ])
-  # Runtime smoke tests and evaluations use isolated actors without widening memory access.
-  agentcore_runtime_actor_ids = [
-    local.api_actor_id,
-    "praxis-evaluation",
-    "praxis-smoke",
-  ]
   agentcore_runtime_environment = {
     AGENT_OBSERVABILITY_ENABLED = "true"
     AWS_REGION                  = var.aws_region
@@ -25,8 +13,6 @@ locals {
     PRAXIS_GUARDRAIL_VERSION    = aws_bedrock_guardrail_version.project_planning.version
     PRAXIS_MAX_CATALOG_RESULTS  = "20"
     PRAXIS_MAX_TOOL_CALLS       = "4"
-    PRAXIS_MEMORY_ID            = aws_bedrockagentcore_memory.personalization.id
-    PRAXIS_MEMORY_TOP_K         = "5"
     PRAXIS_MODEL_ID             = var.agent_model_id
   }
   # Short development sessions limit idle compute while preserving useful continuity.
@@ -138,15 +124,14 @@ data "aws_iam_policy_document" "agentcore_runtime" {
   }
 
   statement {
-    sid    = "InvokeConfiguredModels"
+    sid    = "InvokeConfiguredModel"
     effect = "Allow"
     actions = [
       "bedrock:InvokeModel",
       "bedrock:InvokeModelWithResponseStream",
     ]
     resources = [
-      for model_id in local.agentcore_runtime_model_ids :
-      "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}::foundation-model/${model_id}"
+      "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}::foundation-model/${var.agent_model_id}"
     ]
   }
 
@@ -162,23 +147,6 @@ data "aws_iam_policy_document" "agentcore_runtime" {
     effect    = "Allow"
     actions   = ["bedrock-agentcore:InvokeGateway"]
     resources = [aws_bedrockagentcore_gateway.catalog.gateway_arn]
-  }
-
-  # Runtime can personalize from memory but cannot create, update, or delete it.
-  statement {
-    sid       = "ReadActorMemory"
-    effect    = "Allow"
-    actions   = ["bedrock-agentcore:RetrieveMemoryRecords"]
-    resources = [aws_bedrockagentcore_memory.personalization.arn]
-
-    condition {
-      test     = "StringLike"
-      variable = "bedrock-agentcore:namespacePath"
-      values = [
-        for actor_id in local.agentcore_runtime_actor_ids :
-        "/actors/${actor_id}/*"
-      ]
-    }
   }
 
   # ADOT sends Strands spans to X-Ray for CloudWatch and AgentCore Evaluations.
@@ -261,8 +229,6 @@ resource "terraform_data" "agentcore_runtime_mmdsv2" {
       PRAXIS_AGENT_MAX_LIFETIME      = tostring(local.agentcore_runtime_lifecycle.max_lifetime)
       PRAXIS_AGENT_MAX_RESULTS       = local.agentcore_runtime_environment.PRAXIS_MAX_CATALOG_RESULTS
       PRAXIS_AGENT_MAX_TOOL_CALLS    = local.agentcore_runtime_environment.PRAXIS_MAX_TOOL_CALLS
-      PRAXIS_AGENT_MEMORY_ID         = local.agentcore_runtime_environment.PRAXIS_MEMORY_ID
-      PRAXIS_AGENT_MEMORY_TOP_K      = local.agentcore_runtime_environment.PRAXIS_MEMORY_TOP_K
       PRAXIS_AGENT_MODEL_ID          = var.agent_model_id
       PRAXIS_AGENT_OBSERVABILITY     = local.agentcore_runtime_environment.AGENT_OBSERVABILITY_ENABLED
       PRAXIS_AGENT_OTEL_CONFIGURATOR = local.agentcore_runtime_environment.OTEL_PYTHON_CONFIGURATOR

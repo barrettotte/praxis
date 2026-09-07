@@ -26,20 +26,25 @@ case "${praxis_action}" in
     ;;
 esac
 
-for praxis_command in aws git jq "${praxis_tofu}" "${praxis_container_tool}"; do
+for praxis_command in aws jq "${praxis_tofu}" "${praxis_container_tool}"; do
   command -v "${praxis_command}" >/dev/null || {
     printf 'Required command is unavailable: %s\n' "${praxis_command}" >&2
     exit 2
   }
 done
 
-praxis_dirty_image_sources="$(
-  git -C "${praxis_repo_root}" status --porcelain=v1 --untracked-files=all -- \
-    .dockerignore backend/Containerfile backend/src pyproject.toml uv.lock README.md LICENSE
+# Pin the inspected content, not a mutable local tag, throughout publication.
+praxis_image_id="$(
+  "${praxis_container_tool}" image inspect --format '{{.Id}}' "${praxis_source_image}"
 )"
+praxis_image_id="${praxis_image_id#sha256:}"
+if [[ ! "${praxis_image_id}" =~ ^[0-9a-f]{64}$ ]]; then
+  printf 'Invalid local image configuration ID\n' >&2
+  exit 2
+fi
+praxis_source_image="sha256:${praxis_image_id}"
 
-# AgentCore requires ARM64 and the image must identify its base source revision.
-praxis_commit="$(git -C "${praxis_repo_root}" rev-parse --verify HEAD)"
+# AgentCore requires an ARM64 image.
 praxis_architecture="$(
   "${praxis_container_tool}" image inspect \
     --format '{{.Architecture}}' "${praxis_source_image}"
@@ -54,29 +59,8 @@ praxis_image_revision="$(
     --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' \
     "${praxis_source_image}"
 )"
-if [[ "${praxis_image_revision}" != "${praxis_commit}" ]]; then
-  printf 'Source image revision does not match HEAD; run make agent-image\n' >&2
-  exit 2
-fi
-
-# Clean images use the source revision; dirty images use their local OCI content ID.
-if [[ -n "${praxis_dirty_image_sources}" ]]; then
-  praxis_image_id="$(
-    "${praxis_container_tool}" image inspect \
-      --format '{{.Id}}' "${praxis_source_image}"
-  )"
-  praxis_image_id="${praxis_image_id#sha256:}"
-  if [[ ! "${praxis_image_id}" =~ ^[0-9a-f]{64}$ ]]; then
-    printf 'Source image has an invalid OCI image ID: %s\n' "${praxis_image_id}" >&2
-    exit 2
-  fi
-  praxis_tag="dirty-${praxis_image_id}"
-  printf 'Warning: image-affecting sources are uncommitted:\n%s\n' \
-    "${praxis_dirty_image_sources}" >&2
-  printf 'The immutable tag identifies local image content, not a reproducible Git revision.\n' >&2
-else
-  praxis_tag="git-${praxis_commit}"
-fi
+# Content-derived tags identify the same artifact regardless of Git worktree state.
+praxis_tag="image-${praxis_image_id}"
 
 # Resolve the environment-specific repository from deployed OpenTofu state.
 praxis_repository_url="$(
@@ -92,7 +76,7 @@ if [[ "${praxis_registry}" == "${praxis_repository_url}" || -z "${praxis_reposit
 fi
 praxis_target_image="${praxis_repository_url}:${praxis_tag}"
 
-# Immutable tags make an existing revision a successful idempotent publication.
+# Immutable content tags make repeated publication idempotent.
 praxis_remote_digest="$(
   aws --profile "${praxis_profile}" --region "${praxis_region}" ecr list-images \
     --repository-name "${praxis_repository_name}" \
@@ -104,7 +88,7 @@ praxis_remote_digest="$(
 
 printf 'Source image: %s\n' "${praxis_source_image}"
 printf 'Architecture: %s\n' "${praxis_architecture}"
-printf 'Revision: %s\n' "${praxis_commit}"
+printf 'Revision: %s\n' "${praxis_image_revision}"
 printf 'Target image: %s\n' "${praxis_target_image}"
 
 if [[ -n "${praxis_remote_digest}" && "${praxis_remote_digest}" != "None" ]]; then

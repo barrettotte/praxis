@@ -18,8 +18,7 @@ from starlette.testclient import TestClient
 from starlette.types import ASGIApp
 
 from praxis.agent import runtime
-from praxis.agent.gateway import GatewayAgentRun
-from praxis.agent.memory import MemoryRecord
+from praxis.agent.generation import CandidateRun
 from praxis.agent.runtime import RuntimeRequestError, app, invoke_runtime
 from praxis.domain import (
     EvidenceCitation,
@@ -142,7 +141,7 @@ def test_runtime_sdk_emits_json_outcomes(outcome: str) -> None:
 @pytest.mark.parametrize(
     "payload",
     [
-        {"actor_id": "user-123", "prompt": "api_key=synthetic-credential"},
+        {"prompt": "api_key=synthetic-credential"},
         {"operation": "create_project_brief", "goal": "api_key=synthetic-credential"},
         {"operation": "create_project_brief", "candidate": {"password": "synthetic-credential"}},
     ],
@@ -152,7 +151,6 @@ def test_runtime_http_rejects_credentials_before_validation_and_agent_work(
 ) -> None:
     with (
         patch.object(runtime, "load_settings") as settings,
-        patch.object(runtime, "AgentCoreMemoryStore") as memory,
         patch.object(runtime, "invoke_gateway_agent") as agent,
         patch.object(runtime, "generate_project_brief") as brief,
         TestClient(cast("ASGIApp", app)) as client,
@@ -160,7 +158,7 @@ def test_runtime_http_rejects_credentials_before_validation_and_agent_work(
         response = cast("Client", client).post("/invocations", json=payload)
     assert response.status_code == 400
     assert response.json() == {"error": "Request content appears to contain credentials."}
-    for dependency in (settings, memory, agent, brief):
+    for dependency in (settings, agent, brief):
         dependency.assert_not_called()
     assert "synthetic-credential" not in caplog.text + response.text
 
@@ -269,16 +267,16 @@ def test_runtime_app_exposes_agentcore_http_contract() -> None:
 @pytest.mark.parametrize("payload", [{}, {"prompt": ""}, {"prompt": "  "}, {"prompt": 7}])
 def test_invoke_runtime_rejects_invalid_prompts(payload: dict[str, object]) -> None:
     with pytest.raises(RuntimeRequestError, match="prompt must be a non-empty string"):
-        invoke_runtime(payload, lambda _prompt, _memory: GatewayAgentRun(candidate_set(), ()))
+        invoke_runtime(payload, lambda _prompt: CandidateRun(candidate_set(), ()))
 
 
-@pytest.mark.parametrize("actor_id", [None, "", "user:other"])
-def test_invoke_runtime_rejects_invalid_actor_ids(actor_id: object) -> None:
-    with pytest.raises(RuntimeRequestError, match="actor_id"):
-        invoke_runtime(
-            {"actor_id": actor_id, "prompt": "compiler"},
-            lambda _prompt, _memory: GatewayAgentRun(candidate_set(), ()),
-        )
+def test_runtime_rejects_unexpected_context_before_generation() -> None:
+    with (
+        patch.object(runtime, "invoke_gateway_agent") as agent,
+        pytest.raises(RuntimeRequestError, match="unsupported fields"),
+    ):
+        invoke_runtime({"prompt": "compiler", "user_context": "untrusted"})
+    agent.assert_not_called()
 
 
 def test_invoke_runtime_returns_buffered_candidates_and_tool_metrics(
@@ -290,24 +288,21 @@ def test_invoke_runtime_returns_buffered_candidates_and_tool_metrics(
     for name in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"):
         monkeypatch.setenv(name, marker)
     observed_prompts: list[str] = []
-    observed_memory: list[tuple[str, ...]] = []
 
-    def invoke_agent(prompt: str, memory: Sequence[str]) -> GatewayAgentRun:
+    def invoke_agent(prompt: str) -> CandidateRun:
         observed_prompts.append(prompt)
-        observed_memory.append(tuple(memory))
-        return GatewayAgentRun(
+        return CandidateRun(
             candidates=candidate_set(),
             tool_calls=(("get_catalog_item", 1), ("search_catalog", 2)),
             evidence=(book_evidence(),),
         )
 
     response = invoke_runtime(
-        {"actor_id": "user-123", "prompt": "  Recommend a compiler project  "},
+        {"prompt": "  Recommend a compiler project  "},
         invoke_agent,
     )
 
     assert observed_prompts == ["Recommend a compiler project"]
-    assert observed_memory == [()]
     candidates = response["candidates"]
     assert isinstance(candidates, list)
     assert len(cast("list[object]", candidates)) == 3
@@ -316,36 +311,8 @@ def test_invoke_runtime_returns_buffered_candidates_and_tool_metrics(
         {"name": "search_catalog", "count": 2},
     ]
     assert response["evidence"] == [book_evidence().model_dump(mode="json")]
-    assert response["memory"] == {"retrieved_count": 0}
     captured = capsys.readouterr()
     assert marker not in repr(response) + captured.out + captured.err + caplog.text
-
-
-def test_invoke_runtime_passes_only_typed_memory_to_the_agent() -> None:
-    class FakeMemory:
-        def recall(self, actor_id: str, query: str) -> tuple[MemoryRecord, ...]:
-            assert actor_id == "user-123"
-            assert query == "compiler"
-            return (MemoryRecord(kind="preference", text="Prefer weekend scope."),)
-
-    observed_context: list[Sequence[str]] = []
-
-    def invoke_agent(_prompt: str, context: Sequence[str]) -> GatewayAgentRun:
-        observed_context.append(context)
-        return GatewayAgentRun(
-            candidate_set(),
-            (("search_catalog", 1),),
-            (book_evidence(),),
-        )
-
-    response = invoke_runtime(
-        {"actor_id": "user-123", "prompt": "compiler"},
-        invoke_agent,
-        FakeMemory(),
-    )
-
-    assert observed_context == [('{"kind":"preference","text":"Prefer weekend scope."}',)]
-    assert response["memory"] == {"retrieved_count": 1}
 
 
 def test_invoke_runtime_generates_brief_from_typed_server_context() -> None:
@@ -363,7 +330,6 @@ def test_invoke_runtime_generates_brief_from_typed_server_context() -> None:
 
     response = invoke_runtime(
         {
-            "actor_id": "user-123",
             "operation": "create_project_brief",
             "goal": "Learn compiler backends over a weekend",
             "candidate": selected.model_dump(mode="json"),
@@ -380,14 +346,12 @@ def test_invoke_runtime_generates_brief_from_typed_server_context() -> None:
     "payload",
     [
         {
-            "actor_id": "user-123",
             "operation": "create_project_brief",
             "goal": "Learn compiler backends",
             "candidate": {},
             "evidence": [book_evidence().model_dump(mode="json")],
         },
         {
-            "actor_id": "user-123",
             "operation": "create_project_brief",
             "goal": "Learn compiler backends",
             "candidate": candidate_set().candidates[0].model_dump(mode="json"),
@@ -404,7 +368,6 @@ def test_invoke_runtime_rejects_brief_without_original_goal() -> None:
     with pytest.raises(RuntimeRequestError, match="unsupported fields"):
         invoke_runtime(
             {
-                "actor_id": "user-123",
                 "operation": "create_project_brief",
                 "candidate": candidate_set().candidates[0].model_dump(mode="json"),
                 "evidence": [book_evidence().model_dump(mode="json")],

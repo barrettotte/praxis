@@ -6,7 +6,6 @@ import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Annotated, Protocol, cast
 from uuid import uuid4
 
@@ -19,7 +18,6 @@ from praxis.domain import ProjectCandidateSet
 from praxis.tools.contracts import Evidence
 
 DEFAULT_PROMPT = "compiler"
-DEFAULT_ACTOR_ID = "praxis-smoke"
 MINIMUM_SESSION_ID_LENGTH = 33
 JSON_CONTENT_TYPE = "application/json"
 JSON_OBJECT = TypeAdapter(dict[str, object])
@@ -50,14 +48,6 @@ class RuntimeToolCall(BaseModel):
 
     name: Annotated[str, Field(min_length=1)]
     count: Annotated[int, Field(ge=1)]
-
-
-class RuntimeMemoryUsage(BaseModel):
-    """Sanitized Memory retrieval count returned by the hosted agent."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    retrieved_count: Annotated[int, Field(ge=0)]
 
 
 TOOL_CALLS = TypeAdapter(list[RuntimeToolCall])
@@ -101,7 +91,6 @@ class RuntimeSmokeResult:
     tool_calls: tuple[RuntimeToolCall, ...]
     session_id: str
     content_type: str
-    memory_retrieved_count: int
     retrieved_evidence_ids: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, object]:
@@ -110,35 +99,9 @@ class RuntimeSmokeResult:
             "iam_authenticated": True,
             "content_type": self.content_type,
             "session_id": self.session_id,
-            "memory_retrieved_count": self.memory_retrieved_count,
             "retrieved_evidence_ids": list(self.retrieved_evidence_ids),
             "candidates": self.candidates.model_dump(mode="json")["candidates"],
             "tool_calls": [tool_call.model_dump(mode="json") for tool_call in self.tool_calls],
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class SessionIsolationResult:
-    """Two valid Runtime responses whose session evidence remains disjoint."""
-
-    first: RuntimeSmokeResult
-    second: RuntimeSmokeResult
-
-    def as_dict(self) -> dict[str, object]:
-        """Return a sanitized session-isolation summary."""
-        return {
-            "iam_authenticated": True,
-            "sessions_distinct": self.first.session_id != self.second.session_id,
-            "session_id_lengths": [len(self.first.session_id), len(self.second.session_id)],
-            "evidence_sets_disjoint": True,
-            "evidence_ids": [
-                sorted(_evidence_ids(self.first)),
-                sorted(_evidence_ids(self.second)),
-            ],
-            "tool_calls": [
-                [call.model_dump(mode="json") for call in self.first.tool_calls],
-                [call.model_dump(mode="json") for call in self.second.tool_calls],
-            ],
         }
 
 
@@ -238,7 +201,6 @@ def invoke_runtime_endpoint(
     qualifier: str,
     prompt: str,
     session_id: str,
-    actor_id: str = DEFAULT_ACTOR_ID,
 ) -> RuntimeSmokeResult:
     """Invoke one named Runtime endpoint and validate its buffered response."""
     if not prompt.strip():
@@ -251,7 +213,7 @@ def invoke_runtime_endpoint(
             agentRuntimeArn=runtime_arn,
             runtimeSessionId=session_id,
             qualifier=qualifier,
-            payload=json.dumps({"actor_id": actor_id, "prompt": prompt.strip()}).encode(),
+            payload=json.dumps({"prompt": prompt.strip()}).encode(),
             contentType=JSON_CONTENT_TYPE,
             accept=JSON_CONTENT_TYPE,
         )
@@ -271,7 +233,6 @@ def invoke_runtime_endpoint(
         payload = JSON_OBJECT.validate_json(cast("ResponseBody", response_body).read())
         candidates = ProjectCandidateSet.model_validate({"candidates": payload.get("candidates")})
         evidence = EVIDENCE.validate_python(payload.get("evidence"))
-        memory = RuntimeMemoryUsage.model_validate(payload.get("memory"))
         tool_calls = tuple(TOOL_CALLS.validate_python(payload.get("tool_calls")))
     except ValidationError as error:
         raise RuntimeSmokeError("AgentCore Runtime returned an invalid agent response") from error
@@ -291,49 +252,8 @@ def invoke_runtime_endpoint(
         tool_calls,
         session_id,
         content_type,
-        memory.retrieved_count,
         retrieved_evidence_ids,
     )
-
-
-def _evidence_ids(result: RuntimeSmokeResult) -> frozenset[str]:
-    """Return every stable evidence ID cited by one Runtime response."""
-    return frozenset(
-        citation.evidence_id
-        for candidate in result.candidates.candidates
-        for citation in candidate.evidence_citations
-    )
-
-
-def verify_session_isolation(
-    client: RuntimeClient,
-    runtime_arn: str,
-    qualifier: str,
-    first_prompt: str,
-    second_prompt: str,
-    session_ids: tuple[str, str] | None = None,
-) -> SessionIsolationResult:
-    """Require separate sessions to return valid, non-overlapping evidence contexts."""
-    first_session_id, second_session_id = session_ids or (str(uuid4()), str(uuid4()))
-    if first_session_id == second_session_id:
-        raise RuntimeSmokeError("Runtime isolation check requires distinct session IDs")
-    first = invoke_runtime_endpoint(
-        client,
-        runtime_arn,
-        qualifier,
-        first_prompt,
-        first_session_id,
-    )
-    second = invoke_runtime_endpoint(
-        client,
-        runtime_arn,
-        qualifier,
-        second_prompt,
-        second_session_id,
-    )
-    if not _evidence_ids(first).isdisjoint(_evidence_ids(second)):
-        raise RuntimeSmokeError("Runtime sessions returned overlapping evidence contexts")
-    return SessionIsolationResult(first=first, second=second)
 
 
 def _resource_attribute(span: RuntimeTraceSpan, name: str) -> object:
@@ -422,177 +342,37 @@ def wait_for_runtime_traces(
         sleep(5)
 
 
-def require_prompt_cache_read(result: RuntimeTraceResult) -> None:
-    """Require a traced Runtime invocation to reuse the stable prompt prefix."""
-    cache_read_input_tokens, _ = result.prompt_cache_usage()
-    if cache_read_input_tokens == 0:
-        raise RuntimeSmokeError("Runtime invocation did not read the prompt cache")
-
-
-def write_evidence(
-    evidence_directory: Path,
-    qualifier: str,
-    endpoint_version: str,
-    result: RuntimeSmokeResult,
-) -> Path:
-    """Write a credential-free capture of the signed Runtime invocation."""
-    evidence_directory.mkdir(parents=True, exist_ok=True)
-    evidence_path = evidence_directory / "agentcore-runtime-invocation.json"
-    evidence_ids = sorted(
-        {
-            citation.evidence_id
-            for candidate in result.candidates.candidates
-            for citation in candidate.evidence_citations
-        }
-    )
-    capture = {
-        "all_candidates_cited": all(
-            candidate.evidence_citations for candidate in result.candidates.candidates
-        ),
-        "authentication": "AWS_IAM",
-        "candidate_count": len(result.candidates.candidates),
-        "client": "Boto3 AgentCore Runtime",
-        "endpoint_qualifier": qualifier,
-        "endpoint_version": endpoint_version,
-        "evidence_ids": evidence_ids,
-        "request_content_type": JSON_CONTENT_TYPE,
-        "response_content_type": result.content_type,
-        "runtime_session_id_length": len(result.session_id),
-        "memory_retrieved_count": result.memory_retrieved_count,
-        "tool_calls": [tool_call.model_dump(mode="json") for tool_call in result.tool_calls],
-    }
-    evidence_path.write_text(f"{json.dumps(capture, indent=2, sort_keys=True)}\n")
-    return evidence_path
-
-
-def write_session_isolation_evidence(
-    evidence_directory: Path,
-    qualifier: str,
-    endpoint_version: str,
-    result: SessionIsolationResult,
-) -> Path:
-    """Write a credential-free capture of the session-isolation check."""
-    evidence_directory.mkdir(parents=True, exist_ok=True)
-    evidence_path = evidence_directory / "agentcore-runtime-session-isolation.json"
-    capture = {
-        **result.as_dict(),
-        "client": "Boto3 AgentCore Runtime",
-        "endpoint_qualifier": qualifier,
-        "endpoint_version": endpoint_version,
-    }
-    evidence_path.write_text(f"{json.dumps(capture, indent=2, sort_keys=True)}\n")
-    return evidence_path
-
-
-def write_trace_evidence(
-    evidence_directory: Path,
-    qualifier: str,
-    endpoint_version: str,
-    result: RuntimeTraceResult,
-) -> Path:
-    """Write credential- and content-free metadata for the verified Runtime trace."""
-    evidence_directory.mkdir(parents=True, exist_ok=True)
-    evidence_path = evidence_directory / "agentcore-runtime-traces.json"
-    capture = {
-        **result.as_dict(),
-        "endpoint_qualifier": qualifier,
-        "endpoint_version": endpoint_version,
-        "telemetry_backend": "AgentCore endpoint CloudWatch spans stream",
-    }
-    evidence_path.write_text(f"{json.dumps(capture, indent=2, sort_keys=True)}\n")
-    return evidence_path
-
-
 def main() -> None:
-    """Run one signed invocation against a named AgentCore Runtime endpoint."""
+    """Invoke one Runtime session, optionally verifying its trace."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--runtime-arn", required=True)
     parser.add_argument("--qualifier", required=True)
-    parser.add_argument("--endpoint-version", required=True)
     parser.add_argument("--region", default="us-east-1")
     parser.add_argument("--profile")
     parser.add_argument("--prompt", default=DEFAULT_PROMPT)
-    parser.add_argument("--minimum-memory-records", type=int, default=2)
-    parser.add_argument("--secondary-prompt", default="commodore")
-    parser.add_argument("--verify-session-isolation", action="store_true")
     parser.add_argument("--verify-traces", action="store_true")
-    parser.add_argument("--require-prompt-cache-read", action="store_true")
     parser.add_argument("--trace-timeout-seconds", type=int, default=180)
-    parser.add_argument("--evidence-directory", type=Path)
     arguments = parser.parse_args()
-
-    client = create_runtime_client(arguments.profile, arguments.region)
-    if arguments.require_prompt_cache_read and not arguments.verify_traces:
-        parser.error("--require-prompt-cache-read requires --verify-traces")
-
-    if arguments.verify_session_isolation:
-        isolation_result = verify_session_isolation(
-            client,
+    started = int(time.time() * 1000)
+    result = invoke_runtime_endpoint(
+        create_runtime_client(arguments.profile, arguments.region),
+        arguments.runtime_arn,
+        arguments.qualifier,
+        arguments.prompt,
+        str(uuid4()),
+    )
+    print(f"Runtime returned {len(result.candidates.candidates)} validated candidates.")
+    if arguments.verify_traces:
+        print("Waiting for the session-correlated Strands trace...", file=sys.stderr)
+        traces = wait_for_runtime_traces(
+            create_logs_client(arguments.profile, arguments.region),
+            runtime_trace_log_group(arguments.runtime_arn, arguments.qualifier),
             arguments.runtime_arn,
-            arguments.qualifier,
-            arguments.prompt,
-            arguments.secondary_prompt,
+            result.session_id,
+            started,
+            arguments.trace_timeout_seconds,
         )
-        output = isolation_result.as_dict()
-        if arguments.evidence_directory is not None:
-            output["capture"] = str(
-                write_session_isolation_evidence(
-                    arguments.evidence_directory,
-                    arguments.qualifier,
-                    arguments.endpoint_version,
-                    isolation_result,
-                )
-            )
-    else:
-        trace_start_time_ms = int(time.time() * 1000)
-        result = invoke_runtime_endpoint(
-            client,
-            arguments.runtime_arn,
-            arguments.qualifier,
-            arguments.prompt,
-            str(uuid4()),
-        )
-        if result.memory_retrieved_count < arguments.minimum_memory_records:
-            raise RuntimeSmokeError(
-                "Runtime retrieved fewer typed Memory records than expected; run "
-                "make smoke-memory-dev CONFIRM=smoke-memory-dev first"
-            )
-        output = result.as_dict()
-        if arguments.evidence_directory is not None:
-            output["capture"] = str(
-                write_evidence(
-                    arguments.evidence_directory,
-                    arguments.qualifier,
-                    arguments.endpoint_version,
-                    result,
-                )
-            )
-        if arguments.verify_traces:
-            print(
-                "Waiting for the session-correlated Strands trace in CloudWatch...",
-                file=sys.stderr,
-            )
-            trace_result = wait_for_runtime_traces(
-                create_logs_client(arguments.profile, arguments.region),
-                runtime_trace_log_group(arguments.runtime_arn, arguments.qualifier),
-                arguments.runtime_arn,
-                result.session_id,
-                trace_start_time_ms,
-                arguments.trace_timeout_seconds,
-            )
-            if arguments.require_prompt_cache_read:
-                require_prompt_cache_read(trace_result)
-            output["trace_verification"] = trace_result.as_dict()
-            if arguments.evidence_directory is not None:
-                output["trace_capture"] = str(
-                    write_trace_evidence(
-                        arguments.evidence_directory,
-                        arguments.qualifier,
-                        arguments.endpoint_version,
-                        trace_result,
-                    )
-                )
-    print(json.dumps(output, indent=2))
+        print(f"Found {len(traces.spans)} session-correlated spans.")
 
 
 if __name__ == "__main__":

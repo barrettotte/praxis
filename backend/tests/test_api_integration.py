@@ -9,8 +9,14 @@ import pytest
 from botocore.exceptions import ClientError, ReadTimeoutError
 
 from praxis.api.jobs import RecommendationJob
-from praxis.api.runtime import CreateSessionData
-from praxis.api.sessions import FailedSession, PendingSession, StoredSession
+from praxis.api.runtime import CreateSessionData, SelectCandidateData
+from praxis.api.sessions import (
+    AnySession,
+    FailedSession,
+    PendingSession,
+    StoredBrief,
+    StoredSession,
+)
 from praxis.functions import api as api_function
 from praxis.functions import recommendation_worker
 
@@ -64,9 +70,12 @@ class FakeSessionStore:
     """Keep one session state across API and worker calls."""
 
     def __init__(self) -> None:
-        self.record: PendingSession | FailedSession | StoredSession | None = None
+        self.record: AnySession | None = None
+        self.previous: dict[str, AnySession] = {}
 
     def start(self, session_id: str, actor_id: str, goal: str) -> PendingSession:
+        if self.record is not None:
+            self.previous[self.record.session_id] = self.record
         self.record = PendingSession(
             session_id=session_id,
             expires_at=EXPIRES_AT,
@@ -84,6 +93,17 @@ class FakeSessionStore:
         )
         return self.record
 
+    def complete_brief(
+        self, selection: SelectCandidateData, actor_id: str, goal: str
+    ) -> StoredBrief:
+        self.record = StoredBrief(
+            **selection.model_dump(mode="python"),
+            actor_id=actor_id,
+            goal=goal,
+            expires_at=EXPIRES_AT,
+        )
+        return self.record
+
     def fail(self, session_id: str, actor_id: str) -> None:
         assert self.record is not None
         assert self.record.actor_id == actor_id
@@ -94,16 +114,15 @@ class FakeSessionStore:
             actor_id=actor_id,
         )
 
-    def get_record(
-        self, session_id: str, actor_id: str
-    ) -> PendingSession | FailedSession | StoredSession | None:
+    def get_record(self, session_id: str, actor_id: str) -> AnySession | None:
         if (
             self.record is not None
             and self.record.session_id == session_id
             and self.record.actor_id == actor_id
         ):
             return self.record
-        return None
+        previous = self.previous.get(session_id)
+        return previous if previous is not None and previous.actor_id == actor_id else None
 
     def get(self, session_id: str, actor_id: str) -> StoredSession | None:
         record = self.get_record(session_id, actor_id)
@@ -146,7 +165,6 @@ def runtime_response(payload: bytes | None = None) -> dict[str, object]:
                         "tags": [],
                     }
                 ],
-                "memory": {"retrieved_count": 0},
                 "tool_calls": [{"name": "search_catalog", "count": 1}],
             }
         ).encode()
@@ -197,7 +215,6 @@ def configure_pipeline(
     queue = FakeQueueClient()
     monkeypatch.setenv("PRAXIS_AGENT_RUNTIME_ARN", RUNTIME_ARN)
     monkeypatch.setenv("PRAXIS_AGENT_RUNTIME_QUALIFIER", "stable")
-    monkeypatch.setenv("PRAXIS_API_ACTOR_ID", "praxis-single-user")
     monkeypatch.setenv("PRAXIS_RECOMMENDATION_QUEUE_URL", QUEUE_URL)
     monkeypatch.setattr(api_function, "uuid4", lambda: UUID(SESSION_ID))
     monkeypatch.setattr(api_function, "create_session_store", lambda: store)
@@ -336,7 +353,6 @@ def test_authentication_material_stays_out_of_jobs_runtime_state_and_logs(
 
     assert len(client.requests) == 1
     assert json.loads(cast("bytes", client.requests[0]["payload"])) == {
-        "actor_id": "praxis-single-user",
         "prompt": GOAL,
     }
     assert store.record is not None
@@ -441,7 +457,7 @@ def test_runtime_failures_become_safe_failed_session_state(
     ],
     ids=["timeout", "throttled"],
 )
-def test_selection_failure_preserves_candidates_and_returns_safe_503(
+def test_selection_failure_preserves_candidates_and_exposes_safe_job_failure(
     monkeypatch: pytest.MonkeyPatch, failure: Exception
 ) -> None:
     client = FakeRuntimeClient(runtime_response())
@@ -452,7 +468,8 @@ def test_selection_failure_preserves_candidates_and_returns_safe_503(
     recommendation_worker.lambda_handler(sqs_event(queue), object())
     ready_record = store.record
     client.response = failure
-    monkeypatch.setattr(api_function, "runtime_client", lambda: client)
+    brief_id = "afdf7a75-4cd4-4e13-958c-2b7dcf27a112"
+    monkeypatch.setattr(api_function, "uuid4", lambda: UUID(brief_id))
 
     response = api_function.lambda_handler(
         api_event(
@@ -462,13 +479,75 @@ def test_selection_failure_preserves_candidates_and_returns_safe_503(
         object(),
     )
 
-    assert response["statusCode"] == 503
-    assert json.loads(str(response["body"])) == {
-        "error": {
-            "code": "service_unavailable",
-            "message": "Recommendation service is temporarily unavailable.",
-        }
-    }
-    assert cast("dict[str, str]", response["headers"])["x-correlation-id"] == CORRELATION_ID
-    assert store.record is ready_record
+    assert response["statusCode"] == 202
+    assert len(client.requests) == 1
+    recommendation_worker.lambda_handler(sqs_event(queue), object())
+    failed = store.get_record(brief_id, ACTOR_ID)
+    assert isinstance(failed, FailedSession)
+    assert store.get(SESSION_ID, ACTOR_ID) is ready_record
+    assert len(client.requests) == 2
+    recommendation_worker.lambda_handler(sqs_event(queue), object())
+    assert len(client.requests) == 2
+
+
+def test_brief_job_completes_and_repeated_delivery_does_not_invoke_again(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = FakeRuntimeClient(runtime_response())
+    store, queue = configure_pipeline(monkeypatch, client)
+    api_function.lambda_handler(
+        api_event("POST /v1/sessions", body=json.dumps({"goal": GOAL})), object()
+    )
+    recommendation_worker.lambda_handler(sqs_event(queue), object())
+    source = store.record
+    brief_id = "afdf7a75-4cd4-4e13-958c-2b7dcf27a112"
+    monkeypatch.setattr(api_function, "uuid4", lambda: UUID(brief_id))
+    client.response = runtime_response(
+        json.dumps(
+            {
+                "brief": {
+                    "objective": "Build a compiler expression evaluator.",
+                    "scope": "One expression type over a weekend.",
+                    "deliverables": ["A tested expression evaluator."],
+                    "milestones": [
+                        {
+                            "title": "Implement addition",
+                            "deliverable": "An addition evaluator.",
+                            "verification": "Run addition with 2 and 3 and assert 5.",
+                        }
+                    ],
+                    "acceptance_criteria": [
+                        {
+                            "criterion": "Addition returns the expected integer.",
+                            "verification": "Run the addition regression tests.",
+                        }
+                    ],
+                }
+            }
+        ).encode()
+    )
+    client.response["runtimeSessionId"] = brief_id
+    accepted = api_function.lambda_handler(
+        api_event(
+            "POST /v1/projects/{candidateId}/select", body=json.dumps({"sessionId": SESSION_ID})
+        ),
+        object(),
+    )
+    assert accepted["statusCode"] == 202
+    assert len(client.requests) == 1
+    delivery = sqs_event(queue)
+    recommendation_worker.lambda_handler(delivery, object())
+    assert isinstance(store.record, StoredBrief)
+    assert store.record.candidate_id == "candidate_1"
+    assert store.get(SESSION_ID, ACTOR_ID) is source
+    assert store.get_record(brief_id, OTHER_ACTOR_ID) is None
+    event = api_event("GET /v1/sessions/{sessionId}")
+    event["pathParameters"] = {"sessionId": brief_id}
+    response = api_function.lambda_handler(event, object())
+    data = json.loads(str(response["body"]))["data"]
+    assert data["status"] == "brief_ready"
+    assert "goal" not in data
+    assert "actor_id" not in data
+    assert "expires_at" not in data
+    recommendation_worker.lambda_handler(delivery, object())
     assert len(client.requests) == 2

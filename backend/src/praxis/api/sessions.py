@@ -14,7 +14,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, model_validator
 
 from praxis.api.requests import MAX_API_TEXT_CHARACTERS, ActorId
-from praxis.api.runtime import CreateSessionData, SessionCandidate
+from praxis.api.runtime import CreateSessionData, SelectCandidateData, SessionCandidate
 from praxis.tools.contracts import Evidence
 
 SESSION_TTL_SECONDS = 60 * 60
@@ -41,6 +41,7 @@ class SessionTable(Protocol):
 class SessionStatus(StrEnum):
     """Public lifecycle states for one asynchronous recommendation session."""
 
+    BRIEF_READY = "brief_ready"
     FAILED = "failed"
     PENDING = "pending"
     READY = "ready"
@@ -121,7 +122,23 @@ class StoredSession(CreateSessionData):
         return [item for item in self.evidence if item.evidence_id in cited_ids]
 
 
-type AnySession = PendingSession | FailedSession | StoredSession
+class StoredBrief(SelectCandidateData):
+    """Completed brief job with the same ownership and expiry as session records."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        strict=True,
+        validate_by_alias=True,
+        validate_by_name=True,
+    )
+    expires_at: int = Field(gt=0)
+    goal: str
+    actor_id: ActorId
+    status: Literal[SessionStatus.BRIEF_READY] = SessionStatus.BRIEF_READY
+
+
+type AnySession = PendingSession | FailedSession | StoredSession | StoredBrief
 _SESSION_ADAPTER: TypeAdapter[AnySession] = TypeAdapter(
     Annotated[AnySession, Field(discriminator="status")]
 )
@@ -192,6 +209,31 @@ class SessionStore:
             )
         except (BotoCoreError, ClientError) as error:
             raise ApiSessionError("recommendation session could not be completed") from error
+        return stored
+
+    def complete_brief(
+        self, selection: SelectCandidateData, actor_id: str, goal: str
+    ) -> StoredBrief:
+        """Persist a brief only while its owned job remains pending and unexpired."""
+        stored = StoredBrief(
+            **selection.model_dump(mode="python"),
+            actor_id=actor_id,
+            goal=goal,
+            expires_at=int(self._now().timestamp()) + SESSION_TTL_SECONDS,
+        )
+        try:
+            self._table.put_item(
+                Item=stored.model_dump(mode="python"),
+                ConditionExpression="#status = :pending AND actor_id = :actor_id AND expires_at > :now",
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={
+                    ":pending": SessionStatus.PENDING,
+                    ":actor_id": actor_id,
+                    ":now": int(self._now().timestamp()),
+                },
+            )
+        except (BotoCoreError, ClientError) as error:
+            raise ApiSessionError("project brief could not be completed") from error
         return stored
 
     def fail(self, session_id: str, actor_id: str) -> None:

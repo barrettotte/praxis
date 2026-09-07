@@ -13,11 +13,10 @@ from praxis.evaluation.models import (
     EvidenceExpectation,
     ExpectedEvidenceRecord,
     ExpectedToolCall,
-    InstructionOptimizationSplit,
 )
 from praxis.evaluation.results import (
     BaselineResult,
-    CitationSupportResult,
+    CitationResolutionResult,
     DeploymentIdentity,
     RetrievalRelevanceResult,
 )
@@ -29,7 +28,7 @@ __all__ = [
     "BusinessAssertion",
     "CaseBusinessAssertions",
     "CaseExpectation",
-    "CitationSupportResult",
+    "CitationResolutionResult",
     "DeploymentIdentity",
     "EvaluationBusinessAssertions",
     "EvaluationCase",
@@ -38,6 +37,5 @@ __all__ = [
     "EvidenceExpectation",
     "ExpectedEvidenceRecord",
     "ExpectedToolCall",
-    "InstructionOptimizationSplit",
     "RetrievalRelevanceResult",
 ]

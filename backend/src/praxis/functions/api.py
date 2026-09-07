@@ -27,14 +27,6 @@ from praxis.api.requests import (
     validate_api_request,
 )
 from praxis.api.responses import ApiErrorCode, error_response, success_response
-from praxis.api.runtime import (
-    ApiRuntimeError,
-    RuntimeClient,
-    SelectCandidateData,
-    create_runtime_client,
-    invoke_project_brief_runtime,
-    load_runtime_settings,
-)
 from praxis.api.sessions import (
     AnySession,
     ApiSessionError,
@@ -47,12 +39,6 @@ from praxis.functions.tracing import lambda_tracer
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 tracer = lambda_tracer(__name__)
-
-
-@cache
-def runtime_client() -> RuntimeClient:
-    """Reuse the AgentCore client across warm Lambda invocations."""
-    return create_runtime_client()
 
 
 @cache
@@ -108,8 +94,8 @@ def select_candidate(
     candidate_id: str,
     correlation_id: str,
     actor_id: str,
-) -> SelectCandidateData:
-    """Resolve one session-owned candidate and generate its project brief."""
+) -> PendingSession:
+    """Resolve an owned candidate and queue its brief without model invocation."""
     session = create_session_store().get(session_id, actor_id)
     if session is None:
         raise ApiSessionNotFoundError("recommendation session was not found")
@@ -119,15 +105,26 @@ def select_candidate(
     evidence = session.evidence_for(candidate)
     if not evidence:
         raise ApiSessionError("recommendation candidate evidence is unavailable")
-    return invoke_project_brief_runtime(
-        runtime_client(),
-        load_runtime_settings(),
-        session_id,
-        session.goal,
-        candidate,
-        evidence,
-        correlation_id,
-    )
+    job_id = str(uuid4())
+    store = create_session_store()
+    pending = store.start(job_id, actor_id, session.goal)
+    try:
+        enqueue_job(
+            queue_client(),
+            load_job_queue_url(),
+            RecommendationJob(
+                session_id=job_id,
+                actor_id=actor_id,
+                goal=session.goal,
+                correlation_id=correlation_id,
+                source_session_id=session_id,
+                candidate_id=candidate.candidate_id,
+            ),
+        )
+    except ApiJobError:
+        store.fail(job_id, actor_id)
+        raise
+    return pending
 
 
 def _handle_request(event: object, context: object) -> dict[str, object]:
@@ -171,14 +168,11 @@ def _handle_request(event: object, context: object) -> dict[str, object]:
             )
         except ApiSessionNotFoundError:
             return error_response(ApiErrorCode.NOT_FOUND, request.correlation_id)
-        except (ApiRuntimeError, ApiSessionError):
+        except (ApiJobError, ApiSessionError):
             return error_response(ApiErrorCode.SERVICE_UNAVAILABLE, request.correlation_id)
         return success_response(
-            200,
-            cast(
-                "dict[str, JsonValue]",
-                selection.model_dump(mode="json", by_alias=True),
-            ),
+            202,
+            _public_session_data(selection),
             request.correlation_id,
         )
     return error_response(ApiErrorCode.SERVICE_UNAVAILABLE, request.correlation_id)

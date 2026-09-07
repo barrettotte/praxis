@@ -7,7 +7,32 @@ plan and another review. Teardown and other destructive operations require
 explicit user approval for each run; other AWS mutations remain manual unless
 the user explicitly requests them.
 
+Smoke commands print concise outcomes; temporary HTTP bodies and tokens are removed
+on exit. Review image scan findings before explicitly confirming publication.
+
 ## Prerequisites
+
+The development root requires an explicit `agent_image_digest` and
+`agent_runtime_endpoint_version`. Set them in ignored
+`infra/environments/dev/deployment.auto.tfvars` using the adjacent example file.
+Keep the stable endpoint pinned while staging a new image, then promote only
+after verification. Never reuse a saved plan after changing these inputs.
+
+`make package-functions` and `make package-api-lambda` use the same Lambda packager
+with explicit handler profiles. Each ZIP includes its locked SDK and validation
+dependencies, passes imports without development site-packages, and uses normalized
+timestamps and file ordering for reproducible hashes.
+
+### Account access
+
+The personal development account uses an MFA-protected IAM user in the
+`praxis-dev` group with `SignInLocalDevelopmentAccess` and
+`AdministratorAccess`. Do not create access keys or use root for routine work.
+This broad operator permission is a development convenience, not the permission
+model for application roles. Keep root MFA-protected.
+Use `aws login --profile praxis-dev --region us-east-1` for short-lived
+credentials and repeat it when the session expires. Verify the expected
+non-root identity before planning or applying.
 
 Install the pinned toolchain, authenticate the MFA-protected development
 profile, and confirm the expected non-root identity:
@@ -90,18 +115,16 @@ and mutating operations visibly separate:
 
 | Command | Coverage | Model inference |
 | --- | --- | --- |
-| `make smoke-dev` | Fast API configuration, Cognito, and Runtime authorization | No |
-| `make smoke-dev SUITE=frontend` | Private S3 origin and CloudFront application delivery | No |
-| `make smoke-dev SUITE=access-logs` | Eventually consistent API access-log delivery | No |
-| `make smoke-dev SUITE=tools` | Catalog Lambda and AgentCore Gateway tools | No |
-| `make smoke-dev SUITE=api` | JWT API through AgentCore Runtime; requires an exported access token | Yes |
-| `make smoke-dev SUITE=agent` | Local Strands agent through Gateway | Yes |
-| `make smoke-dev SUITE=runtime` | Stable AgentCore Runtime endpoint | Yes |
-| `make smoke-dev SUITE=runtime-cache` | Explicit prompt-cache write/read behavior | Yes, twice |
-| `make smoke-dev SUITE=runtime-sessions` | Runtime session isolation | Yes, twice |
-| `make smoke-dev SUITE=runtime-traces` | Runtime response and trace delivery | Yes |
-| `make smoke-dev SUITE=security` | Synthetic catalog prompt-injection resistance | Yes, once |
-| `make smoke-memory-dev CONFIRM=smoke-memory-dev` | Typed Memory records | May write records |
+| `make smoke-dev` | Frontend delivery, private origin, anonymous API rejection, CORS | No |
+| `make smoke-dev SUITE=tools` | Gateway authorization, discovery, catalog search/lookup | No |
+| `make smoke-dev SUITE=api` | Authenticated recommendation and brief; requires access token | Yes |
+| `make smoke-dev SUITE=runtime` | Direct Runtime diagnostic; optional `VERIFY_RUNTIME_TRACES=true` | Yes |
+| `make smoke-agent-container` | Network-isolated local image health | No |
+
+Smoke checks verify representative connections and access boundaries, not every
+input permutation or infrastructure setting. Use local tests for validation,
+reviewed OpenTofu drift plans for configuration, and bounded log inspection for
+delivery problems. None of these substitutes for the others.
 
 To obtain the short-lived Cognito access token, sign in through the Praxis
 frontend, open the browser developer console, and run:
@@ -158,7 +181,7 @@ build with the deployed public identifiers and publish the bundle:
 
 ```shell
 make deploy-frontend-dev CONFIRM=deploy-frontend-dev
-make smoke-dev SUITE=frontend
+make smoke-dev
 ```
 
 The deployment target synchronizes `frontend/dist/` into the private bucket and
@@ -169,51 +192,11 @@ passwords, tokens, or other secrets. Retrieve the browser URL at any time with:
 AWS_PROFILE=praxis-dev tofu -chdir=infra/environments/dev output -raw frontend_url
 ```
 
-The frontend smoke suite verifies blocked S3 public access, bucket-owner
-enforcement, S3-managed encryption, a non-public bucket policy, CloudFront OAC,
-HTTPS redirection, bounded edge locations, managed cache and security headers,
-and SPA fallback delivery.
-
-The Gateway tools check signs standard MCP `tools/list` and `tools/call`
-requests with the active profile, verifies all four catalog tools are
-discoverable, and confirms that every catalog tool returns evidence. It writes
-credential-free, deterministic captures to
-`docs/evidence/gateway-tools-list.json` and
-`docs/evidence/gateway-tool-calls.json`. It also verifies excessive, malformed,
-unregistered-tool, oversized-string, oversized-collection, and unsigned
-requests are rejected and records only sanitized outcomes in
-`docs/evidence/gateway-negative-calls.json`. Client-observed HTTPS latency and
-JSON request/raw response body sizes for each successful tool call are recorded
-in `docs/evidence/gateway-tool-metrics.json`.
-
-The API Gateway check reads `PRAXIS_ACCESS_TOKEN`, requires an unauthenticated
-request to fail before Lambda invocation, and validates one asynchronous
-pending-to-ready session plus its complete buffered Runtime response without
-recording candidate or session content. The bearer token is kept out of process
-arguments and evidence. The access-log check
-verifies the stage's privacy-safe JSON schema and seven-day retention, then
-correlates an unauthenticated 401 request with its delivered CloudWatch record
-without invoking Lambda. Initial log delivery can
-take up to two minutes. The CORS check requires an exact frontend origin and
-proves an unrelated origin receives no allow-origin header; API Gateway answers
-both preflights without Lambda. The throttling check reads the deployed stage
-and verifies both POST routes target a burst of one and 0.1 requests per second.
-It also reads the API, catalog, and worker Lambda timeouts (29, 15, and 120
-seconds) and records configuration evidence in `docs/evidence/api-throttling.json`.
-The payload check invokes the private API Lambda with a body over 16 KiB
-and a separate 4,001-character goal. It requires fixed 413 and 400 responses,
-respectively, proving validation stopped before Runtime.
-It also submits a synthetic credential assignment using both JSON and base64
-bodies, requiring a fixed `400 sensitive_input` response without reflected text.
-These direct Lambda probes simulate trusted JWT authorizer context; they do not
-verify browser authentication. Results are recorded in
-`docs/evidence/api-payload-limits.json` without storing submitted goals.
-The `api` suite exercises the Runtime-backed success path through API Gateway.
-The direct Lambda script remains available only for targeted diagnosis. Every
-successful Runtime call is metered. That diagnostic supplies trusted-context
-fixtures for two JWT subjects and requires the second subject to receive the
-same fixed 404 for both session status and candidate selection; its sanitized
-result is recorded in `docs/evidence/api-lambda.json`.
+The default smoke checks application-shell and SPA delivery, direct S3 rejection,
+anonymous API rejection, and allowed/denied CORS preflights. It submits no valid goal.
+The tools suite signs MCP discovery and a catalog search/lookup round trip.
+The API suite checks one pending-to-ready recommendation and selected brief,
+plus safe rejection responses. It does not exercise every tool or response permutation.
 
 `make check` injects transport timeouts and throttling errors into the API,
 worker, and catalog adapters. Expected worker failures become a safe `failed`
@@ -275,61 +258,102 @@ exception text are omitted from the application event. Lambda responses and
 stored reports retain their existing contract. Hard termination may prevent
 logging, and platform/SDK diagnostics remain outside this privacy contract.
 
-The Memory check has a distinct confirmation because its first run creates one
-typed preference and one typed decision for a dedicated smoke actor. A
-deterministic preflight makes later runs read-only once both records exist. It
-requires actor-scoped semantic retrieval, exercises the catalog-identifier
-rejection boundary, and writes only sanitized counts and kinds to
-`docs/evidence/agentcore-memory.json`.
+### Operational alarms
 
-The Cognito check reads the deployed user pool, public browser client, and API
-JWT authorizer without creating a user. It requires the reviewed admin-only
-email identity, recovery, password, cost-tier, teardown, secretless-client,
-auth-flow, token-lifetime, issuer, audience, and protected-route settings and
-writes only sanitized configuration facts to
-`docs/evidence/cognito-user-pool.json`.
+Operational alarm definitions live in `infra/environments/dev/alarms.tf`. The
+HTTP API alarm evaluates the API-wide `5xx / Count` percentage over five minutes:
+at least five requests and a rate of 5% or more trigger the alarm. Missing data
+and periods with fewer than five requests do not breach. This is a development
+noise threshold, not an availability SLO: a single failed low-volume request can
+go unalerted. API polling and unauthorized requests are also in the denominator.
+Direct Lambda checks and asynchronous worker failures are outside this metric;
+consult the status logs and worker diagnostics separately. No new custom or
+detailed route metrics are enabled. CloudWatch alarm charges may apply.
 
-The `agent` suite uses the same SigV4 Strands MCP transport as the
-AgentCore Runtime, invokes the configured Bedrock model with the discovered
-tools, and requires at least one Gateway tool call plus exactly three
-schema-valid candidates with an evidence citation on each. It writes sanitized
-counts and tool-call metadata to
-`docs/evidence/strands-gateway-tools-list.json` and
-`docs/evidence/strands-gateway-agent-run.json`. Override its deterministic smoke
-prompt with `PROMPT='your goal'` when needed.
+Operational alarms use a development-owned SNS topic restricted to the exact
+API alarm and account. Supply `TF_VAR_budget_notification_email` for development
+plans as well as bootstrap plans, using the same recipient. To reuse the single
+recipient recorded in private local bootstrap state without printing it:
 
-The `runtime` suite signs `InvokeAgentRuntime` with the active AWS profile,
-targets the named `stable` endpoint, and uses a new Runtime session ID. It
-requires exactly three schema-valid cited candidates and at least one Gateway
-tool call. The command prints endpoint-resolution and invocation stages and
-enforces a three-minute wall-clock timeout. Its credential-free capture is
-written to `docs/evidence/agentcore-runtime-invocation.json`; override the prompt with
-`PROMPT='your goal'` or the deadline with `RUNTIME_SMOKE_TIMEOUT_SECONDS=seconds`
-when needed.
+```shell
+export TF_VAR_budget_notification_email="$(jq -er '[.resources[] | select(.type == "aws_budgets_budget" and .name == "mvp") | .instances[].attributes.notification[].subscriber_email_addresses[]] | unique | if length == 1 then .[0] else error("Expected one budget recipient") end' infra/bootstrap/terraform.tfstate)"
+make tofu-plan-dev
+```
 
-The Runtime authorization check reads the immutable version served by the
-`stable` endpoint and requires its omitted custom JWT authorizer to select the
-service's [default IAM authorization](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-oauth.html).
-It then sends an unsigned request directly to the Runtime service endpoint and
-requires a 403 response. Authentication rejects the request before the Runtime
-container or model is invoked, so this check does not create a metered
-inference. Its sanitized result is written to
-`docs/evidence/agentcore-runtime-auth.json`.
+Run from the repository root with shell tracing disabled. If bootstrap state is
+unavailable, supply the known budget recipient privately instead. Never commit
+the address, state, or saved plan. After the reviewed plan is applied, open the
+SNS subscription email and choose **Confirm subscription**. Then verify the
+subscription and, with separate approval, notification delivery; a successful
+apply alone is insufficient. Confirm before teardown: the provider cannot
+individually unsubscribe a pending email subscription, though deleting its
+development topic removes associated subscriptions. No automatic remediation
+or teardown action is configured. See the
+[notification boundary](infrastructure-operations.md).
 
-The Runtime session check invokes the stable endpoint with two distinct session
-IDs and catalog topics whose expected evidence does not overlap. It fails if
-either response is invalid or their citations overlap, and writes a sanitized
-capture without session IDs to
-`docs/evidence/agentcore-runtime-session-isolation.json`.
+The bootstrap's unfiltered annual $10 budget retains actual-spend notifications
+at 50% and 100%; it includes other account workloads, has reporting delay, and
+does not impose a spending cap. It is not a daily anomaly detector. Budget email
+delivery and operational SNS notifications are independent.
+
+References: [HTTP API metrics](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-metrics.html)
+and [alarm missing-data behavior](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarms-and-missing-data.html).
+
+### Operations dashboard
+
+`infra/environments/dev/dashboard.tf` defines the `praxis-dev-operations`
+CloudWatch dashboard. After a reviewed plan is applied, find it under CloudWatch
+Dashboards using `tofu output -raw operations_dashboard_name` from the development
+root with `AWS_PROFILE=praxis-dev`. Definition validation is not proof that live
+panels contain data; verify against existing activity before declaring it ready.
+
+The one-hour default view shows Lambda duration p95, model input/output token
+sums, Lambda execution errors, catalog invocations, and aggregate API response
+statuses. Important interpretation boundaries:
+
+- Lambda duration measures each component, not browser-to-result latency.
+- Bedrock tokens cover every caller of the configured model in the account and
+  Region, including local runs. They are not project-attributed or a billing report.
+- Lambda errors exclude handled 503 responses; the API status panel includes
+  them using structured `api_request` records. Pre-handler failures remain in
+  the Lambda error panel; API Gateway rejections are not API handler responses.
+- Catalog invocations include direct checks and failed calls. They exclude local
+  agent tools and are not a count of model-selected tools or per-tool operations.
+- Missing data is not a zero-error result. No synthetic traffic is necessary
+  merely to populate charts; select an existing activity window.
+
+The dashboard uses existing metrics and one Logs Insights aggregate query, with
+no new custom metrics or content logging. The query displays only counts grouped
+by status and outcome, never raw log messages. Dashboard and query charges may
+apply; keep the range short, disable console auto-refresh, and close the dashboard
+when finished. Query execution and rendered-panel checks remain separate from
+local template validation.
+
+Sources: [CloudWatch dashboard syntax](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Dashboard-Body-Structure.html)
+and [Bedrock runtime metrics](https://docs.aws.amazon.com/bedrock/latest/userguide/monitoring-runtime-metrics.html).
+
+## Runtime diagnostic
+
+`make smoke-dev SUITE=runtime` invokes one fresh session through the stable
+endpoint and validates its candidates, citations, and tool counts. Override its prompt with `PROMPT='your goal'` or
+its wall-clock deadline with `RUNTIME_SMOKE_TIMEOUT_SECONDS=seconds`.
 
 ## Runtime traces
+
+`runtime_tracing.tf` configures managed `InvokeAgentRuntime` service-span delivery
+separately from the container's ADOT application spans. It uses a `TRACES` source
+and `XRAY` destination without enabling `APPLICATION_LOGS` or `USAGE_LOGS`.
+See [AWS Runtime service-span documentation](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability-runtime-metrics.html).
+Configuration validation alone does not verify service support, successful
+delivery, or the worker-to-Runtime parent chain; check deployed spans before
+claiming complete linkage.
 
 Catalog application spans read `_X_AMZN_TRACE_ID` from the Lambda runtime on
 each invocation. They accept only valid trace/parent IDs with an explicit
 sampling decision, ignore extension fields, and never extract context from tool
 arguments. Missing or invalid metadata starts an independent trace. Unsampled
 parents produce no recorded catalog span; this is not itself an export failure.
-See [trusted trace propagation](adr/0028-trusted-trace-propagation.md).
+See [trusted trace propagation](agent-runtime.md).
 
 Gateway service tracing is managed by `gateway_tracing.tf`: a `TRACES` delivery
 source, an `XRAY` destination, and their delivery connection. This is separate
@@ -378,7 +402,7 @@ ERROR span even though its acknowledged-delivery log is INFO. These contracts
 do not scrub dependency spans or platform diagnostics, and hard termination
 can prevent span completion.
 
-The shared API/worker Runtime adapter forwards the active OpenTelemetry W3C
+The worker Runtime adapter forwards the active OpenTelemetry W3C
 `traceparent` through the SDK's `traceParent` parameter for recommendations and
 briefs, plus an equivalent X-Ray `traceId` header for the AWS service boundary.
 Both representations preserve the same trace, parent, and sampling flag and are
@@ -391,7 +415,7 @@ attribute, leaving the job body unchanged. The single-record worker uses that
 validated identity as its remote parent, preserving sampling without accepting
 vendor state or baggage. Absent or malformed metadata starts an independent
 trace; it neither invalidates the job nor inherits another delivery's context.
-See [trusted trace propagation](adr/0028-trusted-trace-propagation.md).
+See [trusted trace propagation](agent-runtime.md).
 
 The Lambda package includes a locked SDK and HTTP/protobuf exporter. Its
 application-only provider is enabled by `PRAXIS_LAMBDA_TRACING=true` inside Lambda;
@@ -425,24 +449,13 @@ After deploying the ADOT-instrumented image and promoting its immutable Runtime
 version, invoke and verify one evaluation-compatible trace:
 
 ```shell
-make smoke-dev SUITE=runtime-traces
+make smoke-dev SUITE=runtime VERIFY_RUNTIME_TRACES=true
 ```
 
 The command waits up to three minutes for ADOT delivery to the named Runtime
 endpoint's CloudWatch `spans` stream, requires a session-correlated
-`strands.telemetry.tracer` `invoke_agent` span for the deployed Runtime, and
-writes sanitized metadata to
-`docs/evidence/agentcore-runtime-traces.json`. It never records prompts,
-responses, session IDs, trace IDs, span IDs, account IDs, or resource ARNs.
-Override only the delivery wait with `RUNTIME_TRACE_TIMEOUT_SECONDS=seconds`.
-
-The `runtime-cache` suite runs the trace check twice with the same recommendation
-request within Nova Lite's five-minute cache lifetime. The first invocation
-warms the cache; the second must report cached input tokens. The cache checkpoint
-follows the stable Gateway tool schemas and system instructions; user goals,
-retrieved evidence, memory context, and model output remain outside the cached
-prefix. Each run writes sanitized counters to the existing
-`docs/evidence/agentcore-runtime-traces.json` capture.
+`strands.telemetry.tracer` `invoke_agent` span for the deployed Runtime, and prints the number of matching spans without content or IDs.
+Override the delivery wait with `RUNTIME_TRACE_TIMEOUT_SECONDS=seconds`.
 
 ## Deployed evaluation
 
@@ -456,11 +469,11 @@ make eval-runtime-dev
 The current suite performs 30 metered Runtime invocations with isolated session
 IDs and up to 90 managed evaluation requests. It waits for a correlated
 CloudWatch trace after each invocation. Prefer the
-[local checks and cost controls](../evals/README.md#cost-and-token-controls)
+[local checks and cost controls](../evals/README.md#cost-controls)
 when a fresh model measurement is unnecessary. It resolves
 the endpoint qualifier, immutable Runtime version, and digest-pinned container
 from OpenTofu state, then writes a versioned result under
-`evals/project-recommendations/results/`. The artifact excludes AWS account,
+`build/evals/`. The artifact excludes AWS account,
 resource, session, trace, and span identifiers. Use
 `RUNTIME_EVAL_TRACE_TIMEOUT_SECONDS=seconds` to change the per-case trace wait.
 The command reads the model ID and image digest from the immutable Runtime
@@ -468,49 +481,22 @@ version served by the endpoint, preventing manual metadata mismatches.
 
 ### Model selection and rollback
 
-ADR 0005 defines Nova Lite (`amazon.nova-lite-v1:0`) as the default and Nova
-Micro as the measured rollback model. Stage any future comparison model without
-changing checked-in defaults by creating a saved plan override:
+Nova Pro (`amazon.nova-pro-v1:0`) is the supported model. The model ID remains
+configurable, but every model uses the same structured candidate contract.
+Validate a proposed model's tool use, citations, briefs, reliability, latency,
+and token usage before adopting it. Model evaluations require explicit approval.
 
-```shell
-TF_VAR_agent_model_id=MODEL_ID make tofu-plan-dev
-tofu -chdir=infra/environments/dev show dev.tfplan
-make tofu-apply-dev CONFIRM=apply-dev
-```
+Set the intended `agent_model_id` in deployment configuration and review the
+saved plan. Runtime IAM permits only that configured model. Changing this policy
+affects all versions sharing the execution role, including the version behind
+`stable`; staging a version does not isolate IAM changes. Pause submissions and
+drain queued work during model transitions.
 
-The stable endpoint remains on its pinned version while the new Runtime version
-is staged. Inspect the immutable versions and select the highest version that
-is `READY`, uses the intended model and image digest, and reports MMDSv2 as
-`true`:
-
-```shell
-make inspect-runtime-versions-dev
-```
-
-Promote the reviewed version while retaining both overrides in the plan:
-
-```shell
-TF_VAR_agent_model_id=MODEL_ID \
-  TF_VAR_agent_runtime_endpoint_version=VERSION \
-  make tofu-plan-dev
-tofu -chdir=infra/environments/dev show dev.tfplan
-make tofu-apply-dev CONFIRM=apply-dev
-make eval-runtime-dev
-```
-
-After capturing the comparison result, either adopt the measured model and
-version in the checked-in defaults through a reviewed change, or restore the
-current defaults with a normal plan and apply:
-
-```shell
-make tofu-plan-dev
-tofu -chdir=infra/environments/dev show dev.tfplan
-make tofu-apply-dev CONFIRM=apply-dev
-```
-
-Never change the default based on subjective output review alone. Compare
-reliability, deterministic quality, evidence coverage, tool trajectory, latency,
-and tokens on the canonical suite and record the decision in an ADR.
+Inspect versions with `make inspect-runtime-versions-dev`, then promote an
+explicit READY version with the intended model, image digest, and MMDSv2 setting.
+A rollback must restore compatible model permissions, image, API contract, and
+endpoint version—not just the endpoint pointer. Follow the normal reviewed
+plan/apply workflow and verify compatibility before resuming traffic.
 
 ## Agent image publication
 
@@ -518,16 +504,15 @@ Build the AgentCore Runtime image, then preview its immutable ECR destination:
 
 ```shell
 make agent-image
+make security SCAN=image
 make preview-agent-image-dev
 ```
 
-The image must be ARM64 and carry an OCI revision label matching `HEAD`. The
-preview derives the ECR repository from OpenTofu state, uses the full Git commit
-as the immutable `git-<sha>` tag for a clean worktree, and reports whether that
-tag already exists. Images built with uncommitted inputs receive a warning and
-an immutable `dirty-<image-id>` tag derived from their local OCI content rather
-than a reproducible Git revision. After reviewing it, manually perform the
-write:
+The image must be ARM64. Preview resolves the ECR repository from OpenTofu
+state and reports the immutable `image-<configuration-id>` tag and whether it
+already exists. Git revision labels are informational; worktree state does not
+change publication behavior. Review the scan findings and destination, then
+manually perform the write:
 
 ```shell
 make push-agent-image-dev CONFIRM=push-agent-image-dev
@@ -554,7 +539,12 @@ plan. Never point application callers at the automatically moving `DEFAULT`
 endpoint.
 
 Before an extended pause or project completion, review and apply a saved
-destroy plan:
+destroy plan. Supply the private `TF_VAR_budget_notification_email` input as
+described under [operational alarms](#operational-alarms); a destroy plan still
+evaluates required configuration inputs. Before deleting resources, preserve
+privacy-reviewed demonstration evidence and record the exact Runtime log-group
+names from `application_log_group_names` in a private local inventory. Do not
+export raw prompts or telemetry into committed evidence.
 
 ```shell
 make tofu-plan-destroy-dev
@@ -567,13 +557,35 @@ including ECR repositories and their images. It intentionally preserves the
 bootstrap S3 bucket, remote state history, cost budget, and local bootstrap
 state because those belong to the independent bootstrap root.
 
-Verify that only bootstrap resources remain:
+### Resource ownership and residual checks
+
+| Resources | Teardown boundary | Verification |
+| --- | --- | --- |
+| Dashboard and API error-rate alarm | Development root: `dashboard.tf`, `alarms.tf` | Confirm the exact dashboard/alarm names are absent after apply. |
+| SNS topic, policy, and email subscription | Development root: `alarms.tf` | Confirm the topic is absent. A pending email subscription cannot be individually unsubscribed; topic deletion removes its subscriptions. |
+| Runtime/Gateway trace delivery sources, destinations, and connections | Development root: `runtime_tracing.tf`, `gateway_tracing.tf` | Confirm both named delivery sources/destinations and their recorded connections are absent. These are distinct from shared X-Ray destination settings. |
+| API, worker, catalog, ingestion, and API access log groups | Explicit development `aws_cloudwatch_log_group` resources | Confirm the recorded names are absent. |
+| Service-created Runtime `DEFAULT` and `stable` log groups | Retention-only provisioning, not managed log-group resources | Inspect the exact pre-destroy names. The retention script has no destroy hook; do not assume removing its `terraform_data` record deletes a group. |
+| Shared `aws/spans`, X-Ray/Transaction Search configuration, and retained spans | Account/Region-level setup outside the development root | Review ownership and retention separately; never delete shared data or disable account-wide settings merely because Praxis is removed. |
+| Bootstrap state bucket/history and cost budget | Independent bootstrap root | Preserve until a separately approved bootstrap teardown. |
+
+Seven-day Runtime retention expires events, not the log groups themselves. It
+does not establish the retention of `aws/spans`. Earlier Runtime identities may
+also have service-created groups; compare a narrowly scoped inventory with the
+recorded Runtime identities rather than deleting by a broad prefix. Any cleanup
+of exact residual resources requires separate explicit approval. Keep shared
+resources as documented exceptions until ownership is resolved.
+
+Verify tracked development resources are gone (with the configured profile):
 
 ```shell
-tofu -chdir=infra/environments/dev state list
+AWS_PROFILE=praxis-dev tofu -chdir=infra/environments/dev state list
 tofu -chdir=infra/bootstrap state list
 ```
 
-The first command must print no managed resources. The second must continue to
-list the state-bucket controls and budget until the bootstrap stack is
-explicitly destroyed.
+The first command must print no managed resources; read-only data sources may
+remain. The second must continue to list the state-bucket controls and budget
+until the bootstrap stack is explicitly destroyed. Empty state is necessary
+but not sufficient: complete the residual checks above before reporting that
+only documented bootstrap/shared resources remain. This ownership review is
+not evidence of an executed teardown or zero ongoing charges.

@@ -14,7 +14,7 @@ from praxis.evaluation import DeploymentIdentity, EvaluationExpectations, Evalua
 from praxis.evaluation.results import AgentCoreEvaluationResult, TokenUsageResult
 from praxis.evaluation.runner import (
     PlanningInvoker,
-    measure_citation_support,
+    measure_citation_resolution,
     measure_retrieval_relevance,
     run_baseline,
 )
@@ -109,7 +109,6 @@ def test_run_baseline_scores_and_aggregates_all_cases(tmp_path: Path) -> None:
 
     assert result.summary.case_count == case_count
     assert result.summary.success_count == case_count
-    assert result.summary.average_quality_score == 1.0
     assert result.summary.expected_evidence_pass_count == case_count
     assert result.summary.expected_trajectory_pass_count == case_count
     assert result.summary.total_tokens == case_count * 150
@@ -118,12 +117,15 @@ def test_run_baseline_scores_and_aggregates_all_cases(tmp_path: Path) -> None:
     assert result.summary.average_retrieval_precision_at_k == 1.0
     assert result.summary.average_expected_evidence_coverage == 1.0
     assert result.summary.mean_reciprocal_rank == 1.0
-    assert result.summary.citation_correctness_rate == 1.0
-    assert result.summary.unsupported_claim_rate == 0.0
+    assert result.summary.citation_resolution_rate == 1.0
     assert result.metadata.deployment == deployment
     assert all(case.candidates is not None for case in result.cases)
     assert all(case.retrieval_relevance is not None for case in result.cases)
-    assert all(case.citation_support is not None for case in result.cases)
+    assert all(case.citation_resolution is not None for case in result.cases)
+    serialized = result.model_dump()
+    assert "average_quality_score" not in serialized["summary"]
+    assert "score" not in serialized["cases"][0]["checks"]
+    assert "supported_claim_count" not in serialized["summary"]
 
     output_path = write_result(result, tmp_path)
     assert output_path.name.startswith("agentcore-v8-")
@@ -160,7 +162,7 @@ def test_attach_agentcore_evaluations_aggregates_sanitized_scores() -> None:
         {evaluation_set.cases[0].prompt: (evaluation,)},
     )
 
-    assert enriched.result_version == 3
+    assert enriched.result_version == 5
     assert enriched.cases[0].agentcore_evaluations == [evaluation]
     assert all(not case.agentcore_evaluations for case in enriched.cases[1:])
     goal_summary = enriched.summary.agentcore_evaluations[0]
@@ -182,13 +184,20 @@ def test_retrieval_and_citation_metrics_distinguish_resolution_from_support() ->
         local_tool_calls=("search_catalog",),
         generation_metrics=None,
     )
-    citations = measure_citation_support(run)
+    citations = measure_citation_resolution(run)
 
     assert relevance.matched_count == 1
     assert relevance.precision_at_k == 0.5
     assert relevance.reciprocal_rank == 0.5
     assert citations.resolved_citation_count == 0
-    assert citations.supported_claim_count == 0
-    assert citations.unsupported_claim_count == 3
-    assert citations.citation_correctness_rate == 0.0
-    assert citations.unsupported_claim_rate == 1.0
+    assert citations.unresolved_citation_count == 3
+    assert citations.citation_resolution_rate == 0.0
+
+    # Even an unrelated resource resolves if retrieved; resolution is not semantic support.
+    retrieved_unrelated = ProjectPlanningRun(
+        candidates=run.candidates,
+        retrieved_evidence_ids=(unrelated_id,),
+        local_tool_calls=run.local_tool_calls,
+        generation_metrics=None,
+    )
+    assert measure_citation_resolution(retrieved_unrelated).citation_resolution_rate == 1.0

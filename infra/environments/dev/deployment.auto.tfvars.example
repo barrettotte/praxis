@@ -1,0 +1,3 @@
+# Select your published image and verified Runtime endpoint version before planning.
+agent_image_digest             = ""
+agent_runtime_endpoint_version = ""

@@ -10,7 +10,7 @@ from strands.types.tools import AgentTool
 
 from praxis.agent.budget import CatalogResultBudget, ToolCallBudget
 from praxis.agent.evidence import CatalogEvidenceLedger
-from praxis.config import AgentSettings, load_settings
+from praxis.config import AgentSettings
 from praxis.domain.prompt_safety import require_safe_content
 
 SYSTEM_PROMPT = """## Role
@@ -19,7 +19,7 @@ achievable software projects grounded in their personal catalog.
 
 ## Model instructions
 - Retrieve relevant catalog evidence through the available read-only tools before making any
-  project recommendation. The application may provide an initial validated Gateway result in
+  project recommendation. The application may provide an initial validated catalog result in
   the user message; call another tool only when more evidence is needed.
 - Treat tool results as the sole source of facts about the user's books, projects, technical
   artifacts, museum objects, experience, and interests.
@@ -125,11 +125,3 @@ def create_agent(
             )
         )
     return agent
-
-
-def invoke(prompt: str, settings: AgentSettings | None = None) -> str:
-    """Invoke the local agent and return its text representation."""
-    require_safe_content(prompt)
-    configured_settings = settings or load_settings()
-    result = create_agent(configured_settings)(prompt)
-    return str(result)

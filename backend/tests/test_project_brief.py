@@ -9,10 +9,12 @@ import pytest
 from botocore.exceptions import ClientError
 from pydantic import ValidationError
 from strands.agent.agent_result import AgentResult
+from strands.types.exceptions import MaxTokensReachedException
 
 from praxis.agent import brief
 from praxis.config import AgentSettings
 from praxis.domain import EvidenceCitation, ProjectCandidate
+from praxis.domain.briefs import ProjectBrief
 from praxis.domain.prompt_safety import SensitiveInputError
 from praxis.tools.contracts import BookEvidence
 
@@ -106,12 +108,12 @@ def evidence() -> BookEvidence:
 
 
 def settings() -> AgentSettings:
-    return AgentSettings(model_id="amazon.nova-lite-v1:0", region="us-east-1")
+    return AgentSettings(model_id="amazon.nova-pro-v1:0", region="us-east-1")
 
 
 def test_brief_agent_configures_versioned_guardrail() -> None:
     configured = AgentSettings(
-        model_id="amazon.nova-lite-v1:0",
+        model_id="amazon.nova-pro-v1:0",
         region="us-east-1",
         guardrail_id="guardrail-123",
         guardrail_version="7",
@@ -120,13 +122,13 @@ def test_brief_agent_configures_versioned_guardrail() -> None:
     with (
         patch.object(brief, "Session") as session_type,
         patch.object(brief, "BedrockModel") as model_type,
-        patch.object(brief, "Agent"),
+        patch.object(brief, "Agent") as agent_type,
     ):
         brief.create_brief_agent(configured)
 
     model_type.assert_called_once_with(
         boto_session=session_type.return_value,
-        model_id="amazon.nova-lite-v1:0",
+        model_id="amazon.nova-pro-v1:0",
         guardrail_id="guardrail-123",
         guardrail_version="7",
         guardrail_trace="enabled",
@@ -136,17 +138,23 @@ def test_brief_agent_configures_versioned_guardrail() -> None:
         additional_request_fields={"inferenceConfig": {"topK": 1}},
         streaming=False,
     )
+    agent_type.assert_called_once_with(
+        model=model_type.return_value,
+        tools=[],
+        system_prompt=brief.BRIEF_SYSTEM_PROMPT,
+        callback_handler=None,
+    )
 
 
-def test_project_brief_output_parses_atomic_json() -> None:
-    output = brief.ProjectBriefOutput(brief_json=json.dumps(valid_brief()) + "}")
+def test_project_brief_output_uses_direct_schema() -> None:
+    output = ProjectBrief.model_validate(valid_brief())
 
-    assert output.as_brief().model_dump(mode="json") == valid_brief()
+    assert output.model_dump(mode="json") == valid_brief()
 
 
 def test_project_brief_output_rejects_incomplete_content() -> None:
-    with pytest.raises(ValidationError, match="brief_json is invalid"):
-        brief.ProjectBriefOutput(brief_json=json.dumps({"objective": "Incomplete"}))
+    with pytest.raises(ValidationError, match="Field required"):
+        ProjectBrief.model_validate({"objective": "Incomplete"})
 
 
 @pytest.mark.parametrize("source", ["goal", "candidate", "evidence"])
@@ -166,7 +174,7 @@ def test_brief_screens_all_model_context_before_agent_creation(source: str) -> N
 
 
 def test_invokes_deterministic_brief_agent_with_server_context() -> None:
-    structured_output = brief.ProjectBriefOutput(brief_json=json.dumps(valid_brief()))
+    structured_output = ProjectBrief.model_validate(valid_brief())
     agent_result = cast("AgentResult", SimpleNamespace(structured_output=structured_output))
 
     with patch.object(brief, "create_brief_agent") as create_agent:
@@ -190,17 +198,17 @@ def test_invokes_deterministic_brief_agent_with_server_context() -> None:
     assert payload["selected_candidate"]["title"] == "Compiler backend exercise"
     assert payload["catalog_evidence"][0]["evidence_id"] == "book:0f5ba253568e4836"
     assert invocation.kwargs == {
-        "structured_output_model": brief.ProjectBriefOutput,
+        "structured_output_model": ProjectBrief,
         "limits": {"turns": 3},
     }
     assert result.model_dump(mode="json") == valid_brief()
 
 
 def test_brief_guardrail_assesses_only_original_goal() -> None:
-    structured_output = brief.ProjectBriefOutput(brief_json=json.dumps(valid_brief()))
+    structured_output = ProjectBrief.model_validate(valid_brief())
     agent_result = cast("AgentResult", SimpleNamespace(structured_output=structured_output))
     configured = AgentSettings(
-        model_id="amazon.nova-lite-v1:0",
+        model_id="amazon.nova-pro-v1:0",
         region="us-east-1",
         guardrail_id="guardrail-123",
         guardrail_version="7",
@@ -225,7 +233,7 @@ def test_brief_guardrail_assesses_only_original_goal() -> None:
 
 
 def test_retries_transient_model_tool_sequence_failure() -> None:
-    structured_output = brief.ProjectBriefOutput(brief_json=json.dumps(valid_brief()))
+    structured_output = ProjectBrief.model_validate(valid_brief())
     agent_result = cast("AgentResult", SimpleNamespace(structured_output=structured_output))
     transient_error = ClientError(
         {
@@ -248,6 +256,21 @@ def test_retries_transient_model_tool_sequence_failure() -> None:
 
     assert create_agent.call_count == 2
     assert result.model_dump(mode="json") == valid_brief()
+
+
+def test_does_not_retry_or_accept_partial_brief_after_token_exhaustion() -> None:
+    with patch.object(brief, "create_brief_agent") as create_agent:
+        create_agent.return_value.side_effect = MaxTokensReachedException("Output limit reached")
+        with pytest.raises(MaxTokensReachedException):
+            brief.invoke_project_brief(
+                "Learn compiler backends over a weekend",
+                candidate(),
+                [evidence()],
+                settings(),
+            )
+
+    create_agent.assert_called_once_with(settings())
+    create_agent.return_value.assert_called_once()
 
 
 def test_does_not_retry_unrelated_bedrock_failure() -> None:
@@ -274,13 +297,14 @@ def test_rejects_candidate_without_resolved_evidence() -> None:
         brief.invoke_project_brief("Learn compiler backends", candidate(), [], settings())
 
 
-def test_brief_prompt_requires_feasible_measurable_output() -> None:
-    assert "reframe the implementation as" in brief.BRIEF_SYSTEM_PROMPT
-    assert "baseline, metric, and measurement method" in brief.BRIEF_SYSTEM_PROMPT
-    assert "concrete deliverable" in brief.BRIEF_SYSTEM_PROMPT
-    assert "self-service verification method" in brief.BRIEF_SYSTEM_PROMPT
-    assert "technical_approach" in brief.BRIEF_SYSTEM_PROMPT
-    assert "never depend on peer review" in brief.BRIEF_SYSTEM_PROMPT
+def test_brief_quality_guidance_does_not_add_a_serving_rejection() -> None:
+    payload = valid_brief()
+    milestones = cast("list[dict[str, str]]", payload["milestones"])
+    milestones[0]["verification"] = "The examples are functional and complete."
+
+    output = ProjectBrief.model_validate(payload)
+
+    assert output.milestones[0].verification == milestones[0]["verification"]
 
 
 def test_project_brief_output_rejects_external_expert_verification() -> None:
@@ -289,7 +313,7 @@ def test_project_brief_output_rejects_external_expert_verification() -> None:
     milestones[0]["verification"] = "Peer review by a chemistry or physics expert."
 
     with pytest.raises(ValidationError, match="external expert"):
-        brief.ProjectBriefOutput(brief_json=json.dumps(payload))
+        ProjectBrief.model_validate(payload)
 
 
 @pytest.mark.parametrize(
@@ -304,7 +328,7 @@ def test_project_brief_output_rejects_learning_only_objective(objective: str) ->
     payload["objective"] = objective
 
     with pytest.raises(ValidationError, match="artifact or observable result"):
-        brief.ProjectBriefOutput(brief_json=json.dumps(payload))
+        ProjectBrief.model_validate(payload)
 
 
 def test_project_brief_output_rejects_subjective_acceptance_criterion() -> None:
@@ -313,7 +337,7 @@ def test_project_brief_output_rejects_subjective_acceptance_criterion() -> None:
     criteria[0]["criterion"] = "The user has a solid understanding of quantum mechanics."
 
     with pytest.raises(ValidationError, match="observable artifact or result"):
-        brief.ProjectBriefOutput(brief_json=json.dumps(payload))
+        ProjectBrief.model_validate(payload)
 
 
 def test_project_brief_output_accepts_learning_tied_to_artifacts() -> None:
@@ -322,55 +346,51 @@ def test_project_brief_output_accepts_learning_tied_to_artifacts() -> None:
         "Learn quantum mechanics by producing a simulation report and comparison dataset."
     )
 
-    output = brief.ProjectBriefOutput(brief_json=json.dumps(payload))
+    output = ProjectBrief.model_validate(payload)
 
-    assert output.as_brief().objective == payload["objective"]
+    assert output.objective == payload["objective"]
 
 
-def test_project_brief_output_removes_generic_motivation_assumptions() -> None:
+def test_compact_brief_defaults_optional_sections_and_round_trips() -> None:
     payload = valid_brief()
-    assumptions = cast("list[str]", payload["assumptions"])
-    assumptions.extend(
-        [
-            "The user is willing to study quantum mechanics.",
-            "The user is interested in energy storage technology.",
-        ]
-    )
+    optional = ("technical_approach", "assumptions", "out_of_scope", "risks")
+    for name in optional:
+        payload.pop(name)
+    for name in ("deliverables", "milestones", "acceptance_criteria"):
+        payload[name] = cast("list[object]", payload[name])[:1]
 
-    output = brief.ProjectBriefOutput(brief_json=json.dumps(payload))
+    parsed = ProjectBrief.model_validate(payload)
+    serialized = parsed.model_dump(mode="json")
 
-    assert output.as_brief().assumptions == valid_brief()["assumptions"]
+    assert all(serialized[name] == [] for name in optional)
+    assert type(parsed).model_validate_json(parsed.model_dump_json()) == parsed
+    assert len(parsed.milestones) == 1
 
 
-def test_project_brief_output_preserves_assumption_bounds_after_cleanup() -> None:
+@pytest.mark.parametrize("field", ["deliverables", "milestones", "acceptance_criteria"])
+def test_compact_brief_requires_nonempty_core_lists(field: str) -> None:
     payload = valid_brief()
-    payload["assumptions"] = [
-        "The user has a computer with Python installed.",
-        "The user is willing to study quantum mechanics.",
-        "The user is interested in energy storage technology.",
-    ]
-
-    output = brief.ProjectBriefOutput(brief_json=json.dumps(payload))
-
-    assert output.as_brief().assumptions == payload["assumptions"]
+    payload[field] = []
+    with pytest.raises(ValidationError):
+        ProjectBrief.model_validate(payload)
 
 
-def test_project_brief_output_normalizes_exclusions_alias() -> None:
+@pytest.mark.parametrize("field", ["technical_approach", "assumptions", "out_of_scope", "risks"])
+def test_optional_brief_sections_reject_null(field: str) -> None:
     payload = valid_brief()
-    expected_exclusions = payload.pop("out_of_scope")
-    payload["exclusions"] = expected_exclusions
-
-    output = brief.ProjectBriefOutput(brief_json=json.dumps(payload))
-
-    assert output.as_brief().out_of_scope == expected_exclusions
+    payload[field] = None
+    with pytest.raises(ValidationError):
+        ProjectBrief.model_validate(payload)
 
 
-def test_project_brief_output_prefers_exclusions_over_invalid_canonical_value() -> None:
+def test_full_brief_preserves_optional_sections() -> None:
     payload = valid_brief()
-    expected_exclusions = payload["out_of_scope"]
-    payload["out_of_scope"] = "Physical construction is excluded."
-    payload["exclusions"] = expected_exclusions
+    parsed = ProjectBrief.model_validate(payload)
+    assert parsed.model_dump(mode="json") == payload
 
-    output = brief.ProjectBriefOutput(brief_json=json.dumps(payload))
 
-    assert output.as_brief().out_of_scope == expected_exclusions
+def test_project_brief_output_rejects_unknown_alias() -> None:
+    payload = valid_brief()
+    payload["exclusions"] = payload.pop("out_of_scope")
+    with pytest.raises(ValidationError, match="Extra inputs"):
+        ProjectBrief.model_validate(payload)

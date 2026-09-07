@@ -15,8 +15,8 @@ export function ProjectBriefView({ result }: ProjectBriefViewProps) {
       <p className="eyebrow">Generated project brief</p>
       <h3 id={headingId}>{candidate.title}</h3>
       <p className="generated-notice">
-        This implementation plan is AI-generated from the selected recommendation and its cited
-        catalog evidence.
+        This plan is AI-generated. Cited catalog items are related resources, not verification of
+        the proposed procedures or results.
       </p>
       <div className="brief-overview">
         <div>
@@ -28,32 +28,40 @@ export function ProjectBriefView({ result }: ProjectBriefViewProps) {
           <p>{brief.scope}</p>
         </div>
       </div>
-      <div className="brief-section">
-        <h4>Technical approach</h4>
-        <ol className="brief-approach">
-          {brief.technical_approach.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ol>
-      </div>
-      <div className="brief-section brief-boundaries">
-        <div>
-          <h4>Assumptions</h4>
-          <ul>
-            {brief.assumptions.map((assumption) => (
-              <li key={assumption}>{assumption}</li>
+      {brief.technical_approach.length > 0 && (
+        <div className="brief-section">
+          <h4>Technical approach</h4>
+          <ol className="brief-approach">
+            {brief.technical_approach.map((step) => (
+              <li key={step}>{step}</li>
             ))}
-          </ul>
+          </ol>
         </div>
-        <div>
-          <h4>Out of scope</h4>
-          <ul>
-            {brief.out_of_scope.map((exclusion) => (
-              <li key={exclusion}>{exclusion}</li>
-            ))}
-          </ul>
+      )}
+      {(brief.assumptions.length > 0 || brief.out_of_scope.length > 0) && (
+        <div className="brief-section brief-boundaries">
+          {brief.assumptions.length > 0 && (
+            <div>
+              <h4>Assumptions</h4>
+              <ul>
+                {brief.assumptions.map((assumption) => (
+                  <li key={assumption}>{assumption}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {brief.out_of_scope.length > 0 && (
+            <div>
+              <h4>Out of scope</h4>
+              <ul>
+                {brief.out_of_scope.map((exclusion) => (
+                  <li key={exclusion}>{exclusion}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
-      </div>
+      )}
       <div className="brief-section">
         <h4>Deliverables</h4>
         <ul className="brief-deliverables">
@@ -78,17 +86,19 @@ export function ProjectBriefView({ result }: ProjectBriefViewProps) {
           ))}
         </ol>
       </div>
-      <div className="brief-section">
-        <h4>Risks and mitigations</h4>
-        <dl className="brief-risks">
-          {brief.risks.map((risk) => (
-            <div key={risk.risk}>
-              <dt>{risk.risk}</dt>
-              <dd>{risk.mitigation}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
+      {brief.risks.length > 0 && (
+        <div className="brief-section">
+          <h4>Risks and mitigations</h4>
+          <dl className="brief-risks">
+            {brief.risks.map((risk) => (
+              <div key={risk.risk}>
+                <dt>{risk.risk}</dt>
+                <dd>{risk.mitigation}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
       <div className="brief-section">
         <h4>Acceptance criteria</h4>
         <ol className="brief-criteria">

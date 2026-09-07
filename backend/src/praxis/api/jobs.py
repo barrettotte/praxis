@@ -3,16 +3,16 @@
 import os
 from collections.abc import Mapping
 from functools import cache
-from typing import Annotated, Literal, Protocol, cast
+from typing import Annotated, Literal, Protocol, Self, cast
 
 from boto3.session import Session
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 from opentelemetry.context import Context
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from praxis.api.requests import MAX_API_TEXT_CHARACTERS, ActorId, SessionId
+from praxis.api.requests import MAX_API_TEXT_CHARACTERS, ActorId, CandidateId, SessionId
 
 
 class ApiJobError(RuntimeError):
@@ -34,6 +34,15 @@ class RecommendationJob(BaseModel):
     goal: Annotated[str, Field(min_length=1, max_length=MAX_API_TEXT_CHARACTERS)]
     correlation_id: Annotated[str, Field(min_length=1, max_length=128)]
     actor_id: ActorId
+    source_session_id: SessionId | None = None
+    candidate_id: CandidateId | None = None
+
+    @model_validator(mode="after")
+    def require_selection_pair(self) -> Self:
+        """Brief jobs reference an owned recommendation and one candidate together."""
+        if (self.source_session_id is None) != (self.candidate_id is None):
+            raise ValueError("selection requires both source session and candidate")
+        return self
 
 
 class _SqsRecord(BaseModel):

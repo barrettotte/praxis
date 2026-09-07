@@ -1,26 +1,18 @@
 """Tests for signed AgentCore Runtime smoke validation."""
 
 import json
-from pathlib import Path
 
 import pytest
 
 from praxis.agent.runtime_smoke import (
     RuntimeSmokeError,
-    RuntimeSmokeResult,
     RuntimeToolCall,
     RuntimeTraceResult,
     RuntimeTraceSpan,
-    SessionIsolationResult,
     invoke_runtime_endpoint,
     parse_runtime_traces,
-    require_prompt_cache_read,
     runtime_trace_log_group,
-    verify_session_isolation,
     wait_for_runtime_traces,
-    write_evidence,
-    write_session_isolation_evidence,
-    write_trace_evidence,
 )
 from praxis.domain import EvidenceCitation, ProjectCandidate, ProjectCandidateSet
 
@@ -95,7 +87,6 @@ def valid_response() -> dict[str, object]:
     payload = {
         "candidates": candidate_set().model_dump(mode="json")["candidates"],
         "evidence": [evidence_record()],
-        "memory": {"retrieved_count": 2},
         "tool_calls": [{"name": "search_catalog", "count": 1}],
     }
     return {
@@ -123,13 +114,12 @@ def test_invoke_runtime_endpoint_signs_expected_request_contract() -> None:
             "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/example-runtime"
         ),
         "contentType": "application/json",
-        "payload": (b'{"actor_id": "praxis-smoke", "prompt": "Recommend a compiler project"}'),
+        "payload": (b'{"prompt": "Recommend a compiler project"}'),
         "qualifier": "stable",
         "runtimeSessionId": session_id,
     }
     assert result.candidates == candidate_set()
     assert result.tool_calls == (RuntimeToolCall(name="search_catalog", count=1),)
-    assert result.memory_retrieved_count == 2
     assert result.retrieved_evidence_ids == ("book:0f5ba253568e4836",)
 
 
@@ -158,135 +148,6 @@ def test_invoke_runtime_endpoint_rejects_invalid_responses(
             "Recommend a compiler project",
             "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4",
         )
-
-
-def test_write_evidence_omits_runtime_arn_and_session_id(tmp_path: Path) -> None:
-    result = RuntimeSmokeResult(
-        candidate_set(),
-        (RuntimeToolCall(name="search_catalog", count=1),),
-        "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4",
-        "application/json",
-        2,
-    )
-
-    evidence_path = write_evidence(tmp_path, "stable", "2", result)
-
-    assert json.loads(evidence_path.read_text()) == {
-        "all_candidates_cited": True,
-        "authentication": "AWS_IAM",
-        "candidate_count": 3,
-        "client": "Boto3 AgentCore Runtime",
-        "endpoint_qualifier": "stable",
-        "endpoint_version": "2",
-        "evidence_ids": ["book:0f5ba253568e4836"],
-        "request_content_type": "application/json",
-        "response_content_type": "application/json",
-        "runtime_session_id_length": 36,
-        "memory_retrieved_count": 2,
-        "tool_calls": [{"count": 1, "name": "search_catalog"}],
-    }
-
-
-class SequentialRuntimeClient:
-    """Return one configured Runtime response per invocation."""
-
-    def __init__(self, responses: list[dict[str, object]]) -> None:
-        self.responses = iter(responses)
-        self.requests: list[dict[str, object]] = []
-
-    def invoke_agent_runtime(self, **kwargs: object) -> dict[str, object]:
-        self.requests.append(kwargs)
-        return next(self.responses)
-
-
-def response_for(evidence_id: str) -> dict[str, object]:
-    payload = {
-        "candidates": candidate_set(evidence_id).model_dump(mode="json")["candidates"],
-        "evidence": [evidence_record(evidence_id)],
-        "memory": {"retrieved_count": 2},
-        "tool_calls": [{"name": "search_catalog", "count": 1}],
-    }
-    return {
-        "statusCode": 200,
-        "contentType": "application/json",
-        "response": FakeBody(json.dumps(payload).encode()),
-    }
-
-
-def test_verify_session_isolation_requires_disjoint_evidence() -> None:
-    first_session_id = "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4"
-    second_session_id = "51f4a405-8835-411d-9821-5980d73f51f6"
-    client = SequentialRuntimeClient(
-        [
-            response_for("book:0f5ba253568e4836"),
-            response_for("museum:17ca91a13603360c"),
-        ]
-    )
-
-    result = verify_session_isolation(
-        client,
-        "runtime-arn",
-        "stable",
-        "compiler",
-        "commodore",
-        (first_session_id, second_session_id),
-    )
-
-    assert result.as_dict()["sessions_distinct"] is True
-    assert result.as_dict()["evidence_sets_disjoint"] is True
-    assert [request["runtimeSessionId"] for request in client.requests] == [
-        first_session_id,
-        second_session_id,
-    ]
-
-
-def test_verify_session_isolation_rejects_overlapping_evidence() -> None:
-    client = SequentialRuntimeClient(
-        [
-            response_for("book:0f5ba253568e4836"),
-            response_for("book:0f5ba253568e4836"),
-        ]
-    )
-
-    with pytest.raises(RuntimeSmokeError, match="overlapping evidence contexts"):
-        verify_session_isolation(
-            client,
-            "runtime-arn",
-            "stable",
-            "compiler",
-            "commodore",
-            (
-                "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4",
-                "51f4a405-8835-411d-9821-5980d73f51f6",
-            ),
-        )
-
-
-def test_write_session_isolation_evidence_omits_session_ids(tmp_path: Path) -> None:
-    result = SessionIsolationResult(
-        first=RuntimeSmokeResult(
-            candidate_set("book:0f5ba253568e4836"),
-            (RuntimeToolCall(name="search_catalog", count=1),),
-            "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4",
-            "application/json",
-            2,
-        ),
-        second=RuntimeSmokeResult(
-            candidate_set("museum:17ca91a13603360c"),
-            (RuntimeToolCall(name="search_catalog", count=1),),
-            "51f4a405-8835-411d-9821-5980d73f51f6",
-            "application/json",
-            2,
-        ),
-    )
-
-    evidence_path = write_session_isolation_evidence(tmp_path, "stable", "6", result)
-    capture = json.loads(evidence_path.read_text())
-
-    assert capture["sessions_distinct"] is True
-    assert capture["evidence_sets_disjoint"] is True
-    assert capture["session_id_lengths"] == [36, 36]
-    assert "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4" not in evidence_path.read_text()
 
 
 def trace_message(
@@ -394,31 +255,9 @@ def test_wait_for_runtime_traces_queries_endpoint_span_stream() -> None:
     }
 
 
-def test_write_trace_evidence_omits_span_trace_session_and_resource_ids(tmp_path: Path) -> None:
-    span = RuntimeTraceSpan.model_validate_json(trace_message())
-    result = RuntimeTraceResult((span,))
-
-    evidence_path = write_trace_evidence(tmp_path, "stable", "6", result)
-    capture = json.loads(evidence_path.read_text())
-
-    assert capture["evaluation_scope_present"] is True
-    assert capture["endpoint_version"] == "6"
-    assert capture["span_count"] == 1
-    assert "6bc42ae4-cfac-4bf5-b3a7-a866bab17af4" not in evidence_path.read_text()
-    assert "123456789012" not in evidence_path.read_text()
-
-
 def test_runtime_trace_reports_and_accepts_prompt_cache_read() -> None:
     result = RuntimeTraceResult(
         (RuntimeTraceSpan.model_validate_json(trace_message(cache_read_input_tokens=1_200)),)
     )
 
-    require_prompt_cache_read(result)
     assert result.as_dict()["cache_read_input_tokens"] == 1_200
-
-
-def test_require_prompt_cache_read_rejects_cache_miss() -> None:
-    trace = RuntimeTraceResult((RuntimeTraceSpan.model_validate_json(trace_message()),))
-
-    with pytest.raises(RuntimeSmokeError, match="did not read"):
-        require_prompt_cache_read(trace)

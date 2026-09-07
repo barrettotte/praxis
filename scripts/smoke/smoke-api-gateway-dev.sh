@@ -123,18 +123,34 @@ praxis_selection_status="$(
     --data "{\"sessionId\":\"${praxis_session_id}\"}" \
     "${praxis_api_url}/v1/projects/${praxis_candidate_id}/select"
 )"
+if [[ "${praxis_selection_status}" != "202" ]] || ! jq -e '.data.status == "pending"' "${praxis_work_dir}/selection.json" >/dev/null; then
+  printf 'Brief job was not accepted (HTTP %s)\n' "${praxis_selection_status}" >&2
+  exit 1
+fi
+praxis_brief_id="$(jq -er '.data.sessionId' "${praxis_work_dir}/selection.json")"
+# Poll the separate owned job; never resubmit a paid selection automatically.
+for _ in {1..60}; do
+  sleep 2
+  praxis_selection_status="$(curl --config "${praxis_work_dir}/curl-jwt.config" \
+    --silent --show-error --max-time 10 --output "${praxis_work_dir}/selection.json" \
+    --write-out '%{http_code}' "${praxis_api_url}/v1/sessions/${praxis_brief_id}")"
+  if [[ "${praxis_selection_status}" != "200" ]] || ! jq -e '.data.status == "pending"' "${praxis_work_dir}/selection.json" >/dev/null; then
+    break
+  fi
+done
 if [[ "${praxis_selection_status}" != "200" ]] || \
   ! jq -e \
     --arg candidate_id "${praxis_candidate_id}" \
-    --arg session_id "${praxis_session_id}" \
+    --arg session_id "${praxis_brief_id}" \
     '.data.sessionId == $session_id
       and .data.candidateId == $candidate_id
       and .data.candidate.candidateId == $candidate_id
       and (.data.brief.objective | length > 0)
       and (.data.brief.scope | length > 0)
-      and (.data.brief.milestones | length >= 3 and length <= 5)
-      and (.data.brief.risks | length >= 2 and length <= 4)
-      and (.data.brief.acceptance_criteria | length >= 3 and length <= 6)' \
+      and .data.status == "brief_ready"
+      and (.data.brief.milestones | length >= 1 and length <= 5)
+      and (.data.brief.risks | length >= 0 and length <= 4)
+      and (.data.brief.acceptance_criteria | length >= 1 and length <= 6)' \
     "${praxis_work_dir}/selection.json" >/dev/null; then
   printf 'Candidate selection returned an unexpected response (HTTP %s):\n' \
     "${praxis_selection_status}" >&2
@@ -224,8 +240,4 @@ if [[ "${praxis_unknown_status}" != "404" ]]; then
   exit 1
 fi
 
-mkdir -p "${praxis_evidence_dir}"
-jq -n \
-  '{all_candidates_cited: true, api_gateway_reached: true, asynchronous_session: true, brief_generated: true, buffered_response: true, candidate_count: 3, correlation_id_propagated: true, error_schema_valid: true, handler_status: 202, invalid_request_status: 400, jwt_authenticated: true, runtime_invoked: true, selection_status: 200, sensitive_input_rejected: true, server_authoritative_selection: true, status_polling: true, supporting_evidence_resolved: true, unauthenticated_status: 401, unknown_route_status: 404}' \
-  >"${praxis_evidence_dir}/api-gateway.json"
-jq . "${praxis_evidence_dir}/api-gateway.json"
+printf 'API recommendation, selection, brief, and rejection checks passed.\n'

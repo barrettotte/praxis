@@ -298,11 +298,20 @@ describe("createApiClient", () => {
   it("sends an authenticated selection request and validates the project brief", async () => {
     const request = vi
       .fn()
-      .mockResolvedValue(new Response(JSON.stringify(validSelectionResponse), { status: 200 }));
+      .mockResolvedValueOnce(new Response(JSON.stringify(pendingResponse), { status: 202 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: { ...validSelectionResponse.data, status: "brief_ready" },
+          }),
+          { status: 200 },
+        ),
+      );
     const client = createApiClient(
       { baseUrl: "https://api.example.com" },
       createAuthClient(),
       request,
+      vi.fn().mockResolvedValue(undefined),
     );
 
     await expect(
@@ -319,21 +328,96 @@ describe("createApiClient", () => {
     });
   });
 
+  it("accepts a compact brief with empty optional sections", async () => {
+    const compact = structuredClone(validSelectionResponse);
+    Object.assign(compact.data.brief, {
+      technical_approach: [],
+      assumptions: [],
+      out_of_scope: [],
+      risks: [],
+      deliverables: compact.data.brief.deliverables.slice(0, 1),
+      milestones: compact.data.brief.milestones.slice(0, 1),
+      acceptance_criteria: compact.data.brief.acceptance_criteria.slice(0, 1),
+    });
+    const client = createApiClient(
+      { baseUrl: "https://api.example.com" },
+      createAuthClient(),
+      vi
+        .fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify(pendingResponse), { status: 202 }))
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              data: { ...compact.data, status: "brief_ready" },
+            }),
+            { status: 200 },
+          ),
+        ),
+      vi.fn().mockResolvedValue(undefined),
+    );
+    await expect(
+      client.selectCandidate(validResponse.data.sessionId, "candidate_2"),
+    ).resolves.toEqual(compact.data);
+  });
+
   it("rejects a malformed project brief response", async () => {
     const malformedResponse = structuredClone(validSelectionResponse);
     malformedResponse.data.brief.milestones = [];
     const client = createApiClient(
       { baseUrl: "https://api.example.com" },
       createAuthClient(),
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify(malformedResponse), {
-          status: 200,
-        }),
-      ),
+      vi
+        .fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify(pendingResponse), { status: 202 }))
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              data: { ...malformedResponse.data, status: "brief_ready" },
+            }),
+            { status: 200 },
+          ),
+        ),
+      vi.fn().mockResolvedValue(undefined),
     );
 
     await expect(
       client.selectCandidate(validResponse.data.sessionId, "candidate_2"),
     ).rejects.toThrow("Invalid select-candidate response");
   });
+  it.each(["failed", "unexpected", "wrong-session", "timeout"])(
+    "rejects a brief poll with %s without submitting another job",
+    async (outcome) => {
+      const request = vi
+        .fn()
+        .mockImplementationOnce(() =>
+          Promise.resolve(new Response(JSON.stringify(pendingResponse), { status: 202 })),
+        )
+        .mockImplementation(() =>
+          Promise.resolve(
+            new Response(
+              JSON.stringify({
+                data: {
+                  sessionId: outcome === "wrong-session" ? "wrong" : pendingResponse.data.sessionId,
+                  status: outcome === "timeout" ? "pending" : outcome,
+                },
+              }),
+              { status: 200 },
+            ),
+          ),
+        );
+      const client = createApiClient(
+        { baseUrl: "https://api.example.com" },
+        createAuthClient(),
+        request,
+        vi.fn().mockResolvedValue(undefined),
+      );
+      await expect(
+        client.selectCandidate(validResponse.data.sessionId, "candidate_2"),
+      ).rejects.toThrow();
+      expect(
+        request.mock.calls.filter((call) => (call[1] as RequestInit).method === "POST"),
+      ).toHaveLength(1);
+      expect(request).toHaveBeenCalledTimes(outcome === "timeout" ? 61 : 2);
+    },
+  );
 });

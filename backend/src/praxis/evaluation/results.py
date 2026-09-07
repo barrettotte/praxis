@@ -1,9 +1,9 @@
 """Versioned result contracts for measured evaluation baselines."""
 
 from datetime import datetime
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
 from praxis.domain import ProjectCandidateSet
 from praxis.evaluation.models import EvaluationCategory, EvaluationModel
@@ -94,15 +94,13 @@ class ToolCallCount(EvaluationModel):
     calls: Annotated[int, Field(ge=0)]
 
 
-class QualityResult(EvaluationModel):
-    """Deterministic quality checks for one generated candidate set."""
+class MechanicalChecks(EvaluationModel):
+    """Independent mechanical checks; none establish semantic answer quality."""
 
     structured_output_valid: bool
-    citations_grounded: bool
+    citation_ids_retrieved: bool
     expected_evidence_met: bool
     expected_trajectory_met: bool
-    concrete_first_milestones: bool
-    score: Annotated[float, Field(ge=0, le=1)]
 
 
 class RetrievalRelevanceResult(EvaluationModel):
@@ -116,15 +114,13 @@ class RetrievalRelevanceResult(EvaluationModel):
     reciprocal_rank: Annotated[float, Field(ge=0, le=1)]
 
 
-class CitationSupportResult(EvaluationModel):
-    """Citation resolution and curated support for generated connection claims."""
+class CitationResolutionResult(EvaluationModel):
+    """Count citations whose identifiers appear in the retrieval context."""
 
-    claim_count: Annotated[int, Field(ge=0)]
+    citation_count: Annotated[int, Field(ge=0)]
     resolved_citation_count: Annotated[int, Field(ge=0)]
-    supported_claim_count: Annotated[int, Field(ge=0)]
-    unsupported_claim_count: Annotated[int, Field(ge=0)]
-    citation_correctness_rate: Annotated[float, Field(ge=0, le=1)]
-    unsupported_claim_rate: Annotated[float, Field(ge=0, le=1)]
+    unresolved_citation_count: Annotated[int, Field(ge=0)]
+    citation_resolution_rate: Annotated[float, Field(ge=0, le=1)]
 
 
 class EvaluationCaseResult(EvaluationModel):
@@ -143,9 +139,9 @@ class EvaluationCaseResult(EvaluationModel):
     time_to_first_byte_ms: Annotated[int, Field(ge=0)] | None
     token_usage: TokenUsageResult | None
     cycle_count: Annotated[int, Field(ge=0)] | None
-    quality: QualityResult
+    checks: MechanicalChecks
     retrieval_relevance: RetrievalRelevanceResult | None = None
-    citation_support: CitationSupportResult | None = None
+    citation_resolution: CitationResolutionResult | None = None
     agentcore_evaluations: list[AgentCoreEvaluationResult] = Field(
         default_factory=list[AgentCoreEvaluationResult], max_length=3
     )
@@ -158,10 +154,8 @@ class BaselineSummary(EvaluationModel):
 
     case_count: Annotated[int, Field(ge=1)]
     success_count: Annotated[int, Field(ge=0)]
-    average_quality_score: Annotated[float, Field(ge=0, le=1)]
     expected_evidence_pass_count: Annotated[int, Field(ge=0)]
     expected_trajectory_pass_count: Annotated[int, Field(ge=0)]
-    concrete_milestone_pass_count: Annotated[int, Field(ge=0)]
     wall_latency_p50_ms: Annotated[int, Field(ge=0)]
     wall_latency_p95_ms: Annotated[int, Field(ge=0)]
     total_tokens: Annotated[int, Field(ge=0)]
@@ -170,11 +164,10 @@ class BaselineSummary(EvaluationModel):
     average_retrieval_precision_at_k: Annotated[float, Field(ge=0, le=1)] = 0.0
     average_expected_evidence_coverage: Annotated[float, Field(ge=0, le=1)] = 0.0
     mean_reciprocal_rank: Annotated[float, Field(ge=0, le=1)] = 0.0
-    citation_claim_count: Annotated[int, Field(ge=0)] = 0
-    supported_claim_count: Annotated[int, Field(ge=0)] = 0
-    unsupported_claim_count: Annotated[int, Field(ge=0)] = 0
-    citation_correctness_rate: Annotated[float, Field(ge=0, le=1)] = 0.0
-    unsupported_claim_rate: Annotated[float, Field(ge=0, le=1)] = 0.0
+    citation_count: Annotated[int, Field(ge=0)] = 0
+    resolved_citation_count: Annotated[int, Field(ge=0)] = 0
+    unresolved_citation_count: Annotated[int, Field(ge=0)] = 0
+    citation_resolution_rate: Annotated[float, Field(ge=0, le=1)] = 0.0
     agentcore_evaluations: list[AgentCoreEvaluatorSummary] = Field(
         default_factory=list[AgentCoreEvaluatorSummary], max_length=3
     )
@@ -186,61 +179,10 @@ class BaselineResult(EvaluationModel):
     suite: Literal["project-recommendation-baseline"]
     prompts_version: Literal[1, 2]
     expectations_version: Literal[1, 2]
-    result_version: Literal[1, 2, 3]
+    result_version: Literal[5]
     metadata: BaselineMetadata
     summary: BaselineSummary
     cases: Annotated[list[EvaluationCaseResult], Field(min_length=10, max_length=30)]
-
-
-class InstructionCaseResult(EvaluationModel):
-    """Content-free quality checks for one instruction-comparison case."""
-
-    case_id: str
-    succeeded: bool
-    structured_output_valid: bool
-    citations_grounded: bool
-    expected_evidence_met: bool
-    concrete_first_milestones: bool
-    score: Annotated[float, Field(ge=0, le=1)]
-    error_type: str | None = None
-
-
-class InstructionProgramResult(EvaluationModel):
-    """Aggregate held-out result for one instruction variant."""
-
-    case_count: Annotated[int, Field(ge=1)]
-    success_count: Annotated[int, Field(ge=0)]
-    average_score: Annotated[float, Field(ge=0, le=1)]
-    cases: Annotated[list[InstructionCaseResult], Field(min_length=1)]
-
-    @model_validator(mode="after")
-    def require_consistent_counts(self) -> Self:
-        """Keep aggregate counts aligned with the case records."""
-        if self.case_count != len(self.cases):
-            raise ValueError("instruction comparison case count does not match records")
-        if self.success_count != sum(case.succeeded for case in self.cases):
-            raise ValueError("instruction comparison success count does not match records")
-        return self
-
-
-class InstructionOptimizationResult(EvaluationModel):
-    """Reproducible held-out comparison of maintained and optimized instructions."""
-
-    suite: Literal["project-recommendation-dspy-instructions"]
-    result_version: Literal[1]
-    metadata: BaselineMetadata
-    dspy_version: str
-    optimizer: Literal["MIPROv2"]
-    optimizer_candidate_count: Annotated[int, Field(ge=2)]
-    optimizer_trial_count: Annotated[int, Field(ge=2)]
-    split_version: Literal[1]
-    split_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
-    maintained_instruction_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
-    optimized_instruction_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
-    optimized_instruction: Annotated[str, Field(min_length=1, max_length=10_000)]
-    held_out_winner: Literal["maintained", "optimized", "tie"]
-    maintained: InstructionProgramResult
-    optimized: InstructionProgramResult
 
 
 __all__ = [
@@ -251,14 +193,11 @@ __all__ = [
     "BaselineMetadata",
     "BaselineResult",
     "BaselineSummary",
-    "CitationSupportResult",
+    "CitationResolutionResult",
     "DatasetIdentity",
     "DeploymentIdentity",
     "EvaluationCaseResult",
-    "InstructionCaseResult",
-    "InstructionOptimizationResult",
-    "InstructionProgramResult",
-    "QualityResult",
+    "MechanicalChecks",
     "RetrievalRelevanceResult",
     "SourceIdentity",
     "TokenUsageResult",

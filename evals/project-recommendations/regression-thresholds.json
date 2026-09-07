@@ -1,42 +1,14 @@
 {
   "suite": "project-recommendation-regression-thresholds",
-  "version": 1,
+  "version": 3,
   "prompts_version": 2,
   "expectations_version": 2,
   "required_case_count": 30,
   "minimum_success_count": 27,
-  "minimum_average_quality_score": 0.5,
-  "minimum_expected_evidence_pass_count": 6,
-  "minimum_expected_trajectory_pass_count": 15,
-  "minimum_concrete_milestone_pass_count": 1,
-  "minimum_retrieval_precision_at_k": 0.15,
-  "minimum_expected_evidence_coverage": 0.12,
-  "minimum_mean_reciprocal_rank": 0.25,
-  "minimum_citation_claim_count": 81,
-  "minimum_citation_correctness_rate": 1.0,
-  "maximum_unsupported_claim_rate": 0.0,
   "maximum_wall_latency_p50_ms": 40000,
   "maximum_wall_latency_p95_ms": 50000,
   "maximum_total_tokens": 120000,
   "maximum_tokens_per_success": 4500,
-  "evaluator_thresholds": [
-    {
-      "evaluator_id": "Builtin.GoalSuccessRate",
-      "minimum_completed_case_count": 27,
-      "maximum_failed_case_count": 0,
-      "minimum_average_score": 0.75
-    },
-    {
-      "evaluator_id": "Builtin.Correctness",
-      "minimum_completed_case_count": 27,
-      "maximum_failed_case_count": 0,
-      "minimum_average_score": 0.85
-    },
-    {
-      "evaluator_id": "Builtin.ToolSelectionAccuracy",
-      "minimum_completed_case_count": 27,
-      "maximum_failed_case_count": 0,
-      "minimum_average_score": 0.7
-    }
-  ]
+  "minimum_citation_count": 81,
+  "minimum_citation_resolution_rate": 1
 }

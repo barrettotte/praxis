@@ -17,7 +17,6 @@ from praxis.domain.briefs import ProjectBrief
 from praxis.tools.contracts import Evidence
 
 JSON_CONTENT_TYPE = "application/json"
-API_RUNTIME_READ_TIMEOUT_SECONDS = 25
 WORKER_RUNTIME_READ_TIMEOUT_SECONDS = 90
 
 
@@ -47,18 +46,6 @@ class ApiRuntimeSettings(BaseModel):
         str,
         Field(pattern=r"^[A-Za-z][A-Za-z0-9_]{0,47}$"),
     ]
-    actor_id: Annotated[
-        str,
-        Field(pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_/-]{0,254}$"),
-    ]
-
-
-class _RuntimeMemoryUsage(BaseModel):
-    """Internal Memory metadata required from the Runtime response."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
-
-    retrieved_count: Annotated[int, Field(ge=0)]
 
 
 class _RuntimeToolCall(BaseModel):
@@ -77,7 +64,6 @@ class _RuntimeOutput(BaseModel):
 
     candidates: Annotated[list[ProjectCandidate], Field(min_length=3, max_length=3)]
     evidence: Annotated[list[Evidence], Field(min_length=1, max_length=3)]
-    memory: _RuntimeMemoryUsage
     tool_calls: Annotated[list[_RuntimeToolCall], Field(min_length=1, max_length=4)]
 
     @model_validator(mode="after")
@@ -233,7 +219,6 @@ def load_runtime_settings(
         return ApiRuntimeSettings(
             runtime_arn=values.get("PRAXIS_AGENT_RUNTIME_ARN", ""),
             qualifier=values.get("PRAXIS_AGENT_RUNTIME_QUALIFIER", ""),
-            actor_id=values.get("PRAXIS_API_ACTOR_ID", ""),
         )
     except ValidationError as error:
         raise ApiRuntimeError("invalid Runtime configuration") from error
@@ -257,11 +242,6 @@ def _create_runtime_client(read_timeout_seconds: int) -> RuntimeClient:
         raise ApiRuntimeError("Runtime client initialization failed") from error
 
 
-def create_runtime_client() -> RuntimeClient:
-    """Create an AgentCore client bounded below the API Gateway deadline."""
-    return _create_runtime_client(API_RUNTIME_READ_TIMEOUT_SECONDS)
-
-
 def create_worker_runtime_client() -> RuntimeClient:
     """Create an AgentCore client bounded below the worker Lambda deadline."""
     return _create_runtime_client(WORKER_RUNTIME_READ_TIMEOUT_SECONDS)
@@ -280,7 +260,7 @@ def invoke_runtime(
             _invoke_runtime_payload(
                 client,
                 settings,
-                {"actor_id": settings.actor_id, "prompt": goal.strip()},
+                {"prompt": goal.strip()},
                 session_id,
                 correlation_id,
             )
@@ -322,7 +302,6 @@ def invoke_project_brief_runtime(
                 client,
                 settings,
                 {
-                    "actor_id": settings.actor_id,
                     "operation": "create_project_brief",
                     "goal": goal.strip(),
                     "candidate": candidate.model_dump(mode="json", exclude={"candidate_id"}),
