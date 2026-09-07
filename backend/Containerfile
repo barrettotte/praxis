@@ -25,7 +25,7 @@ ENV PATH="/app/.venv/bin:$PATH" \
 WORKDIR /app
 
 COPY scripts/package-python-runtime.sh /tmp/package-python-runtime.sh
-RUN bash /tmp/package-python-runtime.sh
+RUN PRAXIS_CONTAINER_BUILD=1 bash /tmp/package-python-runtime.sh
 
 COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY backend/src ./backend/src

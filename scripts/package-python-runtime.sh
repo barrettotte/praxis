@@ -2,12 +2,16 @@
 # Assemble the application-specific Python runtime inside the container build stage.
 set -euo pipefail
 
-# This script removes files only from its disposable container staging directory.
-[[ -f /.dockerenv || -f /run/.containerenv ]] || {
+# Build engines need not expose container marker files. Explicit opt-in prevents
+# accidental host execution; it is not an isolation or authorization boundary.
+[[ "${PRAXIS_CONTAINER_BUILD:-}" == "1" ]] || {
   printf 'Run this script only through backend/Containerfile.\n' >&2
   exit 2
 }
-[[ ! -e /runtime ]]
+[[ ! -e /runtime && ! -L /runtime ]] || {
+  printf 'Refusing to reuse /runtime staging directory.\n' >&2
+  exit 2
+}
 mkdir -p /runtime/usr /runtime/etc /runtime/tmp /runtime/var/lib/dpkg/status.d
 chmod 1777 /runtime/tmp
 ln -s usr/lib /runtime/lib
